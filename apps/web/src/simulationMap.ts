@@ -1,26 +1,29 @@
 import {Map as MapLibre, Marker, NavigationControl} from "maplibre-gl";
+import {SimState} from "@sensor-sim/shared";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
   map: MapLibre,
-  setLocation: (lat: number, lng: number) => void,
+  update: (simState: SimState) => void,
   dispose: () => void
 }
 
 export function createSimulationMap(
   element: HTMLDivElement,
-  lat: number,
-  lng: number,
+  simState: SimState,
   onMapReady: () => void,
-  onUpdateLocation: (lat: number, lng: number) => void,
+  onUpdateTarget: (lat: number, lng: number) => void,
 ) {
 
-  let marker: Marker | null = null;
+  let targetMarker: Marker | null = null;
+  let currentMarker: Marker | null = null;
+
+  let dragging = false;
 
   const map = new MapLibre({
     container: element,
     style: `/api/maptiler/maps/streets-v2/style.json`,
-    center: [lng, lat],
+    center: [simState.target.latitude, simState.target.longitude],
     zoom: 16,
     canvasContextAttributes: {
       preserveDrawingBuffer: true
@@ -30,20 +33,58 @@ export function createSimulationMap(
   map.addControl(new NavigationControl(), 'top-right');
 
   map.on('load', () => {
-    console.log("Map loaded, adding marker: ", lat, lng);
-    const newMarker = new Marker({draggable: true}).setLngLat([lng, lat]).addTo(map);
-    newMarker.on('dragend', () => onUpdateLocation(newMarker.getLngLat().lat, newMarker.getLngLat().lng));
-    marker = newMarker;
+
+    const {
+      target: {latitude: targetLat, longitude: targetLng},
+      current: {latitude: currentLat, longitude: currentLng},
+    } = simState;
+
+    const newCurrentMarker = new Marker({
+      draggable: false,
+      color: 'red'
+    }).setLngLat([currentLng, currentLat]);
+
+    const newTargetMarker = new Marker({
+      draggable: true,
+      color: 'blue'
+    }).setLngLat([targetLng, targetLat]);
+
+    newTargetMarker.on('dragend', () => {
+      onUpdateTarget(
+        newTargetMarker.getLngLat().lat,
+        newTargetMarker.getLngLat().lng,
+      )
+      dragging = false;
+    });
+    newTargetMarker.on('dragstart', () => {
+      dragging = true;
+    });
+
+    currentMarker = newCurrentMarker;
+    targetMarker = newTargetMarker;
+
+    currentMarker.addTo(map);
+    targetMarker.addTo(map);
     onMapReady();
   });
 
-  const setLocation = (lat: number, lng: number) => {
-    if (marker) {
-      marker.setLngLat([lng, lat]);
+  const update = (simState: SimState) => {
+
+    const {
+      target: {latitude: targetLat, longitude: targetLng},
+      current: {latitude: currentLat, longitude: currentLng},
+    } = simState;
+
+    if (targetMarker && !dragging) {
+      targetMarker.setLngLat([targetLng, targetLat]);
     }
     // if location is not visible, don't fly to it
-    if (!map.getBounds().contains([lng, lat])) {
-      map.setCenter([lng, lat]);
+    if (!map.getBounds().contains([targetLng, targetLat])) {
+      map.setCenter([targetLng, targetLat]);
+    }
+
+    if (currentMarker) {
+      currentMarker.setLngLat([currentLng, currentLat]);
     }
   }
 
@@ -57,7 +98,7 @@ export function createSimulationMap(
 
   return {
     map,
-    setLocation,
+    update,
     dispose: () => {
       map.remove()
     }

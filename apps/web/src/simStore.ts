@@ -1,11 +1,15 @@
-import {createStore} from "solid-js/store";
-import {ClientMsg, ServerMsg, SimState} from "@sensor-sim/shared";
+import {createStore, reconcile} from "solid-js/store";
+import {ClientMsg, Position, ServerMsg, SimState} from "@sensor-sim/shared";
 
 const [simState, setSimState] = createStore<SimState>({
-  // default location: Braunschweig, Germany
-  latitude: 0,
-  longitude: 0,
-  altitude: 0,
+  target: {
+    latitude: 0,
+    longitude: 0,
+  },
+  current: {
+    latitude: 0,
+    longitude: 0,
+  },
 });
 
 let ws: WebSocket;
@@ -24,9 +28,9 @@ export function disconnectSimStore() {
   ws?.close();
 }
 
-export function sendSimUpdate(patch: Partial<SimState>) {
-  setSimState(patch as SimState);  // optimistic local update
-  ws?.send(JSON.stringify({type: 'setState', data: patch} satisfies ClientMsg));
+export function setTarget(pos: Position) {
+  setSimState("target", reconcile(pos));  // optimistic local update
+  ws?.send(JSON.stringify({type: 'setTarget', data: pos} satisfies ClientMsg));
 }
 
 export {simState};

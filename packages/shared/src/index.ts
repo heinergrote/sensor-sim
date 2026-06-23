@@ -1,12 +1,17 @@
-export type SimState = {
+export type Position = {
   latitude: number;
   longitude: number;
-  altitude: number;
+}
+
+
+export type SimState = {
+  target: Position,
+  current: Position
 }
 
 export type ClientMsg = {
-  type: 'setState';
-  data: Partial<SimState>
+  type: 'setTarget';
+  data: Position
 }
 
 export type ServerMsg = {

@@ -1,11 +1,6 @@
 {
   "compilerOptions": {
-    "moduleResolution": "bundler",
-    "paths": {
-      "@sensor-sim/shared": [
-        "./packages/shared/src/index.ts"
-      ]
-    }
+    "moduleResolution": "bundler"
   },
   "references": [
     {
