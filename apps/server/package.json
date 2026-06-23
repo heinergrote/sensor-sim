@@ -1,0 +1,18 @@
+{
+  "name": "@sensor-sim/server",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.0",
+    "@sensor-sim/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "@types/ws": "^8.18.1",
+    "typescript": "^6.0.3"
+  }
+}

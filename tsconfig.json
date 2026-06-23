@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "paths": {
+      "@sensor-sim/shared": [
+        "./packages/shared/src/index.ts"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/server"
+    }
+  ]
+}
