@@ -9,9 +9,11 @@
   },
   "dependencies": {
     "@sensor-sim/shared": "workspace:*",
+    "@sensor-sim/server": "workspace:*",
     "@solidjs/router": "^0.16.1",
     "@solidjs/start": "2.0.0-alpha.3",
     "@solidjs/vite-plugin-nitro-2": "^0.3.0",
+    "@trpc/client": "^11.18.0",
     "@turf/turf": "7.3.5",
     "dotenv": "17.4.2",
     "maplibre-gl": "5.24.0",

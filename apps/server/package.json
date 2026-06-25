@@ -1,18 +1,28 @@
 {
   "name": "@sensor-sim/server",
+  "version": "0.0.1",
   "type": "module",
+  "exports": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@sensor-sim/shared": "workspace:*",
+    "@trpc/server": "^11.18.0",
+    "@turf/turf": "7.3.5",
+    "cors": "^2.8.6",
+    "dotenv": "17.4.2",
     "ws": "^8.21.0",
-    "@sensor-sim/shared": "workspace:*"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "tsx": "^4.22.4",
+    "@types/cors": "^2.8.19",
+    "@types/node": "^26.0.0",
     "@types/ws": "^8.18.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
 }

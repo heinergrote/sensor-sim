@@ -1,6 +1,6 @@
 import {createSimulationMap, SimulationMap} from "~/simulationMap";
 import {createEffect, onCleanup, onMount} from "solid-js";
-import {connectSimStore, disconnectSimStore, setTarget, simState} from "~/simStore";
+import {connectSimStore, disconnectSimStore, simState} from "~/simStore";
 
 export default function SimControl() {
   let mapEl!: HTMLDivElement;
@@ -14,9 +14,6 @@ export default function SimControl() {
       () => {
         console.log("Map ready")
         connectSimStore();
-      },
-      (lat, lng) => {
-        setTarget({latitude: lat, longitude: lng})
       }
     );
 

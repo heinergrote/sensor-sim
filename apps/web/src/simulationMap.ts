@@ -1,5 +1,6 @@
 import {Map as MapLibre, Marker, NavigationControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
+import {setCurrent, setTarget} from "~/simStore";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
@@ -11,14 +12,14 @@ export type SimulationMap = {
 export function createSimulationMap(
   element: HTMLDivElement,
   simState: SimState,
-  onMapReady: () => void,
-  onUpdateTarget: (lat: number, lng: number) => void,
+  onMapReady: () => void
 ) {
 
   let targetMarker: Marker | null = null;
   let currentMarker: Marker | null = null;
 
-  let dragging = false;
+  let draggingTarget = false;
+  let draggingCurrent = false;
 
   const map = new MapLibre({
     container: element,
@@ -40,7 +41,7 @@ export function createSimulationMap(
     } = simState;
 
     const newCurrentMarker = new Marker({
-      draggable: false,
+      draggable: true,
       color: 'red'
     }).setLngLat([currentLng, currentLat]);
 
@@ -50,15 +51,27 @@ export function createSimulationMap(
     }).setLngLat([targetLng, targetLat]);
 
     newTargetMarker.on('dragend', () => {
-      onUpdateTarget(
-        newTargetMarker.getLngLat().lat,
-        newTargetMarker.getLngLat().lng,
-      )
-      dragging = false;
+      setTarget({
+        latitude: newTargetMarker.getLngLat().lat,
+        longitude: newTargetMarker.getLngLat().lng,
+      })
+      draggingTarget = false;
     });
     newTargetMarker.on('dragstart', () => {
-      dragging = true;
+      draggingTarget = true;
     });
+
+    newCurrentMarker.on('dragend', () => {
+      setCurrent({
+        latitude: newCurrentMarker.getLngLat().lat,
+        longitude: newCurrentMarker.getLngLat().lng,
+      })
+      draggingCurrent = false;
+    });
+    newCurrentMarker.on('dragstart', () => {
+      draggingCurrent = true;
+    });
+
 
     currentMarker = newCurrentMarker;
     targetMarker = newTargetMarker;
@@ -75,15 +88,16 @@ export function createSimulationMap(
       current: {latitude: currentLat, longitude: currentLng},
     } = simState;
 
-    if (targetMarker && !dragging) {
+    if (targetMarker && !draggingTarget) {
       targetMarker.setLngLat([targetLng, targetLat]);
     }
+
     // if location is not visible, don't fly to it
     if (!map.getBounds().contains([targetLng, targetLat])) {
       map.setCenter([targetLng, targetLat]);
     }
 
-    if (currentMarker) {
+    if (currentMarker && !draggingCurrent) {
       currentMarker.setLngLat([currentLng, currentLat]);
     }
   }

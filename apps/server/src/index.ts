@@ -1,67 +1,57 @@
-import {WebSocketServer} from 'ws';
-import type {ClientMsg, ServerMsg, SimState} from '@sensor-sim/shared';
+import {appRouter} from "./appRouter";
+import {startSimulation} from "./sim";
+import {WebSocketServer} from "ws";
+import {applyWSSHandler, CreateWSSContextFnOptions} from "@trpc/server/adapters/ws";
+import {CreateHTTPContextOptions, createHTTPServer} from "@trpc/server/adapters/standalone";
+import cors, {CorsOptions} from 'cors';
+import "dotenv/config";
 
-const simState: SimState = {
-  target: {latitude: 52.264683, longitude: 10.523783},
-  current: {latitude: 52.264683, longitude: 10.523783}
+export const createContext = (
+  _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
+) => {
 };
+export type Context = Awaited<ReturnType<typeof createContext>>;
 
-type SimListener = (s: SimState) => void;
-const listeners = new Set<SimListener>();
-
-export function sendState() {
-  listeners.forEach(listenerFn => listenerFn({...simState}));
+const corsOptions: CorsOptions = {
+  origin: "*"
 }
 
-const wss = new WebSocketServer({port: 3001});
+const server = createHTTPServer({
+  router: appRouter,
+  createContext,
+  middleware: cors(corsOptions),
+});
+
+const wss = new WebSocketServer({server});
+
+const handler = applyWSSHandler({
+  wss,
+  router: appRouter,
+  createContext,
+  keepAlive: {
+    enabled: true,
+    pingMs: 30000,
+    pongWaitMs: 5000,
+  },
+});
 
 wss.on('connection', (ws) => {
-  // send current state on connect
-  const msg: ServerMsg = {type: 'state', data: {...simState}};
-  ws.send(JSON.stringify(msg));
-
-  const listenerFn = (data: SimState) => {
-    const msg: ServerMsg = {type: 'state', data: {...data}};
-    ws.send(JSON.stringify(msg));
-  }
-  listeners.add(listenerFn);
-
-  // handle incoming commands from this client
-  ws.on('message', (raw) => {
-    const msg: ClientMsg = JSON.parse(raw.toString());
-    if (msg.type === 'setTarget') {
-      Object.assign(simState.target, msg.data);
-      sendState();
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('Client disconnected');
-    listeners.delete(listenerFn);
+  console.log(`client added (${wss.clients.size})`);
+  ws.once('close', () => {
+    console.log(`client removed (${wss.clients.size})`);
   });
 });
 
-console.log('WS server running on ws://localhost:3001');
+process.on('SIGTERM', () => {
+  console.log('SIGTERM');
+  handler.broadcastReconnectNotification();
+  wss.close();
+});
 
-// add a server loop, that moves the current position towards the target position
-setInterval(() => {
-  const {target, current} = simState;
+server.listen(process.env.PORT || 3000);
 
-  const dLat = target.latitude - current.latitude;
-  const dLng = target.longitude - current.longitude;
-  const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-  const step = 0.00001; // degrees per tick
+startSimulation()
 
-  if (dist <= step) {
-    simState.current = {...target};
-  } else {
-    simState.current = {
-      latitude: current.latitude + (dLat / dist) * step,
-      longitude: current.longitude + (dLng / dist) * step,
-    };
-  }
+console.log(`Server running on port ${process.env.PORT || 3000}`);
 
-  sendState();
-}, 100);
-
-
+export type {AppRouter} from './appRouter';
