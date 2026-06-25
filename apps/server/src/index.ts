@@ -9,13 +9,11 @@ import "dotenv/config";
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
 ) => {
-  return {name: "sim"};
 };
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
-
-var corsOptions: CorsOptions = {
-  origin: ["*", "http://localhost:5173"]
+const corsOptions: CorsOptions = {
+  origin: "*"
 }
 
 const server = createHTTPServer({
@@ -38,9 +36,9 @@ const handler = applyWSSHandler({
 });
 
 wss.on('connection', (ws) => {
-  console.log(`++ Connection (${wss.clients.size})`);
+  console.log(`client added (${wss.clients.size})`);
   ws.once('close', () => {
-    console.log(`-- Connection (${wss.clients.size})`);
+    console.log(`client removed (${wss.clients.size})`);
   });
 });
 

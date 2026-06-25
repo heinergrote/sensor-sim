@@ -15,10 +15,12 @@ const [simState, setSimState] = createStore<SimState>({
   distance: 0,
 });
 
-let trpcClient: ReturnType<typeof createTRPCClient<AppRouter>>;
-let wsClient: ReturnType<typeof createWSClient>;
+let trpcClient: ReturnType<typeof createTRPCClient<AppRouter>> | undefined;
+let wsClient: ReturnType<typeof createWSClient> | undefined;
 
 export function connectSimStore() {
+
+  disconnectSimStore(); // disconnect previous connection, if any
 
   wsClient = createWSClient({
     url: 'ws://localhost:3000',
@@ -36,19 +38,26 @@ export function connectSimStore() {
     ],
   });
 
-  trpcClient.simState.query().then(setSimState);
+  trpcClient.simState.query().then(
+    (state) => {
+      setSimState(reconcile(state));
+    },
+    (err) => {
+      console.error("Failed to fetch initial state", err);
+    }
+  );
 
   trpcClient.onSimStateChange.subscribe(
     undefined,
     {
       onStarted() {
-        console.log("subscription started");
+        console.log("onSimStateChange subscription started");
       },
       onData(state) {
         setSimState(reconcile(state));
       },
       onError(err) {
-        console.error('subscription error', err);
+        console.error('onSimStateChange subscription error', err);
       },
     }
   )
@@ -56,17 +65,22 @@ export function connectSimStore() {
 }
 
 export function disconnectSimStore() {
-  wsClient?.close();
+  if (wsClient) {
+    console.log("Disconnecting WS");
+    wsClient.close().then(() => {
+      wsClient = undefined;
+    });
+  }
 }
 
 export function setTarget(pos: Position) {
   setSimState("target", reconcile(pos));  // optimistic local update
-  trpcClient.setTarget.mutate(pos);
+  trpcClient?.setTarget.mutate(pos);
 }
 
 export function setCurrent(pos: Position) {
   setSimState("current", reconcile(pos));  // optimistic local update
-  trpcClient.setCurrent.mutate(pos);
+  trpcClient?.setCurrent.mutate(pos);
 }
 
 

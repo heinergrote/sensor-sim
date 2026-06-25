@@ -90,6 +90,7 @@ function tick() {
 function startSimulation() {
 
   stopSimulation()
+  lastTick = Date.now();
 
   interval = setInterval(() => {
     tick()

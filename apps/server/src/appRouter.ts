@@ -12,19 +12,20 @@ export const appRouter = router({
   setTarget: publicProcedure
     .input(z.object({latitude: z.number(), longitude: z.number()}))
     .mutation(async (opts) => {
-      const {input, ctx} = opts;
+      const {input} = opts;
       return setTarget({latitude: input.latitude, longitude: input.longitude});
     }),
 
   setCurrent: publicProcedure
     .input(z.object({latitude: z.number(), longitude: z.number()}))
     .mutation(async (opts) => {
-      const {input, ctx} = opts;
+      const {input} = opts;
       return setCurrent({latitude: input.latitude, longitude: input.longitude});
     }),
 
   onSimStateChange: publicProcedure.subscription(async function* (opts) {
-    while (!opts.signal!.aborted) {
+    yield simState;
+    while (opts.signal && !opts.signal.aborted) {
       yield simState;
       await nextSimStateUpdate()
     }
