@@ -1,4 +1,4 @@
-import {Map as MapLibre, Marker, NavigationControl} from "maplibre-gl";
+import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
 import {setCurrent, setTarget} from "~/simStore";
 //import {FeatureCollection} from "geojson";
@@ -32,6 +32,15 @@ export function createSimulationMap(
   });
 
   map.addControl(new NavigationControl(), 'top-right');
+
+  map.addControl(new ScaleControl(), 'bottom-left');
+
+  map.addControl(new GeolocateControl({
+    positionOptions: {
+      enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+  }), 'bottom-right');
 
   map.on('load', () => {
 
@@ -78,6 +87,7 @@ export function createSimulationMap(
 
     currentMarker.addTo(map);
     targetMarker.addTo(map);
+
     onMapReady();
   });
 
