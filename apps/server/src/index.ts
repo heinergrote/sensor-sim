@@ -1,10 +1,14 @@
 import {appRouter} from "./appRouter";
-import {startSimulation} from "./sim";
+import {addListener, removeListener, simState, startSimulation} from "./sim";
 import {WebSocketServer} from "ws";
 import {applyWSSHandler, CreateWSSContextFnOptions} from "@trpc/server/adapters/ws";
 import {CreateHTTPContextOptions, createHTTPServer} from "@trpc/server/adapters/standalone";
 import cors, {CorsOptions} from 'cors';
 import "dotenv/config";
+import {SimState} from "@sensor-sim/shared";
+
+const port = Number(process.env.PORT) || 3000;
+const wsPort = Number(process.env.WSPORT) || 3001;
 
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
@@ -36,9 +40,9 @@ const handler = applyWSSHandler({
 });
 
 wss.on('connection', (ws) => {
-  console.log(`client added (${wss.clients.size})`);
+  console.log(`trpc client added (${wss.clients.size})`);
   ws.once('close', () => {
-    console.log(`client removed (${wss.clients.size})`);
+    console.log(`trpc client removed (${wss.clients.size})`);
   });
 });
 
@@ -48,10 +52,31 @@ process.on('SIGTERM', () => {
   wss.close();
 });
 
-server.listen(process.env.PORT || 3000);
+server.listen(port);
+console.log(`Server running on port ${port}`);
+
+const rawWss = new WebSocketServer({port: wsPort});
+console.log(`Raw WS Server running on port ${wsPort}`);
+
+rawWss.on('connection', (ws) => {
+  console.log('Raw WS Client connected');
+
+  // send current state on connect
+  ws.send(JSON.stringify(simState));
+
+  const listenerFn = (data: SimState) => {
+    ws.send(JSON.stringify(data));
+  }
+  addListener(listenerFn);
+
+  ws.on('close', () => {
+    console.log('Raw WS Client disconnected');
+    removeListener(listenerFn)
+  });
+});
+
 
 startSimulation()
 
-console.log(`Server running on port ${process.env.PORT || 3000}`);
 
 export type {AppRouter} from './appRouter';

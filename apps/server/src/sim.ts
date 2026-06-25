@@ -9,17 +9,26 @@ const simState: SimState = {
 
 const listeners = new Set<(state: SimState) => void>();
 
+function addListener(listener: (state: SimState) => void) {
+  listeners.add(listener);
+}
+
 function notifyListeners() {
   for (const listener of listeners) listener(simState);
 }
 
+function removeListener(listener: (state: SimState) => void) {
+  listeners.delete(listener);
+}
+
+
 function nextSimStateUpdate(): Promise<SimState> {
   return new Promise(resolve => {
     const triggerListener = (state: SimState) => {
-      listeners.delete(triggerListener);
+      removeListener(triggerListener);
       resolve(state);
     };
-    listeners.add(triggerListener);
+    addListener(triggerListener);
   });
 }
 
@@ -94,7 +103,7 @@ function startSimulation() {
 
   interval = setInterval(() => {
     tick()
-  }, 100);
+  }, 500);
 
 }
 
@@ -104,6 +113,9 @@ function stopSimulation() {
 }
 
 
-export {simState, setTarget, setCurrent, startSimulation, stopSimulation, nextSimStateUpdate};
+export {
+  simState, setTarget, setCurrent, startSimulation, stopSimulation,
+  addListener, removeListener, nextSimStateUpdate
+};
 
 
