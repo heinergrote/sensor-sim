@@ -1,6 +1,5 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
-import {setCurrent, setTarget} from "~/simStore";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
@@ -12,7 +11,9 @@ export type SimulationMap = {
 export function createSimulationMap(
   element: HTMLDivElement,
   simState: SimState,
-  onMapReady: () => void
+  onMapReady: () => void,
+  onSetTarget: (latitude: number, longitude: number) => void,
+  onSetCurrent: (latitude: number, longitude: number) => void,
 ) {
 
   let targetMarker: Marker | null = null;
@@ -60,10 +61,7 @@ export function createSimulationMap(
     }).setLngLat([targetLng, targetLat]);
 
     newTargetMarker.on('dragend', () => {
-      setTarget({
-        latitude: newTargetMarker.getLngLat().lat,
-        longitude: newTargetMarker.getLngLat().lng,
-      })
+      onSetTarget(newTargetMarker.getLngLat().lat, newTargetMarker.getLngLat().lng);
       draggingTarget = false;
     });
     newTargetMarker.on('dragstart', () => {
@@ -71,10 +69,7 @@ export function createSimulationMap(
     });
 
     newCurrentMarker.on('dragend', () => {
-      setCurrent({
-        latitude: newCurrentMarker.getLngLat().lat,
-        longitude: newCurrentMarker.getLngLat().lng,
-      })
+      onSetCurrent(newCurrentMarker.getLngLat().lat, newCurrentMarker.getLngLat().lng);
       draggingCurrent = false;
     });
     newCurrentMarker.on('dragstart', () => {

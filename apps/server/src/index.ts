@@ -1,11 +1,11 @@
 import {appRouter} from "./appRouter";
-import {addListener, removeListener, simState, startSimulation} from "./sim";
 import {WebSocketServer} from "ws";
 import {applyWSSHandler, CreateWSSContextFnOptions} from "@trpc/server/adapters/ws";
 import {CreateHTTPContextOptions, createHTTPServer} from "@trpc/server/adapters/standalone";
 import cors, {CorsOptions} from 'cors';
 import "dotenv/config";
 import {SimState} from "@sensor-sim/shared";
+import {getOrCreateSim} from "./sim";
 
 const port = Number(process.env.PORT) || 3000;
 const wsPort = Number(process.env.WSPORT) || 3001;
@@ -57,25 +57,23 @@ console.log(`Server running on port ${port}`);
 const rawWss = new WebSocketServer({port: wsPort});
 console.log(`Raw WS Server running on port ${wsPort}`);
 
-rawWss.on('connection', (ws) => {
-  console.log('Raw WS Client connected');
+rawWss.on('connection', (ws, req) => {
+
+  const url = new URL(req.url ?? '/', `ws://localhost`);
+  const id = url.searchParams.get('id') ?? 'default';
+  const sim = getOrCreateSim(id);
 
   // send current state on connect
-  ws.send(JSON.stringify(simState));
+  ws.send(JSON.stringify(sim.simState));
 
   const listenerFn = (data: SimState) => {
     ws.send(JSON.stringify(data));
   }
-  addListener(listenerFn);
+  sim.addListener(listenerFn);
 
   ws.on('close', () => {
-    console.log('Raw WS Client disconnected');
-    removeListener(listenerFn)
+    sim.removeListener(listenerFn)
   });
 });
-
-
-startSimulation()
-
 
 export type {AppRouter} from './appRouter';

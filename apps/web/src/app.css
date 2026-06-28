@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
-:root {}
+@plugin "daisyui";
 
-body {}
+:root {
+}
+
+body {
+}

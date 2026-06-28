@@ -1,36 +1,48 @@
 import {publicProcedure, router} from './trpc';
 import {z} from "zod";
-import {nextSimStateUpdate, setCurrent, setTarget, simState} from "./sim";
+import {getOrCreateSim, listSims} from "./sim";
+
+const simIdInput = z.object({id: z.string().optional()});
+const setTargetInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
+const setCurrentInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
 
 export const appRouter = router({
 
+  listSims: publicProcedure
+    .query(() => {
+      return listSims();
+    }),
+
   simState: publicProcedure
-    .query(async () => {
-      return simState;
+    .input(simIdInput)
+    .query(async ({input}) => {
+      return getOrCreateSim(input.id).simState;
     }),
 
   setTarget: publicProcedure
-    .input(z.object({latitude: z.number(), longitude: z.number()}))
-    .mutation(async (opts) => {
-      const {input} = opts;
-      return setTarget({latitude: input.latitude, longitude: input.longitude});
+    .input(setTargetInput)
+    .mutation(async ({input}) => {
+      const sim = getOrCreateSim(input.id);
+      return sim.setTarget({latitude: input.latitude, longitude: input.longitude});
     }),
 
   setCurrent: publicProcedure
-    .input(z.object({latitude: z.number(), longitude: z.number()}))
-    .mutation(async (opts) => {
-      const {input} = opts;
-      return setCurrent({latitude: input.latitude, longitude: input.longitude});
+    .input(setCurrentInput)
+    .mutation(async ({input}) => {
+      const sim = getOrCreateSim(input.id);
+      return sim.setCurrent({latitude: input.latitude, longitude: input.longitude});
     }),
 
-  onSimStateChange: publicProcedure.subscription(async function* (opts) {
-    yield simState;
-    while (opts.signal && !opts.signal.aborted) {
-      yield simState;
-      await nextSimStateUpdate()
-    }
-  }),
-
+  onSimStateChange: publicProcedure
+    .input(simIdInput)
+    .subscription(async function* ({input, signal}) {
+      const sim = getOrCreateSim(input.id);
+      yield sim.simState; // send state immediately
+      while (signal && !signal.aborted) {
+        yield sim.simState;
+        await sim.nextUpdate()
+      }
+    }),
 
 });
 
