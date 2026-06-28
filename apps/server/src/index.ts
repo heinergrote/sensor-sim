@@ -12,8 +12,7 @@ const wsPort = Number(process.env.WSPORT) || 3001;
 
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
-) => {
-};
+) => ({});
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
 const corsOptions: CorsOptions = {
