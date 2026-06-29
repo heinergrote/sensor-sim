@@ -1,18 +1,17 @@
 import {createSignal, onCleanup, onMount, Show} from "solid-js";
 import {SimState} from "@sensor-sim/shared";
-import {trpcClient} from "~/trpcClient";
+import {useTrpc} from "~/trpcClient";
 
 export function SimDetails(props: { id: string }) {
+  const client = useTrpc();
 
   const [simState, setSimState] = createSignal<SimState | undefined>(undefined);
 
   onMount(() => {
-    const unsubscribe = trpcClient.onSimStateChange.subscribe(
+    const unsubscribe = client.onSimStateChange.subscribe(
       {id: props.id},
       {
-        onData: (state) => {
-          setSimState(state);
-        },
+        onData: (state) => setSimState(state),
         onError: (err) => console.error(err)
       }
     );

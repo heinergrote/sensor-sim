@@ -1,8 +1,14 @@
-import {publicProcedure, router} from './trpc';
+import {initTRPC} from '@trpc/server';
+import {Context} from "./index";
+import {createSim, deleteSim, getSim, listSims} from "./sim";
 import {z} from "zod";
-import {getOrCreateSim, listSims} from "./sim";
 
-const simIdInput = z.object({id: z.string().optional()});
+const t = initTRPC.context<Context>().create();
+
+const router = t.router;
+const publicProcedure = t.procedure;
+
+const simIdInput = z.object({id: z.string().default('default')});
 const setTargetInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
 const setCurrentInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
 
@@ -16,27 +22,39 @@ export const appRouter = router({
   simState: publicProcedure
     .input(simIdInput)
     .query(async ({input}) => {
-      return getOrCreateSim(input.id).simState;
+      return getSim(input.id).simState;
+    }),
+
+  createSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      return createSim(input.id);
+    }),
+
+  deleteSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      deleteSim(input.id);
     }),
 
   setTarget: publicProcedure
     .input(setTargetInput)
     .mutation(async ({input}) => {
-      const sim = getOrCreateSim(input.id);
+      const sim = getSim(input.id, true);
       return sim.setTarget({latitude: input.latitude, longitude: input.longitude});
     }),
 
   setCurrent: publicProcedure
     .input(setCurrentInput)
     .mutation(async ({input}) => {
-      const sim = getOrCreateSim(input.id);
+      const sim = getSim(input.id);
       return sim.setCurrent({latitude: input.latitude, longitude: input.longitude});
     }),
 
   onSimStateChange: publicProcedure
     .input(simIdInput)
     .subscription(async function* ({input, signal}) {
-      const sim = getOrCreateSim(input.id);
+      const sim = getSim(input.id);
       yield sim.simState; // send state immediately
       while (signal && !signal.aborted) {
         yield sim.simState;

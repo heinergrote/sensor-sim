@@ -1,52 +1,35 @@
-import {Position, SimState} from "@sensor-sim/shared";
+import {createContext, useContext} from "solid-js";
 import {createTRPCClient, createWSClient, httpLink, splitLink, wsLink} from "@trpc/client";
 import type {AppRouter} from "@sensor-sim/server";
 
+export type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
-const wsClient = createWSClient({
-    url: 'ws://localhost:3000'
-  },
-)
+export const TrpcContext = createContext<TrpcClient | undefined>(undefined);
 
-export const trpcClient = createTRPCClient<AppRouter>({
-  links: [
-    splitLink({
-      condition: (op) => op.type === "subscription",
-      true: wsLink<AppRouter>({client: wsClient}),
-      false: httpLink({
-        url: `http://localhost:3000`,
+export function useTrpc(): TrpcClient {
+  const ctx = useContext(TrpcContext);
+  if (!ctx) throw new Error("useTrpc must be used inside TrpcProvider");
+  return ctx;
+}
+
+export function createTrpcWithWs() {
+  const wsClient = createWSClient({url: "ws://localhost:3000"});
+  const client = createTRPCClient<AppRouter>({
+    links: [
+      splitLink({
+        condition: (op) => op.type === "subscription",
+        true: wsLink<AppRouter>({client: wsClient}),
+        false: httpLink({url: "http://localhost:3000"}),
       }),
-    })
-  ],
-});
-
-
-export function createSim(id: string) {
-  // first query creates the sim
-  return trpcClient.simState.query({id});
+    ],
+  });
+  return {client, dispose: () => wsClient.close()};
 }
 
-
-export function setTarget(id: string, pos: Position) {
-  trpcClient?.setTarget.mutate({id, ...pos});
+export function createTrpcHttpOnly() {
+  return createTRPCClient<AppRouter>({
+    links: [httpLink({url: "http://localhost:3000"})],
+  });
 }
-
-export function setCurrent(id: string, pos: Position) {
-  trpcClient?.setCurrent.mutate({id, ...pos});
-}
-
-export function onSimStateChange(simId: string, callback: (state: SimState) => void) {
-  return trpcClient.onSimStateChange.subscribe(
-    {id: simId},
-    {
-      onData: (state) => callback(state),
-      onError: (err) => console.error('onSimStateChange subscription error', err),
-    }
-  )
-}
-
-export const fetchSims = async () => {
-  return await trpcClient.listSims.query();
-};
 
 

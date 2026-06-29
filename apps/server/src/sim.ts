@@ -3,9 +3,9 @@ import * as turf from "@turf/turf";
 
 const speed = 10; // meter/second
 
-export type Sim = ReturnType<typeof createSim>;
+export type Sim = ReturnType<typeof createSimulation>;
 
-function createSim(id: string) {
+function createSimulation(id: string) {
 
   console.log("Creating sim", id);
 
@@ -129,20 +129,35 @@ function createSim(id: string) {
 
 const registry = new Map<string, Sim>();
 
-function getOrCreateSim(id: string = "default"): Sim {
-  if (!registry.has(id)) {
-    const sim = createSim(id);
-    sim.start();
-    registry.set(id, sim);
-    console.log(`Sim created: ${id}`);
-  }
-  return registry.get(id)!;
+function getSim(id: string, createIfNotExists = false): Sim | never {
+  if (!registry.has(id) && createIfNotExists)
+    return createSim(id);
+  const sim = registry.get(id);
+  if (!sim) throw new Error(`Sim ${id} not found`);
+  return sim;
+}
+
+function createSim(id: string) {
+  if (registry.has(id)) throw new Error(`Sim ${id} already exists`);
+  const sim = createSimulation(id);
+  sim.start();
+  registry.set(id, sim);
+  console.log(`Sim created: ${id}`);
+  return sim;
+}
+
+function deleteSim(id: string) {
+  const sim = registry.get(id);
+  if (!sim) return;
+  sim.stop();
+  registry.delete(id);
+  console.log(`Sim deleted: ${id}`);
 }
 
 function listSims(): Sim[] {
   return Array.from(registry.values());
 }
 
-export {createSim, getOrCreateSim, listSims};
+export {createSimulation, createSim, getSim, listSims, deleteSim};
 
 

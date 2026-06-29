@@ -2,9 +2,10 @@ import {createEffect, onCleanup, onMount} from "solid-js";
 import {createSimulationMap, SimulationMap} from "~/simulationMap";
 import {createStore} from "solid-js/store";
 import {SimState} from "@sensor-sim/shared";
-import {onSimStateChange, setCurrent, setTarget} from "~/trpcClient";
+import {useTrpc} from "~/trpcClient";
 
 export default function SimMap(props: { simId: string }) {
+  const client = useTrpc();
 
   const [simState, setSimState] = createStore<SimState>({
     target: {
@@ -21,10 +22,6 @@ export default function SimMap(props: { simId: string }) {
   let mapEl!: HTMLDivElement
   let map: SimulationMap
 
-  let unsub = onSimStateChange(props.simId, (state) => {
-    setSimState(state);
-  });
-
   onMount(() => {
 
     map = createSimulationMap(
@@ -34,29 +31,30 @@ export default function SimMap(props: { simId: string }) {
         console.log("Map ready")
       },
       (latitude, longitude) => {
-        setTarget(props.simId, {latitude, longitude});
+        client.setTarget.mutate({id: props.simId, latitude, longitude});
       },
       (latitude, longitude) => {
-        setCurrent(props.simId, {latitude, longitude});
+        client.setCurrent.mutate({id: props.simId, latitude, longitude});
       },
     );
 
+    createEffect(() => {
+      // tracks props.simId reactively; old sub is cleaned up before new one starts
+      const sub = client.onSimStateChange.subscribe(
+        {id: props.simId},
+        {
+          onData: (state) => setSimState(state),
+          onError: (err) => console.error("onSimStateChange error", err),
+        }
+      );
+      onCleanup(() => sub.unsubscribe());
+    });
+
     onCleanup(() => {
-      unsub.unsubscribe()
       map?.dispose()
     })
 
   })
-
-  createEffect(
-    () => {
-      unsub.unsubscribe();
-      unsub = onSimStateChange(props.simId, (state) => {
-        setSimState(state);
-      });
-    }
-  )
-
 
   createEffect(
     () => {
@@ -68,7 +66,6 @@ export default function SimMap(props: { simId: string }) {
     <>
       <div class="w-full h-128 rounded shadow-lg" ref={mapEl}/>
       <pre>{props.simId}</pre>
-
     </>
   );
 

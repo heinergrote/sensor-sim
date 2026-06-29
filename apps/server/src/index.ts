@@ -1,11 +1,11 @@
-import {appRouter} from "./appRouter";
 import {WebSocketServer} from "ws";
 import {applyWSSHandler, CreateWSSContextFnOptions} from "@trpc/server/adapters/ws";
 import {CreateHTTPContextOptions, createHTTPServer} from "@trpc/server/adapters/standalone";
 import cors, {CorsOptions} from 'cors';
 import "dotenv/config";
 import {SimState} from "@sensor-sim/shared";
-import {getOrCreateSim} from "./sim";
+import {getSim} from "./sim";
+import {appRouter} from "./appRouter";
 
 const port = Number(process.env.PORT) || 3000;
 const wsPort = Number(process.env.WSPORT) || 3001;
@@ -39,9 +39,9 @@ const handler = applyWSSHandler({
 });
 
 wss.on('connection', (ws) => {
-  console.log(`trpc client added (${wss.clients.size})`);
+  console.log(`trpc ws client added (${wss.clients.size})`);
   ws.once('close', () => {
-    console.log(`trpc client removed (${wss.clients.size})`);
+    console.log(`trpc ws client removed (${wss.clients.size})`);
   });
 });
 
@@ -61,7 +61,7 @@ rawWss.on('connection', (ws, req) => {
 
   const url = new URL(req.url ?? '/', `ws://localhost`);
   const id = url.searchParams.get('id') ?? 'default';
-  const sim = getOrCreateSim(id);
+  const sim = getSim(id);
 
   // send current state on connect
   ws.send(JSON.stringify(sim.simState));
@@ -76,4 +76,4 @@ rawWss.on('connection', (ws, req) => {
   });
 });
 
-export type {AppRouter} from './appRouter';
+export type AppRouter = typeof appRouter;
