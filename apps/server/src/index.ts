@@ -61,7 +61,7 @@ rawWss.on('connection', (ws, req) => {
 
   const url = new URL(req.url ?? '/', `ws://localhost`);
   const id = url.searchParams.get('id') ?? 'default';
-  const sim = getSim(id);
+  const sim = getSim(id, true);
 
   // send current state on connect
   ws.send(JSON.stringify(sim.simState));

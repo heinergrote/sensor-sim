@@ -28,7 +28,8 @@ export const appRouter = router({
   createSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      return createSim(input.id);
+      const sim = createSim(input.id);
+      return {id: sim.id, simState: sim.simState};
     }),
 
   deleteSim: publicProcedure
@@ -57,8 +58,8 @@ export const appRouter = router({
       const sim = getSim(input.id);
       yield sim.simState; // send state immediately
       while (signal && !signal.aborted) {
-        yield sim.simState;
         await sim.nextUpdate()
+        yield sim.simState;
       }
     }),
 

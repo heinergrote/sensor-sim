@@ -8,7 +8,7 @@ import {createTrpcHttpOnly, createTrpcWithWs, TrpcContext} from "~/trpcClient";
 
 export default function App() {
 
-  let trpcValue;
+  let trpcValue: ReturnType<typeof createTrpcHttpOnly>;
   if (isServer) {
     trpcValue = createTrpcHttpOnly();
   } else {

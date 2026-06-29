@@ -20,7 +20,7 @@ export default function SimMap(props: { simId: string }) {
   });
 
   let mapEl!: HTMLDivElement
-  let map: SimulationMap
+  let map: SimulationMap | undefined;
 
   onMount(() => {
 

@@ -7,8 +7,6 @@ export type Sim = ReturnType<typeof createSimulation>;
 
 function createSimulation(id: string) {
 
-  console.log("Creating sim", id);
-
   const simState: SimState = {
     target: {latitude: 52.264683, longitude: 10.523783},
     current: {latitude: 52.264683, longitude: 10.523783},
@@ -99,7 +97,7 @@ function createSimulation(id: string) {
   }
 
 
-  let interval: NodeJS.Timeout
+  let interval: NodeJS.Timeout | undefined;
   let lastTick = Date.now();
 
   function start() {
@@ -154,8 +152,14 @@ function deleteSim(id: string) {
   console.log(`Sim deleted: ${id}`);
 }
 
-function listSims(): Sim[] {
-  return Array.from(registry.values());
+function listSims(): { id: string, simState: SimState }[] {
+  return Array.from(
+    registry.values().map((sim) => ({
+        id: sim.id,
+        simState: sim.simState,
+      })
+    )
+  );
 }
 
 export {createSimulation, createSim, getSim, listSims, deleteSim};
