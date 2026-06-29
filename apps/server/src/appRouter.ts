@@ -1,36 +1,67 @@
-import {publicProcedure, router} from './trpc';
+import {initTRPC} from '@trpc/server';
+import {Context} from "./index";
+import {createSim, deleteSim, getSim, listSims} from "./sim";
 import {z} from "zod";
-import {nextSimStateUpdate, setCurrent, setTarget, simState} from "./sim";
+
+const t = initTRPC.context<Context>().create();
+
+const router = t.router;
+const publicProcedure = t.procedure;
+
+const simIdInput = z.object({id: z.string().default('default')});
+const setTargetInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
+const setCurrentInput = simIdInput.extend({latitude: z.number(), longitude: z.number()});
 
 export const appRouter = router({
 
+  listSims: publicProcedure
+    .query(() => {
+      return listSims();
+    }),
+
   simState: publicProcedure
-    .query(async () => {
-      return simState;
+    .input(simIdInput)
+    .query(async ({input}) => {
+      return getSim(input.id).simState;
+    }),
+
+  createSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      const sim = createSim(input.id);
+      return {id: sim.id, simState: sim.simState};
+    }),
+
+  deleteSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      deleteSim(input.id);
     }),
 
   setTarget: publicProcedure
-    .input(z.object({latitude: z.number(), longitude: z.number()}))
-    .mutation(async (opts) => {
-      const {input} = opts;
-      return setTarget({latitude: input.latitude, longitude: input.longitude});
+    .input(setTargetInput)
+    .mutation(async ({input}) => {
+      const sim = getSim(input.id, true);
+      return sim.setTarget({latitude: input.latitude, longitude: input.longitude});
     }),
 
   setCurrent: publicProcedure
-    .input(z.object({latitude: z.number(), longitude: z.number()}))
-    .mutation(async (opts) => {
-      const {input} = opts;
-      return setCurrent({latitude: input.latitude, longitude: input.longitude});
+    .input(setCurrentInput)
+    .mutation(async ({input}) => {
+      const sim = getSim(input.id);
+      return sim.setCurrent({latitude: input.latitude, longitude: input.longitude});
     }),
 
-  onSimStateChange: publicProcedure.subscription(async function* (opts) {
-    yield simState;
-    while (opts.signal && !opts.signal.aborted) {
-      yield simState;
-      await nextSimStateUpdate()
-    }
-  }),
-
+  onSimStateChange: publicProcedure
+    .input(simIdInput)
+    .subscription(async function* ({input, signal}) {
+      const sim = getSim(input.id);
+      yield sim.simState; // send state immediately
+      while (signal && !signal.aborted) {
+        await sim.nextUpdate()
+        yield sim.simState;
+      }
+    }),
 
 });
 

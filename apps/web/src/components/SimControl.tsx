@@ -1,40 +1,23 @@
-import {createSimulationMap, SimulationMap} from "~/simulationMap";
-import {createEffect, onCleanup, onMount} from "solid-js";
-import {connectSimStore, disconnectSimStore, simState} from "~/simStore";
+import {createSignal, Show} from "solid-js";
+import {SimList} from "~/components/SimList";
+import SimMap from "~/components/SimMap";
 
 export default function SimControl() {
-  let mapEl!: HTMLDivElement;
-  let map: SimulationMap
 
-  onMount(() => {
-
-    map = createSimulationMap(
-      mapEl,
-      simState,
-      () => {
-        console.log("Map ready")
-        connectSimStore();
-      }
-    );
-
-
-    onCleanup(() => {
-      map?.dispose()
-      disconnectSimStore()
-    })
-
-  })
-
-  createEffect(
-    () => {
-      map?.update({...simState});
-    }
-  )
+  const [simId, setSimId] = createSignal<string | undefined>(undefined)
 
   return (
     <>
-      <div class="w-full h-128 rounded shadow-lg" ref={mapEl}/>
-      <pre>{JSON.stringify(simState, null, 2)}</pre>
+
+
+      <SimList
+        onSelectSim={setSimId}
+      />
+      <Show when={simId()}>
+        {(id) =>
+          <SimMap simId={id()}/>
+        }
+      </Show>
     </>
   );
 
