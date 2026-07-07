@@ -5,18 +5,15 @@ import cors, {CorsOptions} from 'cors';
 import "dotenv/config";
 import {SimState} from "@sensor-sim/shared";
 import {appRouter} from "./appRouter";
-import {createSimulationRegistry} from "./simulationRegistry";
+import {simRegistry} from "./simulationRegistry";
 
 const port = Number(process.env.PORT) || 3000;
 const wsPort = Number(process.env.WSPORT) || 3001;
 
-const simRegistry = createSimulationRegistry();
 
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
-) => ({
-  simRegistry,
-});
+) => ({});
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
 const corsOptions: CorsOptions = {

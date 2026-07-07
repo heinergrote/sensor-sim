@@ -19,16 +19,17 @@ export function createSimulationMap(
     unsubscribe: () => void,
     targetMarker?: Marker | null,
     currentMarker?: Marker | null,
-    draggingTarget?: boolean,
-    draggingCurrent?: boolean,
+    draggingTarget: boolean,
+    draggingCurrent: boolean,
   }>();
 
 
   function addSim(id: string) {
-    console.log("sub", id)
 
     const sub = client.onSimStateChange.subscribe({id}, {
+
       onData: (state: SimState) => {
+
         const {
           target: {latitude: targetLat, longitude: targetLng},
           current: {latitude: currentLat, longitude: currentLng},
@@ -37,6 +38,7 @@ export function createSimulationMap(
         const sim = trackedSims.get(id)
         if (!sim) return
 
+        // first pos data for current or target?
 
         if (!sim.currentMarker) {
           const marker = new Marker({
@@ -46,14 +48,14 @@ export function createSimulationMap(
           marker.on('dragend', () => {
             sim.draggingCurrent = false;
             const lngLat = marker.getLngLat()
-
             client.setCurrent.mutate({id: id, latitude: lngLat.lat, longitude: lngLat.lng});
           });
           marker.on('dragstart', () => {
             sim.draggingCurrent = true;
           });
-          sim.currentMarker = marker
+          marker.setLngLat([currentLng, currentLat])
           marker.addTo(map)
+          sim.currentMarker = marker
         }
 
         if (!sim.targetMarker) {
@@ -69,8 +71,9 @@ export function createSimulationMap(
           marker.on('dragstart', () => {
             sim.draggingTarget = true;
           });
-          sim.targetMarker = marker
+          marker.setLngLat([targetLng, targetLat])
           marker.addTo(map)
+          sim.targetMarker = marker
         }
 
         if (!sim.draggingCurrent)
@@ -79,12 +82,18 @@ export function createSimulationMap(
         if (!sim.draggingTarget)
           sim.targetMarker.setLngLat([targetLng, targetLat]);
 
-
-        console.log("onSimStateChange", id, state);
       },
+
       onError: (err) => console.error("getSimState error", err),
+
     });
-    trackedSims.set(id, sub)
+
+    trackedSims.set(id, {
+      unsubscribe: sub.unsubscribe,
+      draggingTarget: false,
+      draggingCurrent: false,
+    })
+
   }
 
   function removeSim(id: string) {
@@ -96,7 +105,6 @@ export function createSimulationMap(
       trackedSims.delete(id);
     }
   }
-
 
   const listSub = client.onSimListChange.subscribe(
     undefined,
@@ -113,7 +121,6 @@ export function createSimulationMap(
       onError: (err) => console.error("getSimList error", err),
     }
   );
-
 
   const map = new MapLibre({
     container: element,
@@ -137,8 +144,6 @@ export function createSimulationMap(
   }), 'bottom-right');
 
   map.on('load', () => {
-
-
     onMapReady();
   });
 

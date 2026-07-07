@@ -10,8 +10,10 @@ export default function App() {
 
   let trpcValue: ReturnType<typeof createTrpcHttpOnly>;
   if (isServer) {
+    console.log("Creating trpcHttpOnly");
     trpcValue = createTrpcHttpOnly();
   } else {
+    console.log("Creating trpcWithWs");
     const {client, dispose} = createTrpcWithWs();
     onCleanup(dispose);   // ← closes the WS when App unmounts / HMR replaces it
     trpcValue = client;
@@ -23,8 +25,12 @@ export default function App() {
       <Router
         root={props => (
           <>
-            <Nav/>
-            <Suspense>{props.children}</Suspense>
+            <div class="flex flex-col h-screen">
+              <Nav/>
+              <div class="flex-1 min-h-0">
+                <Suspense>{props.children}</Suspense>
+              </div>
+            </div>
           </>
         )}
       >

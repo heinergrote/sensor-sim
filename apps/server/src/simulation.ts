@@ -3,14 +3,38 @@ import * as turf from "@turf/turf";
 
 export type Simulation = ReturnType<typeof createSimulation>;
 
+const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
+
+function randomOffset(origin: { latitude: number; longitude: number }, minMeters: number, maxMeters: number) {
+  const bearing = Math.random() * 360;
+  const distance = minMeters + Math.random() * (maxMeters - minMeters);
+  const point = turf.destination(
+    [origin.longitude, origin.latitude],
+    distance,
+    bearing,
+    {units: "meters"}
+  );
+  return {
+    longitude: point.geometry.coordinates[0],
+    latitude: point.geometry.coordinates[1],
+  };
+}
+
 function createSimulation(id: string) {
 
+  const initialTarget = randomOffset(defaultTarget, 200, 300);
+  const initialCurrent = randomOffset(initialTarget, 50, 100);
+
   const simState: SimState = {
-    target: {latitude: 52.264683, longitude: 10.523783},
+    target: initialTarget,
     type: "follow",
     speed: 10,
-    current: {latitude: 52.264683, longitude: 10.523783},
-    distance: 0,
+    current: initialCurrent,
+    distance: turf.distance(
+      [initialTarget.longitude, initialTarget.latitude],
+      [initialCurrent.longitude, initialCurrent.latitude],
+      {units: "meters"}
+    ),
   };
 
   const listeners = new Set<(state: SimState) => void>();

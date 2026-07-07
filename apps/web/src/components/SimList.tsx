@@ -1,4 +1,4 @@
-import {createResource, createSignal, For, Show} from "solid-js";
+import {createEffect, createResource, createSignal, For, Show} from "solid-js";
 import {useTrpc} from "~/trpcClient";
 import {SimDetails} from "~/components/SimDetails";
 
@@ -11,34 +11,53 @@ export function SimList(props: {
     return client.listSims.query()
   });
 
-  const [newSimId, setNewSimId] = createSignal<string>("default")
-  const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
+  const [newSimId, setNewSimId] = createSignal<string>("")
+  const [newType, setNewType] = createSignal<"follow" | "circle">("circle")
+
+
+  createEffect(() => {
+    if (sims.state === "ready") {
+      // get the highest sim id, and set the next id in the form
+      const highestSimId = sims().reduce((acc, sim) => {
+        const simId = parseInt(sim.id.split("-")[1]);
+        return simId > acc ? simId : acc;
+      }, 0);
+      setNewSimId(`sim-${highestSimId + 1}`)
+    }
+  })
 
   return (
-    <div style={{padding: '1rem'}}>
+    <div class="p-2">
 
       <form onSubmit={(e) => {
         e.preventDefault();
         client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
+          setNewSimId("")
           refetch()
         });
       }}>
-        <fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
-          <legend class="fieldset-legend">New Sim</legend>
-          <label class="label">ID</label>
-          <input name="simId" type="text" class="input" placeholder="SimId"
-                 value={newSimId()}
-                 onChange={(e) => setNewSimId(e.currentTarget.value)}
-          />
-          <label class="label">Type</label>
-          <select name="type" class="select select-bordered w-full max-w-xs"
-                  value={newType()}
-                  onChange={(e) => setNewType(e.currentTarget.value as "follow" | "circle")}
-          >
-            <option value="follow">Follow</option>
-            <option value="circle">Circle</option>
-          </select>
-          <button class="btn btn-neutral mt-4" type="submit">Create</button>
+        <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
+          <div class="flex gap-1">
+            <div class="flex-1">
+              <label class="label">ID</label>
+              <input name="simId" type="text" class="input" placeholder="SimId"
+                     value={newSimId()}
+                     onChange={(e) => setNewSimId(e.currentTarget.value)}
+              />
+            </div>
+            <div class="flex-1">
+              <label class="label">Type</label>
+              <select name="type" class="select select-bordered w-full max-w-xs"
+                      onChange={(e) => setNewType(e.currentTarget.value as "follow" | "circle")}
+              >
+                <option value="follow" selected={newType() === "follow"}>Follow</option>
+                <option value="circle" selected={newType() === "circle"}>Circle</option>
+              </select>
+            </div>
+            <div>
+              <button class="btn btn-neutral mt-4" type="submit">+</button>
+            </div>
+          </div>
         </fieldset>
       </form>
 

@@ -68,5 +68,5 @@ function createSimulationRegistry() {
   return {get, create, remove, list, listChange};
 }
 
+export const simRegistry = createSimulationRegistry();
 
-export {createSimulationRegistry};

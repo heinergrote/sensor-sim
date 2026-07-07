@@ -8,9 +8,14 @@ export default function SimControl() {
 
   return (
     <>
-
-      <SimList onSelectSim={setSimId}/>
-      <SimMap/>
+      <div class="flex h-full">
+        <div class="w-lg overflow-y-scroll">
+          <SimList onSelectSim={setSimId}/>
+        </div>
+        <div class="flex-1">
+          <SimMap/>
+        </div>
+      </div>
     </>
   );
 

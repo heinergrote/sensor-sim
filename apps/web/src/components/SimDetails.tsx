@@ -23,10 +23,11 @@ export function SimDetails(props: { id: string }) {
     <div>
       <Show fallback={<div>Connecting...</div>} when={simState()}>
         {(state) => <div>
-          <div>Current: {state().current.latitude}, Lng: {state().current.longitude}</div>
+          <div>Target: {state().target.latitude.toFixed(5)}, {state().target.longitude.toFixed(5)}</div>
+          <div>Current: {state().current.latitude.toFixed(5)}, {state().current.longitude.toFixed(5)}</div>
           <div>Type: {state().type}</div>
           <div>Speed: {state().speed}</div>
-          <div>Distance: {state().distance}</div>
+          <div>Distance: {state().distance.toFixed(2)}</div>
         </div>}
       </Show>
     </div>
