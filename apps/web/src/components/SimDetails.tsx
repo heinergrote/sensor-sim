@@ -23,8 +23,9 @@ export function SimDetails(props: { id: string }) {
     <div>
       <Show fallback={<div>Connecting...</div>} when={simState()}>
         {(state) => <div>
-          <div>Lat: {state().current.latitude}</div>
-          <div>Lng: {state().current.longitude}</div>
+          <div>Current: {state().current.latitude}, Lng: {state().current.longitude}</div>
+          <div>Type: {state().type}</div>
+          <div>Speed: {state().speed}</div>
           <div>Distance: {state().distance}</div>
         </div>}
       </Show>

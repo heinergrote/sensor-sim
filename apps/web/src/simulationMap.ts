@@ -1,31 +1,124 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
+import {createTrpcWithWs} from "~/trpcClient";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
   map: MapLibre,
-  update: (simState: SimState) => void,
   dispose: () => void
 }
 
 export function createSimulationMap(
   element: HTMLDivElement,
-  simState: SimState,
-  onMapReady: () => void,
-  onSetTarget: (latitude: number, longitude: number) => void,
-  onSetCurrent: (latitude: number, longitude: number) => void,
+  onMapReady: () => void
 ) {
 
-  let targetMarker: Marker | null = null;
-  let currentMarker: Marker | null = null;
+  const {client, dispose: disposeTrpc} = createTrpcWithWs()
 
-  let draggingTarget = false;
-  let draggingCurrent = false;
+  const trackedSims = new Map<string, {
+    unsubscribe: () => void,
+    targetMarker?: Marker | null,
+    currentMarker?: Marker | null,
+    draggingTarget?: boolean,
+    draggingCurrent?: boolean,
+  }>();
+
+
+  function addSim(id: string) {
+    console.log("sub", id)
+
+    const sub = client.onSimStateChange.subscribe({id}, {
+      onData: (state: SimState) => {
+        const {
+          target: {latitude: targetLat, longitude: targetLng},
+          current: {latitude: currentLat, longitude: currentLng},
+        } = state;
+
+        const sim = trackedSims.get(id)
+        if (!sim) return
+
+
+        if (!sim.currentMarker) {
+          const marker = new Marker({
+            draggable: true,
+            color: 'red'
+          })
+          marker.on('dragend', () => {
+            sim.draggingCurrent = false;
+            const lngLat = marker.getLngLat()
+
+            client.setCurrent.mutate({id: id, latitude: lngLat.lat, longitude: lngLat.lng});
+          });
+          marker.on('dragstart', () => {
+            sim.draggingCurrent = true;
+          });
+          sim.currentMarker = marker
+          marker.addTo(map)
+        }
+
+        if (!sim.targetMarker) {
+          const marker = new Marker({
+            draggable: true,
+            color: 'blue'
+          })
+          marker.on('dragend', () => {
+            sim.draggingTarget = false;
+            const lngLat = marker.getLngLat()
+            client.setTarget.mutate({id: id, latitude: lngLat.lat, longitude: lngLat.lng});
+          });
+          marker.on('dragstart', () => {
+            sim.draggingTarget = true;
+          });
+          sim.targetMarker = marker
+          marker.addTo(map)
+        }
+
+        if (!sim.draggingCurrent)
+          sim.currentMarker.setLngLat([currentLng, currentLat]);
+
+        if (!sim.draggingTarget)
+          sim.targetMarker.setLngLat([targetLng, targetLat]);
+
+
+        console.log("onSimStateChange", id, state);
+      },
+      onError: (err) => console.error("getSimState error", err),
+    });
+    trackedSims.set(id, sub)
+  }
+
+  function removeSim(id: string) {
+    const sim = trackedSims.get(id);
+    if (sim) {
+      sim.unsubscribe();
+      sim.targetMarker?.remove();
+      sim.currentMarker?.remove();
+      trackedSims.delete(id);
+    }
+  }
+
+
+  const listSub = client.onSimListChange.subscribe(
+    undefined,
+    {
+      onData: (ids) => {
+        // subscribe new, unsubscribe deleted sims
+        ids.forEach(id => {
+          if (!trackedSims.has(id)) addSim(id);
+        });
+        trackedSims.forEach((_, id) => {
+          if (!ids.includes(id)) removeSim(id);
+        });
+      },
+      onError: (err) => console.error("getSimList error", err),
+    }
+  );
+
 
   const map = new MapLibre({
     container: element,
     style: `/api/maptiler/maps/streets-v2/style.json`,
-    center: [simState.target.latitude, simState.target.longitude],
+    center: [10.523783, 52.264683],
     zoom: 16,
     canvasContextAttributes: {
       preserveDrawingBuffer: true
@@ -45,67 +138,9 @@ export function createSimulationMap(
 
   map.on('load', () => {
 
-    const {
-      target: {latitude: targetLat, longitude: targetLng},
-      current: {latitude: currentLat, longitude: currentLng},
-    } = simState;
-
-    const newCurrentMarker = new Marker({
-      draggable: true,
-      color: 'red'
-    }).setLngLat([currentLng, currentLat]);
-
-    const newTargetMarker = new Marker({
-      draggable: true,
-      color: 'blue'
-    }).setLngLat([targetLng, targetLat]);
-
-    newTargetMarker.on('dragend', () => {
-      onSetTarget(newTargetMarker.getLngLat().lat, newTargetMarker.getLngLat().lng);
-      draggingTarget = false;
-    });
-    newTargetMarker.on('dragstart', () => {
-      draggingTarget = true;
-    });
-
-    newCurrentMarker.on('dragend', () => {
-      onSetCurrent(newCurrentMarker.getLngLat().lat, newCurrentMarker.getLngLat().lng);
-      draggingCurrent = false;
-    });
-    newCurrentMarker.on('dragstart', () => {
-      draggingCurrent = true;
-    });
-
-
-    currentMarker = newCurrentMarker;
-    targetMarker = newTargetMarker;
-
-    currentMarker.addTo(map);
-    targetMarker.addTo(map);
 
     onMapReady();
   });
-
-  const update = (simState: SimState) => {
-
-    const {
-      target: {latitude: targetLat, longitude: targetLng},
-      current: {latitude: currentLat, longitude: currentLng},
-    } = simState;
-
-    if (targetMarker && !draggingTarget) {
-      targetMarker.setLngLat([targetLng, targetLat]);
-    }
-
-    // if location is not visible, don't fly to it
-    if (!map.getBounds().contains([targetLng, targetLat])) {
-      map.setCenter([targetLng, targetLat]);
-    }
-
-    if (currentMarker && !draggingCurrent) {
-      currentMarker.setLngLat([currentLng, currentLat]);
-    }
-  }
 
   // map.on('mouseenter', 'locations', () => {
   //   map.getCanvas().style.cursor = 'pointer';
@@ -117,9 +152,15 @@ export function createSimulationMap(
 
   return {
     map,
-    update,
     dispose: () => {
       map.remove()
+
+      listSub.unsubscribe();
+      trackedSims.forEach((_, id) => {
+        removeSim(id);
+      });
+      disposeTrpc()
+
     }
   }
 

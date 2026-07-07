@@ -4,15 +4,19 @@ import {CreateHTTPContextOptions, createHTTPServer} from "@trpc/server/adapters/
 import cors, {CorsOptions} from 'cors';
 import "dotenv/config";
 import {SimState} from "@sensor-sim/shared";
-import {getSim} from "./sim";
 import {appRouter} from "./appRouter";
+import {createSimulationRegistry} from "./simulationRegistry";
 
 const port = Number(process.env.PORT) || 3000;
 const wsPort = Number(process.env.WSPORT) || 3001;
 
+const simRegistry = createSimulationRegistry();
+
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
-) => ({});
+) => ({
+  simRegistry,
+});
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
 const corsOptions: CorsOptions = {
@@ -61,7 +65,7 @@ rawWss.on('connection', (ws, req) => {
 
   const url = new URL(req.url ?? '/', `ws://localhost`);
   const id = url.searchParams.get('id') ?? 'default';
-  const sim = getSim(id, true);
+  const sim = simRegistry.get(id, true);
 
   // send current state on connect
   ws.send(JSON.stringify(sim.simState));

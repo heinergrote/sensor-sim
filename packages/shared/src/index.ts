@@ -5,6 +5,13 @@ export type Position = {
 
 export type SimState = {
   target: Position,
+  type: "follow" | "circle",
+  speed: number,
   current: Position,
   distance: number,
+}
+
+export type SimulationData = {
+  id: string,
+  simState: SimState,
 }

@@ -8,18 +8,18 @@ export function SimList(props: {
   const client = useTrpc();
 
   const [sims, {refetch}] = createResource(() => {
-    console.log("SimList: fetching")
     return client.listSims.query()
   });
 
   const [newSimId, setNewSimId] = createSignal<string>("default")
+  const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
 
   return (
     <div style={{padding: '1rem'}}>
 
       <form onSubmit={(e) => {
         e.preventDefault();
-        client.createSim.mutate({id: newSimId()}).then(() => {
+        client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
           refetch()
         });
       }}>
@@ -30,6 +30,14 @@ export function SimList(props: {
                  value={newSimId()}
                  onChange={(e) => setNewSimId(e.currentTarget.value)}
           />
+          <label class="label">Type</label>
+          <select name="type" class="select select-bordered w-full max-w-xs"
+                  value={newType()}
+                  onChange={(e) => setNewType(e.currentTarget.value as "follow" | "circle")}
+          >
+            <option value="follow">Follow</option>
+            <option value="circle">Circle</option>
+          </select>
           <button class="btn btn-neutral mt-4" type="submit">Create</button>
         </fieldset>
       </form>

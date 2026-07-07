@@ -1,4 +1,4 @@
-import {createSignal, Show} from "solid-js";
+import {createSignal} from "solid-js";
 import {SimList} from "~/components/SimList";
 import SimMap from "~/components/SimMap";
 
@@ -9,15 +9,8 @@ export default function SimControl() {
   return (
     <>
 
-
-      <SimList
-        onSelectSim={setSimId}
-      />
-      <Show when={simId()}>
-        {(id) =>
-          <SimMap simId={id()}/>
-        }
-      </Show>
+      <SimList onSelectSim={setSimId}/>
+      <SimMap/>
     </>
   );
 
