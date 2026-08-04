@@ -3,7 +3,7 @@ import {SimulationData} from "@sensor-sim/shared";
 
 export type SimulationRegistry = ReturnType<typeof createSimulationRegistry>;
 
-function createSimulationRegistry() {
+export function createSimulationRegistry() {
   const registry = new Map<string, Simulation>();
 
   function get(id: string, createIfNotExists = false): Simulation | never {
@@ -67,6 +67,4 @@ function createSimulationRegistry() {
 
   return {get, create, remove, list, listChange};
 }
-
-export const simRegistry = createSimulationRegistry();
 

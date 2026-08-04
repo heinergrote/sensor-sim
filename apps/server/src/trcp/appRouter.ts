@@ -1,7 +1,7 @@
 import {initTRPC} from '@trpc/server';
-import {Context} from "./index";
+import {Context} from "./trpcContext";
 import {z} from "zod";
-import {simRegistry} from "./simulationRegistry";
+import {simRegistry} from "../index";
 
 const t = initTRPC.context<Context>().create();
 
