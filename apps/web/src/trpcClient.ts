@@ -13,13 +13,13 @@ export function useTrpc(): TrpcClient {
 }
 
 export function createTrpcWithWs() {
-  const wsClient = createWSClient({url: "ws://localhost:3000"});
+  const wsClient = createWSClient({url: "ws://localhost:4000"});
   const client = createTRPCClient<AppRouter>({
     links: [
       splitLink({
         condition: (op) => op.type === "subscription",
         true: wsLink<AppRouter>({client: wsClient}),
-        false: httpLink({url: "http://localhost:3000"}),
+        false: httpLink({url: "http://localhost:4000"}),
       }),
     ],
   });
@@ -28,7 +28,7 @@ export function createTrpcWithWs() {
 
 export function createTrpcHttpOnly() {
   return createTRPCClient<AppRouter>({
-    links: [httpLink({url: "http://localhost:3000"})],
+    links: [httpLink({url: "http://localhost:4000"})],
   });
 }
 

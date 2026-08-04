@@ -6,10 +6,15 @@ import "dotenv/config";
 import {SimState} from "@sensor-sim/shared";
 import {appRouter} from "./appRouter";
 import {simRegistry} from "./simulationRegistry";
+import {Hono} from "hono";
+import {serve} from "@hono/node-server";
 
 const port = Number(process.env.PORT) || 3000;
 const wsPort = Number(process.env.WSPORT) || 3001;
+const restPort = Number(process.env.RESTPORT) || 4000;
 
+// --------------------------------------------
+// TRCP
 
 export const createContext = (
   _opts: CreateHTTPContextOptions | CreateWSSContextFnOptions
@@ -55,6 +60,9 @@ process.on('SIGTERM', () => {
 server.listen(port);
 console.log(`Server running on port ${port}`);
 
+// --------------------------------------------
+// RAW WS
+
 const rawWss = new WebSocketServer({port: wsPort});
 console.log(`Raw WS Server running on port ${wsPort}`);
 
@@ -76,5 +84,28 @@ rawWss.on('connection', (ws, req) => {
     sim.removeListener(listenerFn)
   });
 });
+
+
+// --------------------------------------------
+// HONO REST
+
+const app = new Hono();
+
+app.get('/api/health', (c) =>
+  c.json({status: "ok", uptime: process.uptime()})
+);
+
+app.get('/api/sims', (c) => {
+  return c.json([...simRegistry.list()])
+});
+
+serve({
+    fetch: app.fetch,
+    port: restPort,
+  }, (info) => {
+    console.log(`REST Server running on port ${info.port}`)
+  }
+);
+
 
 export type AppRouter = typeof appRouter;
