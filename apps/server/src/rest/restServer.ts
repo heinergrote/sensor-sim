@@ -3,17 +3,17 @@ import {serve} from "@hono/node-server";
 import {simRegistry} from "../index";
 
 export function initRestServer(port: number) {
-  const app = new Hono();
+  const app = new Hono().basePath('/api');
 
-  app.get('/api/health', (c) =>
+  app.get('/health', (c) =>
     c.json({status: "ok", uptime: process.uptime()})
   );
 
-  app.get('/api/sims', (c) => {
+  app.get('/sims', (c) => {
     return c.json([...simRegistry.list()]);
   });
 
-  app.get('/api/sims/:id', (c) => {
+  app.get('/sims/:id', (c) => {
     const id = c.req.param('id');
     const sim = simRegistry.get(id);
     if (!sim) {

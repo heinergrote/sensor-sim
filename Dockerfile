@@ -49,9 +49,9 @@ COPY --from=deploy-server /deploy ./
 
 EXPOSE 4000 4001 4002
 
-ENV PORT=4000
-ENV WSPORT=4001
-ENV RESTPORT=4002
+ENV TRCP_PORT=4000
+ENV WS_PORT=4001
+ENV REST_PORT=4002
 
 CMD ["node", "dist/index.cjs"]
 

@@ -7,6 +7,12 @@ export function initWsServer(port: number) {
 
   rawWss.on('connection', (ws, req) => {
     const url = new URL(req.url ?? '/', `ws://localhost`);
+
+    if (!url.pathname.startsWith('/ws')) {
+      ws.close(1008, 'Not found');
+      return;
+    }
+
     const id = url.searchParams.get('id') ?? 'default';
     const sim = simRegistry.get(id, true);
 

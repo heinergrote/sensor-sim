@@ -5,11 +5,11 @@ import {initWsServer} from "./ws/wsServer";
 import {initRestServer} from "./rest/restServer";
 import {createSimulationRegistry} from "./simulationRegistry";
 
-const port = Number(process.env.PORT) || 4000;
-const wsPort = Number(process.env.WSPORT) || 4001;
-const restPort = Number(process.env.RESTPORT) || 4002;
+const trcpPort = Number(process.env.TRCP_PORT) || 4000;
+const wsPort = Number(process.env.WS_PORT) || 4001;
+const restPort = Number(process.env.REST_PORT) || 4002;
 
-initTrpcServer(port);
+initTrpcServer(trcpPort);
 initWsServer(wsPort);
 initRestServer(restPort);
 

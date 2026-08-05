@@ -2,19 +2,21 @@
 
 Standalone Node.js simulation engine (`@sensor-sim/server`). Runs three independent servers:
 
-| Server   | Default port | Env var   | Notes                         |
-|----------|-------------|-----------|-------------------------------|
-| tRPC     | 4000        | `PORT`    | HTTP queries + WS subscriptions |
-| Raw WS   | 4001        | `WSPORT`  | Streams `SimState` JSON       |
-| REST     | 4002        | `RESTPORT`| Hono, health + sim read endpoints |
+| Server | Default port | Env var     | Notes                             |
+|--------|--------------|-------------|-----------------------------------|
+| tRPC   | 4000         | `TRCP_PORT` | HTTP queries + WS subscriptions   |
+| Raw WS | 4001         | `WS_PORT`   | Streams `SimState` JSON           |
+| REST   | 4002         | `REST_PORT` | Hono, health + sim read endpoints |
 
 ## tRPC procedures (`src/trcp/appRouter.ts`)
 
 **Queries**
+
 - `listSims` — list all simulation IDs
 - `simState({ id })` — current state of one simulation
 
 **Mutations**
+
 - `createSim({ id, type, speed })` — create a simulation (`type`: `follow` | `circle`)
 - `deleteSim({ id })`
 - `setTarget({ id, latitude, longitude })` — move toward a target (follow mode)
@@ -23,6 +25,7 @@ Standalone Node.js simulation engine (`@sensor-sim/server`). Runs three independ
 - `setSpeed({ id, speed })`
 
 **Subscriptions**
+
 - `onSimListChange` — fires when simulations are added/removed
 - `onSimStateChange({ id })` — fires on every position update
 
