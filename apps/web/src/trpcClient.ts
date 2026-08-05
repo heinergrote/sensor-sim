@@ -6,6 +6,9 @@ export type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
 export const TrpcContext = createContext<TrpcClient | undefined>(undefined);
 
+const HTTP_URL = process.env.TRCP_HTTP_URL || "http://localhost:4000";
+const WS_URL = process.env.TRCP_WS_URL || "ws://localhost:4000";
+
 export function useTrpc(): TrpcClient {
   const ctx = useContext(TrpcContext);
   if (!ctx) throw new Error("useTrpc must be used inside TrpcProvider");
@@ -13,13 +16,13 @@ export function useTrpc(): TrpcClient {
 }
 
 export function createTrpcWithWs() {
-  const wsClient = createWSClient({url: "ws://localhost:4000"});
+  const wsClient = createWSClient({url: WS_URL});
   const client = createTRPCClient<AppRouter>({
     links: [
       splitLink({
         condition: (op) => op.type === "subscription",
         true: wsLink<AppRouter>({client: wsClient}),
-        false: httpLink({url: "http://localhost:4000"}),
+        false: httpLink({url: HTTP_URL}),
       }),
     ],
   });
@@ -28,7 +31,7 @@ export function createTrpcWithWs() {
 
 export function createTrpcHttpOnly() {
   return createTRPCClient<AppRouter>({
-    links: [httpLink({url: "http://localhost:4000"})],
+    links: [httpLink({url: HTTP_URL})],
   });
 }
 
