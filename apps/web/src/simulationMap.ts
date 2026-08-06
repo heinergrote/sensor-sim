@@ -1,6 +1,6 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
-import {createTrpcWithWs} from "~/trpcClient";
+import {createTrpc} from "~/trpcClient";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
@@ -13,7 +13,7 @@ export function createSimulationMap(
   onMapReady: () => void
 ) {
 
-  const {client, dispose: disposeTrpc} = createTrpcWithWs()
+  const client = createTrpc()
 
   const trackedSims = new Map<string, {
     unsubscribe: () => void,
@@ -164,8 +164,6 @@ export function createSimulationMap(
       trackedSims.forEach((_, id) => {
         removeSim(id);
       });
-      disposeTrpc()
-
     }
   }
 
