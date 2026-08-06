@@ -1,6 +1,7 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {SimState} from "@sensor-sim/shared";
-import {createTrpc} from "~/trpcClient";
+import {TRPCClient} from "@trpc/client";
+import type {AppRouter} from "@sensor-sim/server";
 //import {FeatureCollection} from "geojson";
 
 export type SimulationMap = {
@@ -10,11 +11,9 @@ export type SimulationMap = {
 
 export function createSimulationMap(
   element: HTMLDivElement,
+  client: TRPCClient<AppRouter>,
   onMapReady: () => void
 ) {
-
-  const client = createTrpc()
-
   const trackedSims = new Map<string, {
     unsubscribe: () => void,
     targetMarker?: Marker | null,
@@ -164,6 +163,7 @@ export function createSimulationMap(
       trackedSims.forEach((_, id) => {
         removeSim(id);
       });
+
     }
   }
 

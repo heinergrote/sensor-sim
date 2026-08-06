@@ -66,9 +66,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 
-# Configure the backend connection at runtime:
-# ENV TRCP_HTTP_URL=http://server:4000
-# ENV TRCP_WS_URL=ws://server:4000
+# Configure at runtime:
 # ENV MAPTILER_KEY=your_key_here
 
 CMD ["node", "server/index.mjs"]

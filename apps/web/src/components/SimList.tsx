@@ -1,18 +1,41 @@
 import {createEffect, createResource, createSignal, For, Show} from "solid-js";
-import {useTrpc} from "~/trpcClient";
 import {SimDetails} from "~/components/SimDetails";
+import {trpcService} from "~/trcpService";
 
 export function SimList(props: {
   onSelectSim: (id: string | undefined) => void;
 }) {
-  const client = useTrpc();
 
-  const [sims, {refetch}] = createResource(() => {
-    return client.listSims.query()
-  });
+  const [sims, {refetch}] = createResource(
+    () => ({client: trpcService.client()}), // wrap source, to always be truthy -> always refetch
+    async ({client}) => {
+      if (!client) return [];
+      return await client.listSims.query();
+    }
+  );
 
   const [newSimId, setNewSimId] = createSignal<string>("")
   const [newType, setNewType] = createSignal<"follow" | "circle">("circle")
+
+
+  const handleCreateSim = (e: SubmitEvent) => {
+    e.preventDefault();
+    const client = trpcService.client();
+    if (!client) return;
+    client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
+      setNewSimId("")
+      refetch()
+    });
+  }
+
+  const handleDeleteSim = (id: string) => {
+    const client = trpcService.client();
+    if (!client) return;
+    client.deleteSim.mutate({id}).then(() => {
+      props.onSelectSim(undefined)
+      refetch()
+    });
+  }
 
 
   createEffect(() => {
@@ -29,13 +52,7 @@ export function SimList(props: {
   return (
     <div class="p-2">
 
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
-          setNewSimId("")
-          refetch()
-        });
-      }}>
+      <form onSubmit={handleCreateSim}>
         <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">
@@ -78,13 +95,7 @@ export function SimList(props: {
                     <SimDetails id={sim.id}/>
                   </div>
                   <div class="flex gap-2">
-                    <button class="btn btn-sm"
-                            onClick={() => client.deleteSim.mutate({id: sim.id}).then(
-                              () => {
-                                props.onSelectSim(undefined)
-                                refetch()
-                              }
-                            )}>
+                    <button class="btn btn-sm" onClick={() => handleDeleteSim(sim.id)}>
                       Delete
                     </button>
                     <button class="btn btn-sm" onClick={() => props.onSelectSim(sim.id)}>
