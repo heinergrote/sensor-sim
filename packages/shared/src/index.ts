@@ -6,7 +6,8 @@ export type Position = {
 export type SimConfig = {
   id: string,
   target: Position,
-  initial: Position,
+  initialDistance: number,
+  initialAzimuth: number,
   type: "follow" | "circle",
   speed: number,
 }
@@ -16,4 +17,5 @@ export type SimState = {
   start: number,
   current: Position,
   distance: number,
+  azimuth: number,
 }

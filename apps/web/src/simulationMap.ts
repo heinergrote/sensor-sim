@@ -28,6 +28,8 @@ export function createSimulationMap(
 
       onData: (data) => {
 
+        if (!data.simConfig || !data.simState) return
+
         const {
           target: {latitude: targetLat, longitude: targetLng},
         } = data.simConfig;
@@ -35,7 +37,6 @@ export function createSimulationMap(
         const {
           current: {latitude: currentLat, longitude: currentLng},
         } = data.simState;
-
 
         const sim = trackedSims.get(id)
         if (!sim) return

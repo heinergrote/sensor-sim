@@ -2,7 +2,7 @@ import {SimConfig} from "@sensor-sim/shared";
 import * as turf from "@turf/turf";
 import {SimConfigInput} from "./trcp/appRouter";
 import {createEventStream} from "./eventStream";
-import {createSimulation, Simulation} from "./simulation";
+import {SimulationRegistry} from "./simulationRegistry";
 
 function randomOffset(origin: { latitude: number; longitude: number }, minMeters: number, maxMeters: number) {
   const bearing = Math.random() * 360;
@@ -21,10 +21,9 @@ function randomOffset(origin: { latitude: number; longitude: number }, minMeters
 
 const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
 
-export function createSimRegistry() {
+export function createSimRegistry(simulationRegistry: SimulationRegistry) {
 
   const simConfigs = new Map<string, SimConfig>();
-  const simulations = new Map<string, Simulation>();
 
   function get(id: string, createIfNotExists = false): SimConfig | never {
     if (!simConfigs.has(id) && createIfNotExists)
@@ -34,37 +33,29 @@ export function createSimRegistry() {
     return simConfig;
   }
 
-  function getSimulation(id: string): Simulation | never {
-    const simulation = simulations.get(id);
-    if (!simulation) throw new Error(`Simulation ${id} not found`);
-    return simulation;
-  }
-
   function create(data: SimConfigInput) {
     if (simConfigs.has(data.id)) throw new Error(`Sim ${data.id} already exists`);
 
     const target = data.target ? data.target : randomOffset(defaultTarget, 200, 300);
-    const initial = data.initial ? data.initial : randomOffset(target, 50, 100);
+    const initialDistance = data.initialDistance ? data.initialDistance : Math.random() * 50 + 60;
+    const initialAzimuth = data.initialAzimuth ? data.initialAzimuth : Math.random() * 360;
     const type = data.type ? data.type : "follow";
     const speed = data.speed ? data.speed : 20;
 
     const simConfig: SimConfig = {
       id: data.id,
       target: target,
-      initial: initial,
+      initialDistance: initialDistance,
+      initialAzimuth: initialAzimuth,
       type: type,
       speed: speed,
     };
 
     simConfigs.set(data.id, simConfig);
 
-    const simulation = createSimulation(simConfig);
-    simulation.start();
-    simulations.set(data.id, simulation);
+    simulationRegistry.create(simConfig);
 
-    console.log('SimConfig created:', simConfig);
     configListStream.emit();
-
 
     return simConfig;
   }
@@ -72,11 +63,12 @@ export function createSimRegistry() {
   function update(data: SimConfigInput) {
     const simConfig = get(data.id, true);
     if (data.type) simConfig.type = data.type;
-    if (data.initial) simConfig.initial = {latitude: data.initial.latitude, longitude: data.initial.longitude};
+    if (data.initialDistance) simConfig.initialDistance = data.initialDistance;
+    if (data.initialAzimuth) simConfig.initialAzimuth = data.initialAzimuth;
     if (data.target) simConfig.target = {latitude: data.target.latitude, longitude: data.target.longitude};
     if (data.speed) simConfig.speed = data.speed;
-    const simulation = simulations.get(data.id);
-    if (simulation) simulation.updateConfig(simConfig);
+
+    simulationRegistry.update(simConfig);
 
     return simConfig
   }
@@ -86,38 +78,18 @@ export function createSimRegistry() {
     if (!simConfig) return;
     simConfigs.delete(id);
 
-    const simulation = simulations.get(id);
-    if (simulation) {
-      simulation.stop();
-      simulations.delete(id);
-    }
+    simulationRegistry.remove(id);
 
-    console.log(`SimConfig deleted: ${id}`);
     configListStream.emit();
   }
 
   function list(): SimConfig[] {
-    console.log('all:', simConfigs.values());
     return [...simConfigs.values()]
   }
-
-  function simulationDataCollect(id: string) {
-    const simulation = simulations.get(id);
-    if (!simulation) throw new Error(`Simulation not found: ${id}`);
-    return simulation.eventStream.collect();
-  }
-
-  function getSimulationData(id: string) {
-    const simulation = simulations.get(id);
-    if (!simulation) throw new Error(`Simulation not found: ${id}`);
-    return simulation.eventStream.get();
-  }
-
 
   const configListStream = createEventStream(() => [...simConfigs.keys()]);
 
   return {
-    get, create, update, remove, list, configListStream,
-    getSimulationData, simulationDataCollect
+    get, create, update, remove, list, configListStream
   };
 }

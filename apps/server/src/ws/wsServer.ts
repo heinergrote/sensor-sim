@@ -1,11 +1,10 @@
 import {WebSocketServer} from "ws";
-import {SimConfig, SimState} from "@sensor-sim/shared";
-import {simConfigRegistry} from "../index";
+import {simulationRegistry} from "../index";
 
 export function initWsServer(port: number) {
   const rawWss = new WebSocketServer({port});
 
-  rawWss.on('connection', (ws, req) => {
+  rawWss.on('connection', async (ws, req) => {
     const url = new URL(req.url ?? '/', `ws://localhost`);
 
     if (!url.pathname.startsWith('/ws')) {
@@ -14,25 +13,27 @@ export function initWsServer(port: number) {
     }
 
     const id = url.searchParams.get('id') ?? 'default';
-    const simConfig = simConfigRegistry.get(id, true);
+    const simulationDataStream = simulationRegistry.getSimulationDataStream(id);
 
-    const simState: SimState = {
-      id: simConfig.id,
-      start: Date.now(),
-      current: simConfig.initial,
-      distance: 10,
+    if (!simulationDataStream) {
+      console.log(`Simulation data stream not found for id: ${id}`);
+      ws.close(1008, 'Not found');
+      return;
     }
 
-    ws.send(JSON.stringify({simConfig, simState}));
+    ws.send(JSON.stringify(simulationDataStream?.get()));
 
-    const listenerFn = (data: { simConfig: SimConfig, simState: SimState }) => {
-      ws.send(JSON.stringify(data));
-    };
-    //sim.addListener(listenerFn);
+    const stream = simulationDataStream.collect();
 
     ws.on('close', () => {
-      //sim.removeListener(listenerFn);
+      console.log(`Closing WS connection for simulation id: ${id}`);
+      stream.return(undefined);
     });
+
+    console.log(`WS: Sending data for simulation id: ${id}`);
+    for await (const data of stream) {
+      ws.send(JSON.stringify(data));
+    }
   });
 
   console.log(`Raw WS Server running on port ${port}`);

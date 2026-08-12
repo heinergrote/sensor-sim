@@ -1,124 +1,103 @@
-import type {SimConfig, SimState} from "@sensor-sim/shared";
+import type {Position, SimConfig, SimState} from "@sensor-sim/shared";
 import * as turf from "@turf/turf";
+import {point} from "@turf/turf";
 import {createEventStream} from "./eventStream";
-
 
 export type Simulation = ReturnType<typeof createSimulation>
 
-function createSimulation(simConfig: SimConfig) {
 
-  const simState: SimState = {
-    id: simConfig.id,
-    start: Date.now(),
-    current: simConfig.initial,
-    distance: turf.distance(
-      [simConfig.target.longitude, simConfig.target.latitude],
-      [simConfig.initial.longitude, simConfig.initial.latitude],
-      {units: "meters"}
-    ),
-  }
+export function getPosition(origin: Position, distance: number, azimuth: number): Position {
+  const position = turf.destination(point([origin.longitude, origin.latitude]), distance, azimuth, {units: "meters"});
+  return {
+    longitude: position.geometry.coordinates[0],
+    latitude: position.geometry.coordinates[1],
+  };
+}
 
-  const eventStream = createEventStream<{ simConfig: SimConfig, simState: SimState }>(() => ({
-    simConfig,
-    simState
-  }));
+function createSimulation(id: string) {
 
-  function updateConfig(data: Partial<SimConfig>) {
-    const {id: _, ...rest} = data;
-    Object.assign(simConfig, rest);
-    tick()
-  }
+  let interval: NodeJS.Timeout | undefined;
+  let lastTick = Date.now();
 
+  let config: SimConfig | null = null;
+  let state: SimState | null = null;
 
-  function tick() {
-    const {initial, target, speed, type} = simConfig;
-    const {current, distance} = simState;
+  const simulationDataStream = createEventStream<{ simConfig: SimConfig | null, simState: SimState | null }>(
+    () => ({simConfig: config, simState: state,})
+  );
 
-    const deltaMs = Date.now() - lastTick;
-    lastTick = Date.now();
+  function update(deltaMs: number) {
+    if (!config || !state) return;
+
+    const {target, initialDistance, initialAzimuth, speed, type} = config;
+    const {current} = state;
 
     const bearing = turf.bearing(
       [current.longitude, current.latitude],
       [target.longitude, target.latitude]
     )
 
-    const currentDistance = turf.distance(
-      [target.longitude, target.latitude],
-      [current.longitude, current.latitude],
-      {units: "meters"}
-    )
+    // const currentDistance = turf.distance(
+    //   [target.longitude, target.latitude],
+    //   [current.longitude, current.latitude],
+    //   {units: "meters"}
+    // )
 
     const stepDistance = speed * deltaMs / 1000;
-
 
     switch (type) {
 
       case "follow":
-        if (currentDistance <= stepDistance) {
+        if (state.distance <= stepDistance) {
           // snap to target
-          simState.current = {...target};
-          simState.distance = 0;
+          state.current = {...target};
+          state.distance = 0;
         } else {
-
-          const point = turf.destination(
-            [current.longitude, current.latitude],
-            stepDistance,
-            bearing, {
-              units: "meters"
-            }
-          );
-
-          simState.current = {
-            longitude: point.geometry.coordinates[0],
-            latitude: point.geometry.coordinates[1]
-          }
-          simState.distance = currentDistance - stepDistance;
+          state.distance -= stepDistance;
+          state.current = getPosition(config.target, state.distance, state.azimuth)
         }
         break;
 
       case "circle":
 
-        if (currentDistance <= stepDistance) {
+        if (state.distance <= stepDistance) {
           // snap to target
-          simState.current = {...target};
-          simState.distance = 0;
+          state.current = {...target};
+          state.distance = 0;
         } else {
-
           // get the rotation angle from the step distance and radius distance
-          const angle = (stepDistance / currentDistance) * (180 / Math.PI);
-
-          const currentPoint = turf.point([current.longitude, current.latitude]);
-          const point = turf.transformRotate(
-            currentPoint,
-            angle,
-            {pivot: [target.longitude, target.latitude]}
-          );
-
-          simState.current = {
-            longitude: point.geometry.coordinates[0],
-            latitude: point.geometry.coordinates[1]
-          }
-          simState.distance = currentDistance - stepDistance;
+          const angle = (stepDistance / state.distance) * (180 / Math.PI);
+          state.azimuth = (state.azimuth + angle) % 360;
+          state.current = getPosition(config.target, state.distance, state.azimuth)
         }
         break;
     }
 
-    eventStream.emit();
+    simulationDataStream.emit();
   }
 
+  function tick() {
+    const now = Date.now();
+    const deltaMs = now - lastTick;
+    lastTick = now;
+    update(deltaMs);
+  }
 
-  let interval: NodeJS.Timeout | undefined;
-  let lastTick = Date.now();
-
-  function start() {
-
+  function start(simConfig: SimConfig) {
     stop()
-    lastTick = Date.now();
 
+    config = {...simConfig};
+    state = {
+      id: id,
+      start: Date.now(),
+      current: getPosition(config.target, config.initialDistance, config.initialAzimuth),
+      distance: config.initialDistance,
+      azimuth: config.initialAzimuth,
+    }
+    lastTick = Date.now();
     interval = setInterval(() => {
       tick()
     }, 100);
-
   }
 
   function stop() {
@@ -126,11 +105,8 @@ function createSimulation(simConfig: SimConfig) {
     clearInterval(interval);
   }
 
-
   return {
-    updateConfig,
-    eventStream,
-    start, stop
+    start, stop, simulationDataStream
   };
 
 }

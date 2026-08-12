@@ -1,7 +1,7 @@
 import {initTRPC} from '@trpc/server';
 import {Context} from "./trpcContext";
-import {z} from "zod";
-import {simConfigRegistry} from "../index";
+import {number, z} from "zod";
+import {simConfigRegistry, simulationRegistry} from "../index";
 
 const t = initTRPC.context<Context>().create();
 
@@ -21,7 +21,8 @@ const simConfigInput = z.object({
   id: z.string().min(1).max(64),
   type: z.enum(['follow', 'circle']).optional(),
   target: positionInput.optional(),
-  initial: positionInput.optional(),
+  initialDistance: number().optional(),
+  initialAzimuth: number().optional(),
   speed: z.number().default(10).optional()
 });
 
@@ -33,12 +34,6 @@ export const appRouter = router({
   listSims: publicProcedure
     .query(() => {
       return simConfigRegistry.list();
-    }),
-
-  simData: publicProcedure
-    .input(simIdInput)
-    .query(async ({input}) => {
-      return simConfigRegistry.getSimulationData(input.id);
     }),
 
   createSim: publicProcedure
@@ -59,13 +54,16 @@ export const appRouter = router({
       simConfigRegistry.remove(input.id);
     }),
 
-
   onSimListChange: publicProcedure
     .subscription(() => simConfigRegistry.configListStream.collect()),
 
   onSimStateChange: publicProcedure
     .input(simIdInput)
-    .subscription(({input}) => simConfigRegistry.simulationDataCollect(input.id)),
+    .subscription(({input}) => {
+      const stream = simulationRegistry.getSimulationDataStream(input.id);
+      if (!stream) throw new Error(`Simulation not found: ${input.id}`);
+      return stream.collect()
+    }),
 
 });
 

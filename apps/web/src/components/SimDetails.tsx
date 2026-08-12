@@ -4,7 +4,7 @@ import {trpcService} from "~/trcpService";
 
 export function SimDetails(props: { id: string }) {
 
-  const [sim, setSim] = createSignal<{ simConfig: SimConfig, simState: SimState } | undefined>(undefined);
+  const [sim, setSim] = createSignal<{ simConfig: SimConfig | null, simState: SimState | null } | undefined>(undefined);
 
   createEffect(() => {
     const client = trpcService.client();
@@ -27,16 +27,27 @@ export function SimDetails(props: { id: string }) {
 
   })
 
-
   return (
     <div>
       <Show fallback={<div>Connecting...</div>} when={sim()}>
         {(sim) => <div>
-          <div>Target: {sim().simConfig.target.latitude.toFixed(5)}, {sim().simConfig.target.longitude.toFixed(5)}</div>
-          <div>Type: {sim().simConfig.type}</div>
-          <div>Speed: {sim().simConfig.speed}</div>
-          <div>Current: {sim().simState.current.latitude.toFixed(5)}, {sim().simState.current.longitude.toFixed(5)}</div>
-          <div>Distance: {sim().simState.distance.toFixed(2)}</div>
+          <Show fallback={<div>SimConfig not available</div>} when={sim().simConfig}>
+            {(config) => <>
+              <div>Target: {config().target.latitude.toFixed(5)}, {config().target.longitude.toFixed(5)}</div>
+              <div>Type: {config().type}</div>
+              <div>Initial Distance: {config().initialDistance.toFixed(2)}</div>
+              <div>InitialAzimuth: {config().initialAzimuth.toFixed(2)}</div>
+              <div>Speed: {config().speed}</div>
+            </>}
+          </Show>
+          <hr/>
+          <Show when={sim().simState} fallback={<div>SimState not available</div>}>
+            {(state) => <>
+              <div>Current: {state().current.latitude.toFixed(5)}, {state().current.longitude.toFixed(5)}</div>
+              <div>Distance: {state().distance.toFixed(2)}</div>
+              <div>Azimuth: {state().azimuth.toFixed(2)}</div>
+            </>}
+          </Show>
         </div>}
       </Show>
     </div>

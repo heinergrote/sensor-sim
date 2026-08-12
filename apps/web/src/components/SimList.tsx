@@ -1,4 +1,4 @@
-import {createEffect, createResource, createSignal, For, Show} from "solid-js";
+import {createEffect, createSignal, For, onCleanup} from "solid-js";
 import {SimDetails} from "~/components/SimDetails";
 import {trpcService} from "~/trcpService";
 
@@ -6,24 +6,57 @@ export function SimList(props: {
   onSelectSim: (id: string | undefined) => void;
 }) {
 
-  const [sims, {refetch}] = createResource(
-    () => ({client: trpcService.client()}), // wrap source, to always be truthy -> always refetch
-    async ({client}) => {
-      if (!client) return [];
-      return await client.listSims.query();
-    }
-  );
+  // const [sims, {refetch}] = createResource(
+  //   () => ({client: trpcService.client()}), // wrap source, to always be truthy -> always refetch
+  //   async ({client}) => {
+  //     if (!client) return [];
+  //     return await client.listSims.query();
+  //   }
+  // );
 
+  const refetch = () => {
+  }
+
+  const [sims, setSims] = createSignal<string[]>([])
   const [newSimId, setNewSimId] = createSignal<string>("")
   const [newType, setNewType] = createSignal<"follow" | "circle">("circle")
 
+  createEffect(() => {
+    const client = trpcService.client();
+    if (!client) {
+      setSims([]);
+      return;
+    }
+
+    if (client) {
+      const unsubscribe = client.onSimListChange.subscribe(
+        undefined,
+        {
+          onData: (data) => setSims(data),
+          onError: (err) => console.error(err)
+        }
+      );
+
+      onCleanup(() => unsubscribe.unsubscribe());
+    }
+
+  })
+
+  createEffect(() => {
+    const simArray = sims();
+    // get the highest sim id, and set the next id in the form
+    const highestSimId = simArray.reduce((acc, sim) => {
+      const simId = parseInt(sim.split("-")[1]);
+      return simId > acc ? simId : acc;
+    }, 0);
+    setNewSimId(`sim-${highestSimId + 1}`)
+  })
 
   const handleCreateSim = (e: SubmitEvent) => {
     e.preventDefault();
     const client = trpcService.client();
     if (!client) return;
     client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
-      setNewSimId("")
       refetch()
     });
   }
@@ -37,18 +70,6 @@ export function SimList(props: {
     });
   }
 
-
-  createEffect(() => {
-    if (sims.state === "ready") {
-      console.log("sims", sims())
-      // get the highest sim id, and set the next id in the form
-      const highestSimId = sims().reduce((acc, sim) => {
-        const simId = parseInt(sim.id.split("-")[1]);
-        return simId > acc ? simId : acc;
-      }, 0);
-      setNewSimId(`sim-${highestSimId + 1}`)
-    }
-  })
 
   return (
     <div class="p-2">
@@ -79,38 +100,31 @@ export function SimList(props: {
         </fieldset>
       </form>
 
-      <Show when={!sims.error}
-            fallback={<p style={{color: 'red'}}>Error loading simulations.</p>}>
 
-        <Show when={!sims.loading && sims()}
-              fallback={<p>Loading simulations...</p>}>
+      <ul class="list bg-base-100 rounded-box shadow-md">
+        <For each={sims()}>
+          {(sim) => (
+            <li class="list-row">
+              <div>
+                {sim}
+              </div>
+              <div>
+                <SimDetails id={sim}/>
+              </div>
+              <div class="flex gap-2">
+                <button class="btn btn-sm" onClick={() => handleDeleteSim(sim)}>
+                  Delete
+                </button>
+                <button class="btn btn-sm" onClick={() => props.onSelectSim(sim)}>
+                  Select
+                </button>
+              </div>
+            </li>
+          )}
+        </For>
+      </ul>
 
-          <ul class="list bg-base-100 rounded-box shadow-md">
-            <For each={sims()}>
-              {(sim) => (
-                <li class="list-row">
-                  <div>
-                    {sim.id}
-                  </div>
-                  <div>
-                    <SimDetails id={sim.id}/>
-                  </div>
-                  <div class="flex gap-2">
-                    <button class="btn btn-sm" onClick={() => handleDeleteSim(sim.id)}>
-                      Delete
-                    </button>
-                    <button class="btn btn-sm" onClick={() => props.onSelectSim(sim.id)}>
-                      Select
-                    </button>
-                  </div>
-                </li>
-              )}
-            </For>
-          </ul>
 
-        </Show>
-
-      </Show>
     </div>
   );
 }
