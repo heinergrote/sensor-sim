@@ -3,7 +3,7 @@ import {initTrpcServer} from "./trcp/trpcServer";
 import {appRouter} from "./trcp/appRouter";
 import {initWsServer} from "./ws/wsServer";
 import {initRestServer} from "./rest/restServer";
-import {createSimulationRegistry} from "./simulationRegistry";
+import {createSimRegistry} from "./simConfigRegistry";
 
 const trcpPort = Number(process.env.TRCP_PORT) || 4000;
 const wsPort = Number(process.env.WS_PORT) || 4001;
@@ -13,7 +13,7 @@ initTrpcServer(trcpPort);
 initWsServer(wsPort);
 initRestServer(restPort);
 
-export const simRegistry = createSimulationRegistry();
+export const simConfigRegistry = createSimRegistry();
 
 export type AppRouter = typeof appRouter;
 

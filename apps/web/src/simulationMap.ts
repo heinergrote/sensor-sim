@@ -1,5 +1,4 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
-import {SimState} from "@sensor-sim/shared";
 import {TRPCClient} from "@trpc/client";
 import type {AppRouter} from "@sensor-sim/server";
 //import {FeatureCollection} from "geojson";
@@ -27,12 +26,16 @@ export function createSimulationMap(
 
     const sub = client.onSimStateChange.subscribe({id}, {
 
-      onData: (state: SimState) => {
+      onData: (data) => {
 
         const {
           target: {latitude: targetLat, longitude: targetLng},
+        } = data.simConfig;
+
+        const {
           current: {latitude: currentLat, longitude: currentLng},
-        } = state;
+        } = data.simState;
+
 
         const sim = trackedSims.get(id)
         if (!sim) return
@@ -47,7 +50,12 @@ export function createSimulationMap(
           marker.on('dragend', () => {
             sim.draggingCurrent = false;
             const lngLat = marker.getLngLat()
-            client.setCurrent.mutate({id: id, latitude: lngLat.lat, longitude: lngLat.lng});
+            // client.updateSim.mutate({
+            //   id: id,
+            //   current: {
+            //     latitude: lngLat.lat, longitude: lngLat.lng
+            //   }
+            // });
           });
           marker.on('dragstart', () => {
             sim.draggingCurrent = true;
@@ -65,7 +73,10 @@ export function createSimulationMap(
           marker.on('dragend', () => {
             sim.draggingTarget = false;
             const lngLat = marker.getLngLat()
-            client.setTarget.mutate({id: id, latitude: lngLat.lat, longitude: lngLat.lng});
+            client.updateSim.mutate({
+              id: id,
+              target: {latitude: lngLat.lat, longitude: lngLat.lng}
+            });
           });
           marker.on('dragstart', () => {
             sim.draggingTarget = true;

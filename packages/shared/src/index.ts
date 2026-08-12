@@ -3,15 +3,17 @@ export type Position = {
   longitude: number;
 }
 
-export type SimState = {
+export type SimConfig = {
+  id: string,
   target: Position,
+  initial: Position,
   type: "follow" | "circle",
   speed: number,
-  current: Position,
-  distance: number,
 }
 
-export type SimulationData = {
+export type SimState = {
   id: string,
-  simState: SimState,
+  start: number,
+  current: Position,
+  distance: number,
 }

@@ -40,6 +40,7 @@ export function SimList(props: {
 
   createEffect(() => {
     if (sims.state === "ready") {
+      console.log("sims", sims())
       // get the highest sim id, and set the next id in the form
       const highestSimId = sims().reduce((acc, sim) => {
         const simId = parseInt(sim.id.split("-")[1]);

@@ -1,93 +1,38 @@
-import type {Position, SimState} from "@sensor-sim/shared";
+import type {SimConfig, SimState} from "@sensor-sim/shared";
 import * as turf from "@turf/turf";
+import {createEventStream} from "./eventStream";
 
-export type Simulation = ReturnType<typeof createSimulation>;
 
-const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
+export type Simulation = ReturnType<typeof createSimulation>
 
-function randomOffset(origin: { latitude: number; longitude: number }, minMeters: number, maxMeters: number) {
-  const bearing = Math.random() * 360;
-  const distance = minMeters + Math.random() * (maxMeters - minMeters);
-  const point = turf.destination(
-    [origin.longitude, origin.latitude],
-    distance,
-    bearing,
-    {units: "meters"}
-  );
-  return {
-    longitude: point.geometry.coordinates[0],
-    latitude: point.geometry.coordinates[1],
-  };
-}
-
-function createSimulation(id: string) {
-
-  const initialTarget = randomOffset(defaultTarget, 200, 300);
-  const initialCurrent = randomOffset(initialTarget, 50, 100);
+function createSimulation(simConfig: SimConfig) {
 
   const simState: SimState = {
-    target: initialTarget,
-    type: "follow",
-    speed: 10,
-    current: initialCurrent,
+    id: simConfig.id,
+    start: Date.now(),
+    current: simConfig.initial,
     distance: turf.distance(
-      [initialTarget.longitude, initialTarget.latitude],
-      [initialCurrent.longitude, initialCurrent.latitude],
+      [simConfig.target.longitude, simConfig.target.latitude],
+      [simConfig.initial.longitude, simConfig.initial.latitude],
       {units: "meters"}
     ),
-  };
-
-  const listeners = new Set<(state: SimState) => void>();
-
-  function addListener(listener: (state: SimState) => void) {
-    listeners.add(listener);
   }
 
-  function notifyListeners() {
-    for (const listener of listeners) listener(simState);
-  }
+  const eventStream = createEventStream<{ simConfig: SimConfig, simState: SimState }>(() => ({
+    simConfig,
+    simState
+  }));
 
-  function removeListener(listener: (state: SimState) => void) {
-    listeners.delete(listener);
-  }
-
-  function nextUpdate(): Promise<SimState> {
-    return new Promise(resolve => {
-      const triggerListener = (state: SimState) => {
-        removeListener(triggerListener);
-        resolve(state);
-      };
-      addListener(triggerListener);
-    });
-  }
-
-
-  function setTarget(pos: Position) {
-    simState.target = pos;
+  function updateConfig(data: Partial<SimConfig>) {
+    const {id: _, ...rest} = data;
+    Object.assign(simConfig, rest);
     tick()
-    return simState
   }
 
-  function setCurrent(pos: Position) {
-    simState.current = pos;
-    tick()
-    return simState
-  }
-
-  function setType(type: "follow" | "circle") {
-    simState.type = type;
-    tick()
-    return simState
-  }
-
-  function setSpeed(speed: number) {
-    simState.speed = speed;
-    tick()
-    return simState
-  }
 
   function tick() {
-    const {target, speed, current} = simState;
+    const {initial, target, speed, type} = simConfig;
+    const {current, distance} = simState;
 
     const deltaMs = Date.now() - lastTick;
     lastTick = Date.now();
@@ -106,7 +51,7 @@ function createSimulation(id: string) {
     const stepDistance = speed * deltaMs / 1000;
 
 
-    switch (simState.type) {
+    switch (type) {
 
       case "follow":
         if (currentDistance <= stepDistance) {
@@ -156,11 +101,9 @@ function createSimulation(id: string) {
           simState.distance = currentDistance - stepDistance;
         }
         break;
-
     }
 
-
-    notifyListeners();
+    eventStream.emit();
   }
 
 
@@ -185,9 +128,8 @@ function createSimulation(id: string) {
 
 
   return {
-    id, simState,
-    addListener, removeListener, nextUpdate,
-    setTarget, setCurrent, setType, setSpeed,
+    updateConfig,
+    eventStream,
     start, stop
   };
 

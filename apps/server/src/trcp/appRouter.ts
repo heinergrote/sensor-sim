@@ -1,7 +1,7 @@
 import {initTRPC} from '@trpc/server';
 import {Context} from "./trpcContext";
 import {z} from "zod";
-import {simRegistry} from "../index";
+import {simConfigRegistry} from "../index";
 
 const t = initTRPC.context<Context>().create();
 
@@ -12,99 +12,60 @@ const simIdInput = z.object({
   id: z.string().min(1).max(64)
 });
 
-const typeInput = z.object({
-  type: z.enum(['follow', 'circle']).default('follow')
-});
-
-const speedInput = z.object({
-  speed: z.number().default(10)
-});
-
 const positionInput = z.object({
   latitude: z.number(),
   longitude: z.number()
+}).optional();
+
+const simConfigInput = z.object({
+  id: z.string().min(1).max(64),
+  type: z.enum(['follow', 'circle']).optional(),
+  target: positionInput.optional(),
+  initial: positionInput.optional(),
+  speed: z.number().default(10).optional()
 });
 
-const createSimInput = simIdInput.extend(typeInput.shape).extend(speedInput.shape);
-const setTypeInput = simIdInput.extend(typeInput.shape);
-const setSpeedInput = simIdInput.extend(speedInput.shape);
-const setTargetInput = simIdInput.extend(positionInput.shape);
-const setCurrentInput = simIdInput.extend(positionInput.shape);
+
+export type SimConfigInput = z.infer<typeof simConfigInput>;
 
 export const appRouter = router({
 
   listSims: publicProcedure
     .query(() => {
-      return simRegistry.list();
+      return simConfigRegistry.list();
     }),
 
-  simState: publicProcedure
+  simData: publicProcedure
     .input(simIdInput)
     .query(async ({input}) => {
-      return simRegistry.get(input.id).simState;
+      return simConfigRegistry.getSimulationData(input.id);
     }),
 
   createSim: publicProcedure
-    .input(createSimInput)
+    .input(simConfigInput)
     .mutation(async ({input}) => {
-      const sim = simRegistry.create(input.id, input.type);
-      return {id: sim.id, simState: sim.simState};
+      return simConfigRegistry.create(input);
+    }),
+
+  updateSim: publicProcedure
+    .input(simConfigInput)
+    .mutation(async ({input}) => {
+      simConfigRegistry.update(input);
     }),
 
   deleteSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      simRegistry.remove(input.id);
-    }),
-
-  setTarget: publicProcedure
-    .input(setTargetInput)
-    .mutation(async ({input}) => {
-      const sim = simRegistry.get(input.id, true);
-      return sim.setTarget({latitude: input.latitude, longitude: input.longitude});
-    }),
-
-  setType: publicProcedure
-    .input(setTypeInput)
-    .mutation(async ({input}) => {
-      const sim = simRegistry.get(input.id);
-      return sim.setType(input.type);
-    }),
-
-  setCurrent: publicProcedure
-    .input(setCurrentInput)
-    .mutation(async ({input}) => {
-      const sim = simRegistry.get(input.id);
-      return sim.setCurrent({latitude: input.latitude, longitude: input.longitude});
-    }),
-
-  setSpeed: publicProcedure
-    .input(setSpeedInput)
-    .mutation(async ({input}) => {
-      const sim = simRegistry.get(input.id);
-      return sim.setSpeed(input.speed);
+      simConfigRegistry.remove(input.id);
     }),
 
 
   onSimListChange: publicProcedure
-    .subscription(async function* ({signal}) {
-      yield simRegistry.list().map(sim => sim.id);
-      while (signal && !signal.aborted) {
-        await simRegistry.listChange()
-        yield simRegistry.list().map(sim => sim.id);
-      }
-    }),
+    .subscription(() => simConfigRegistry.configListStream.collect()),
 
   onSimStateChange: publicProcedure
     .input(simIdInput)
-    .subscription(async function* ({input, signal}) {
-      const sim = simRegistry.get(input.id);
-      yield sim.simState; // send state immediately
-      while (signal && !signal.aborted) {
-        await sim.nextUpdate()
-        yield sim.simState;
-      }
-    }),
+    .subscription(({input}) => simConfigRegistry.simulationDataCollect(input.id)),
 
 });
 

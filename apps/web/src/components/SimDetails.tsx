@@ -1,16 +1,15 @@
 import {createEffect, createSignal, onCleanup, Show} from "solid-js";
-import {SimState} from "@sensor-sim/shared";
+import {SimConfig, SimState} from "@sensor-sim/shared";
 import {trpcService} from "~/trcpService";
 
 export function SimDetails(props: { id: string }) {
-  const client = trpcService.client();
 
-  const [simState, setSimState] = createSignal<SimState | undefined>(undefined);
+  const [sim, setSim] = createSignal<{ simConfig: SimConfig, simState: SimState } | undefined>(undefined);
 
   createEffect(() => {
     const client = trpcService.client();
     if (!client) {
-      setSimState(undefined);
+      setSim(undefined);
       return;
     }
 
@@ -18,7 +17,7 @@ export function SimDetails(props: { id: string }) {
       const unsubscribe = client.onSimStateChange.subscribe(
         {id: props.id},
         {
-          onData: (state) => setSimState(state),
+          onData: (data) => setSim(data),
           onError: (err) => console.error(err)
         }
       );
@@ -31,13 +30,13 @@ export function SimDetails(props: { id: string }) {
 
   return (
     <div>
-      <Show fallback={<div>Connecting...</div>} when={simState()}>
-        {(state) => <div>
-          <div>Target: {state().target.latitude.toFixed(5)}, {state().target.longitude.toFixed(5)}</div>
-          <div>Current: {state().current.latitude.toFixed(5)}, {state().current.longitude.toFixed(5)}</div>
-          <div>Type: {state().type}</div>
-          <div>Speed: {state().speed}</div>
-          <div>Distance: {state().distance.toFixed(2)}</div>
+      <Show fallback={<div>Connecting...</div>} when={sim()}>
+        {(sim) => <div>
+          <div>Target: {sim().simConfig.target.latitude.toFixed(5)}, {sim().simConfig.target.longitude.toFixed(5)}</div>
+          <div>Type: {sim().simConfig.type}</div>
+          <div>Speed: {sim().simConfig.speed}</div>
+          <div>Current: {sim().simState.current.latitude.toFixed(5)}, {sim().simState.current.longitude.toFixed(5)}</div>
+          <div>Distance: {sim().simState.distance.toFixed(2)}</div>
         </div>}
       </Show>
     </div>

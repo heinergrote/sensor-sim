@@ -1,6 +1,6 @@
 import {WebSocketServer} from "ws";
-import {SimState} from "@sensor-sim/shared";
-import {simRegistry} from "../index";
+import {SimConfig, SimState} from "@sensor-sim/shared";
+import {simConfigRegistry} from "../index";
 
 export function initWsServer(port: number) {
   const rawWss = new WebSocketServer({port});
@@ -14,17 +14,24 @@ export function initWsServer(port: number) {
     }
 
     const id = url.searchParams.get('id') ?? 'default';
-    const sim = simRegistry.get(id, true);
+    const simConfig = simConfigRegistry.get(id, true);
 
-    ws.send(JSON.stringify(sim.simState));
+    const simState: SimState = {
+      id: simConfig.id,
+      start: Date.now(),
+      current: simConfig.initial,
+      distance: 10,
+    }
 
-    const listenerFn = (data: SimState) => {
+    ws.send(JSON.stringify({simConfig, simState}));
+
+    const listenerFn = (data: { simConfig: SimConfig, simState: SimState }) => {
       ws.send(JSON.stringify(data));
     };
-    sim.addListener(listenerFn);
+    //sim.addListener(listenerFn);
 
     ws.on('close', () => {
-      sim.removeListener(listenerFn);
+      //sim.removeListener(listenerFn);
     });
   });
 
