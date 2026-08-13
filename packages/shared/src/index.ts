@@ -19,3 +19,9 @@ export type SimState = {
   distance: number,
   azimuth: number,
 }
+
+export type Simulation = {
+  config: SimConfig,
+  state: SimState | null,
+}
+

@@ -2,9 +2,7 @@ import {createEffect, createSignal, For, onCleanup} from "solid-js";
 import {SimDetails} from "~/components/SimDetails";
 import {trpcService} from "~/trcpService";
 
-export function SimList(props: {
-  onSelectSim: (id: string | undefined) => void;
-}) {
+export function SimList(props: {}) {
 
   // const [sims, {refetch}] = createResource(
   //   () => ({client: trpcService.client()}), // wrap source, to always be truthy -> always refetch
@@ -13,9 +11,6 @@ export function SimList(props: {
   //     return await client.listSims.query();
   //   }
   // );
-
-  const refetch = () => {
-  }
 
   const [sims, setSims] = createSignal<string[]>([])
   const [newSimId, setNewSimId] = createSignal<string>("")
@@ -56,20 +51,8 @@ export function SimList(props: {
     e.preventDefault();
     const client = trpcService.client();
     if (!client) return;
-    client.createSim.mutate({id: newSimId(), type: newType()}).then(() => {
-      refetch()
-    });
+    client.createSim.mutate({id: newSimId(), type: newType()})
   }
-
-  const handleDeleteSim = (id: string) => {
-    const client = trpcService.client();
-    if (!client) return;
-    client.deleteSim.mutate({id}).then(() => {
-      props.onSelectSim(undefined)
-      refetch()
-    });
-  }
-
 
   return (
     <div class="p-2">
@@ -110,14 +93,6 @@ export function SimList(props: {
               </div>
               <div>
                 <SimDetails id={sim}/>
-              </div>
-              <div class="flex gap-2">
-                <button class="btn btn-sm" onClick={() => handleDeleteSim(sim)}>
-                  Delete
-                </button>
-                <button class="btn btn-sm" onClick={() => props.onSelectSim(sim)}>
-                  Select
-                </button>
               </div>
             </li>
           )}

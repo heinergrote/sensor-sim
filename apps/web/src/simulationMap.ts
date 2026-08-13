@@ -24,19 +24,19 @@ export function createSimulationMap(
 
   function addSim(id: string) {
 
-    const sub = client.onSimStateChange.subscribe({id}, {
+    const sub = client.onSimChange.subscribe({id}, {
 
       onData: (data) => {
 
-        if (!data.simConfig || !data.simState) return
+        if (!data.state) return
 
         const {
           target: {latitude: targetLat, longitude: targetLng},
-        } = data.simConfig;
+        } = data.config;
 
         const {
           current: {latitude: currentLat, longitude: currentLng},
-        } = data.simState;
+        } = data.state;
 
         const sim = trackedSims.get(id)
         if (!sim) return
@@ -45,7 +45,7 @@ export function createSimulationMap(
 
         if (!sim.currentMarker) {
           const marker = new Marker({
-            draggable: true,
+            draggable: false,
             color: 'red'
           })
           marker.on('dragend', () => {

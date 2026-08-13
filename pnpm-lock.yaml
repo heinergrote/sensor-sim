@@ -90,6 +90,9 @@ importers:
       nitro:
         specifier: ^3.0.260610-beta
         version: 3.0.260610-beta(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1(supports-color@10.2.2))(jiti@2.7.0)(lru-cache@11.5.1)(rollup@4.62.2)(vite@8.2.1(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.5))
+      solid-icons:
+        specifier: ^1.2.0
+        version: 1.2.0(solid-js@1.9.14)
       solid-js:
         specifier: ^1.9.14
         version: 1.9.14
@@ -2406,6 +2409,11 @@ packages:
 
   skmeans@0.9.7:
     resolution: {integrity: sha512-hNj1/oZ7ygsfmPZ7ZfN5MUBRoGg1gtpnImuJBgLO0ljQ67DtJuiQaiYdS4lUA6s0KCwnPhGivtC/WRwIZLkHyg==}
+
+  solid-icons@1.2.0:
+    resolution: {integrity: sha512-yjQxWQMi9l19P5Af9vjsvalTMDFPDL4XD6etrUdNxNVhFp1bMYF0SFwUa5VYDfJ7u0SF3Qkz/F7BZxqcLUwklw==}
+    peerDependencies:
+      solid-js: '*'
 
   solid-js@1.9.14:
     resolution: {integrity: sha512-sAEXC0Kk0S1EDg+8ysEWJDbYhA3RRoEjwuySUGlKIemeo0I5YZfOyumNjNs9Sv3y2nmhD+0rW66ag2HsMuQiGQ==}
@@ -5579,6 +5587,10 @@ snapshots:
       '@types/hast': 3.0.5
 
   skmeans@0.9.7: {}
+
+  solid-icons@1.2.0(solid-js@1.9.14):
+    dependencies:
+      solid-js: 1.9.14
 
   solid-js@1.9.14:
     dependencies:

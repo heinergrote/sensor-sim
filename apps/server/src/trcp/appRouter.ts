@@ -1,7 +1,7 @@
 import {initTRPC} from '@trpc/server';
 import {Context} from "./trpcContext";
 import {number, z} from "zod";
-import {simConfigRegistry, simulationRegistry} from "../index";
+import {simulationService} from "../index";
 
 const t = initTRPC.context<Context>().create();
 
@@ -33,34 +33,46 @@ export const appRouter = router({
 
   listSims: publicProcedure
     .query(() => {
-      return simConfigRegistry.list();
+      return simulationService.list();
     }),
 
   createSim: publicProcedure
     .input(simConfigInput)
     .mutation(async ({input}) => {
-      return simConfigRegistry.create(input);
+      return simulationService.create(input);
     }),
 
   updateSim: publicProcedure
     .input(simConfigInput)
     .mutation(async ({input}) => {
-      simConfigRegistry.update(input);
+      simulationService.update(input);
     }),
 
   deleteSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      simConfigRegistry.remove(input.id);
+      simulationService.remove(input.id);
+    }),
+
+  startSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      return simulationService.startSim(input.id);
+    }),
+
+  stopSim: publicProcedure
+    .input(simIdInput)
+    .mutation(async ({input}) => {
+      simulationService.stopSim(input.id);
     }),
 
   onSimListChange: publicProcedure
-    .subscription(() => simConfigRegistry.configListStream.collect()),
+    .subscription(() => simulationService.configListStream.collect()),
 
-  onSimStateChange: publicProcedure
+  onSimChange: publicProcedure
     .input(simIdInput)
     .subscription(({input}) => {
-      const stream = simulationRegistry.getSimulationDataStream(input.id);
+      const stream = simulationService.getSimStream(input.id);
       if (!stream) throw new Error(`Simulation not found: ${input.id}`);
       return stream.collect()
     }),

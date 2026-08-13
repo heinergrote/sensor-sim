@@ -1,6 +1,6 @@
 import {Hono} from "hono";
 import {serve} from "@hono/node-server";
-import {simConfigRegistry} from "../index";
+import {simulationService} from "../index";
 
 export function initRestServer(port: number) {
   const app = new Hono().basePath('/api');
@@ -10,12 +10,12 @@ export function initRestServer(port: number) {
   );
 
   app.get('/sims', (c) => {
-    return c.json([...simConfigRegistry.list()]);
+    return c.json([...simulationService.list()]);
   });
 
   app.get('/sims/:id', (c) => {
     const id = c.req.param('id');
-    const sim = simConfigRegistry.get(id);
+    const sim = simulationService.get(id);
     if (!sim) {
       return c.json({error: 'Simulation not found'}, 404);
     }

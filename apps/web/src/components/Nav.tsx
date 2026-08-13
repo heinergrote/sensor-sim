@@ -1,6 +1,7 @@
 import {useLocation} from "@solidjs/router";
 import {trpcService} from "~/trcpService";
 import {createSignal, onMount} from "solid-js";
+import {TbFillHome} from "solid-icons/tb";
 
 
 export default function Nav() {
@@ -22,8 +23,8 @@ export default function Nav() {
   return (
     <nav class="bg-gray-200">
       <ul class="flex items-center p-2">
-        <li class={`border-b-2 ${active("/")} mx-1`}>
-          <a href="/">Home</a>
+        <li class={`mx-1`}>
+          <a href="/"><TbFillHome size={24}/></a>
         </li>
         <li class={`mx-1 flex-1`}></li>
         <li class={`mx-1`}>

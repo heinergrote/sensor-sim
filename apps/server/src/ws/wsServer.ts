@@ -1,5 +1,5 @@
 import {WebSocketServer} from "ws";
-import {simulationRegistry} from "../index";
+import {simulationService} from "../index";
 
 export function initWsServer(port: number) {
   const rawWss = new WebSocketServer({port});
@@ -13,7 +13,7 @@ export function initWsServer(port: number) {
     }
 
     const id = url.searchParams.get('id') ?? 'default';
-    const simulationDataStream = simulationRegistry.getSimulationDataStream(id);
+    const simulationDataStream = simulationService.getSimulationDataStream(id);
 
     if (!simulationDataStream) {
       console.log(`Simulation data stream not found for id: ${id}`);
