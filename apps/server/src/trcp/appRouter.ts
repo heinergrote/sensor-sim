@@ -40,31 +40,31 @@ export const appRouter = router({
   createSim: publicProcedure
     .input(simConfigInput)
     .mutation(async ({input}) => {
-      return simulationService.create(input);
+      return await simulationService.create(input);
     }),
 
   updateSim: publicProcedure
     .input(simConfigInput)
     .mutation(async ({input}) => {
-      simulationService.update(input);
+      await simulationService.update(input);
     }),
 
   deleteSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      simulationService.remove(input.id);
+      await simulationService.remove(input.id);
     }),
 
   startSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      return simulationService.startSim(input.id);
+      return await simulationService.startSim(input.id);
     }),
 
   stopSim: publicProcedure
     .input(simIdInput)
     .mutation(async ({input}) => {
-      simulationService.stopSim(input.id);
+      await simulationService.stopSim(input.id);
     }),
 
   onSimListChange: publicProcedure
