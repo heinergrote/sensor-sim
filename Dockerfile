@@ -32,6 +32,7 @@ RUN pnpm build
 
 # ── deploy-server ─────────────────────────────────────────────────────────────
 # pnpm deploy produces a self-contained folder with only production node_modules.
+# package.json#files whitelist ensures only dist/ is copied (not src/).
 FROM build AS deploy-server
 
 RUN pnpm --filter @sensor-sim/server deploy --prod /deploy

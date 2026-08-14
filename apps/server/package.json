@@ -4,6 +4,9 @@
   "type": "module",
   "exports": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsup src/index.ts",
