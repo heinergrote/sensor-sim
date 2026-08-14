@@ -13,7 +13,7 @@ export function initWsServer(port: number) {
     }
 
     const id = url.searchParams.get('id') ?? 'default';
-    const simulationDataStream = simulationService.getSimulationDataStream(id);
+    const simulationDataStream = simulationService.getSimStream(id);
 
     if (!simulationDataStream) {
       console.log(`Simulation data stream not found for id: ${id}`);

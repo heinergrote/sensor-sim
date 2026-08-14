@@ -13,97 +13,92 @@ export function createSimulationMap(
   client: TRPCClient<AppRouter>,
   onMapReady: () => void
 ) {
+
   const trackedSims = new Map<string, {
     unsubscribe: () => void,
     targetMarker?: Marker | null,
     currentMarker?: Marker | null,
     draggingTarget: boolean,
-    draggingCurrent: boolean,
   }>();
-
 
   function addSim(id: string) {
 
+    const targetMarker = new Marker({
+      draggable: true,
+      color: 'blue'
+    })
+
+    const currentMarker = new Marker({
+      draggable: false,
+      color: 'red'
+    })
+
+
+    const trackedSim = {
+      unsubscribe: () => {
+      },
+      targetMarker: null as Marker | null,
+      currentMarker: null as Marker | null,
+      draggingTarget: false,
+    }
+
+    targetMarker.on('dragend', () => {
+      trackedSim.draggingTarget = false;
+      const lngLat = targetMarker.getLngLat()
+      client.updateSim.mutate({
+        id: id,
+        target: {latitude: lngLat.lat, longitude: lngLat.lng}
+      });
+    });
+    targetMarker.on('dragstart', () => {
+      trackedSim.draggingTarget = true;
+    });
+
+
+    // subscribe to sim changes
     const sub = client.onSimChange.subscribe({id}, {
 
       onData: (data) => {
 
-        if (!data.state) return
-
-        const {
-          target: {latitude: targetLat, longitude: targetLng},
-        } = data.config;
-
-        const {
-          current: {latitude: currentLat, longitude: currentLng},
-        } = data.state;
-
-        const sim = trackedSims.get(id)
-        if (!sim) return
-
-        // first pos data for current or target?
-
-        if (!sim.currentMarker) {
-          const marker = new Marker({
-            draggable: false,
-            color: 'red'
-          })
-          marker.on('dragend', () => {
-            sim.draggingCurrent = false;
-            const lngLat = marker.getLngLat()
-            // client.updateSim.mutate({
-            //   id: id,
-            //   current: {
-            //     latitude: lngLat.lat, longitude: lngLat.lng
-            //   }
-            // });
-          });
-          marker.on('dragstart', () => {
-            sim.draggingCurrent = true;
-          });
-          marker.setLngLat([currentLng, currentLat])
-          marker.addTo(map)
-          sim.currentMarker = marker
+        if (!trackedSim.targetMarker) {
+          // add on first data received
+          trackedSim.targetMarker = targetMarker
+          targetMarker.setLngLat([data.config.target.longitude, data.config.target.latitude])
+          trackedSim.targetMarker.addTo(map)
+          targetMarker.getElement().style.zIndex = "9999";
         }
 
-        if (!sim.targetMarker) {
-          const marker = new Marker({
-            draggable: true,
-            color: 'blue'
-          })
-          marker.on('dragend', () => {
-            sim.draggingTarget = false;
-            const lngLat = marker.getLngLat()
-            client.updateSim.mutate({
-              id: id,
-              target: {latitude: lngLat.lat, longitude: lngLat.lng}
-            });
-          });
-          marker.on('dragstart', () => {
-            sim.draggingTarget = true;
-          });
-          marker.setLngLat([targetLng, targetLat])
-          marker.addTo(map)
-          sim.targetMarker = marker
+        if (!trackedSim.draggingTarget)
+          targetMarker.setLngLat(
+            [data.config.target.longitude, data.config.target.latitude]
+          );
+
+        if (data.state) {
+          currentMarker.setLngLat([data.state.current.longitude, data.state.current.latitude])
         }
 
-        if (!sim.draggingCurrent)
-          sim.currentMarker.setLngLat([currentLng, currentLat]);
+        if (!trackedSim.currentMarker && data.state) {
+          // add on first data received
+          trackedSim.currentMarker = currentMarker
+          trackedSim.currentMarker.addTo(map)
+        }
 
-        if (!sim.draggingTarget)
-          sim.targetMarker.setLngLat([targetLng, targetLat]);
+        if (trackedSim.currentMarker && !data.state) {
+          // remove, when there is no state
+          trackedSim.currentMarker.remove()
+          trackedSim.currentMarker = null
+        }
+
 
       },
 
-      onError: (err) => console.error("getSimState error", err),
+      onError: (err) => console.error("onSimChange error", err),
 
     });
 
-    trackedSims.set(id, {
-      unsubscribe: sub.unsubscribe,
-      draggingTarget: false,
-      draggingCurrent: false,
-    })
+    trackedSim.unsubscribe = sub.unsubscribe;
+
+    trackedSims.set(id, trackedSim)
 
   }
 
@@ -121,15 +116,17 @@ export function createSimulationMap(
     undefined,
     {
       onData: (ids) => {
+        console.log("onSimListChange", ids);
         // subscribe new, unsubscribe deleted sims
         ids.forEach(id => {
           if (!trackedSims.has(id)) addSim(id);
         });
         trackedSims.forEach((_, id) => {
+          console.log("onSimListChange", id);
           if (!ids.includes(id)) removeSim(id);
         });
       },
-      onError: (err) => console.error("getSimList error", err),
+      onError: (err) => console.error("onSimListChange error", err),
     }
   );
 

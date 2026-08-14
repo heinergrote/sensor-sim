@@ -10,6 +10,7 @@ export type SimConfig = {
   initialAzimuth: number,
   type: "follow" | "circle",
   speed: number,
+  playing: boolean,
 }
 
 export type SimState = {
