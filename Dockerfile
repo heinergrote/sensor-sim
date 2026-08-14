@@ -24,14 +24,9 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 # Builds all apps in parallel via the root "build" script (pnpm --parallel -r build).
 FROM deps AS build
 
-COPY packages/shared/src     ./packages/shared/src
-
-COPY apps/server/src         ./apps/server/src
-
-COPY apps/web/src            ./apps/web/src
-COPY apps/web/public         ./apps/web/public
-COPY apps/web/vite.config.ts ./apps/web/
-COPY apps/web/tsconfig.json  ./apps/web/
+COPY packages/shared  ./packages/shared
+COPY apps/server      ./apps/server
+COPY apps/web         ./apps/web
 
 RUN pnpm build
 
