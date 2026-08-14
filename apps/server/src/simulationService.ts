@@ -3,14 +3,16 @@ import {SimConfigInput} from "./trcp/appRouter";
 import {createEventStream} from "./eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
+import {getStorage} from "./storage";
 
 const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
 
-export function createSimulationService() {
+export async function createSimulationService() {
 
   const simulationRuntimes = new Map<string, SimulationRuntime>();
+  const storage = getStorage()
 
-  function get(id: string, createIfNotExists = false): Simulation | never {
+  async function get(id: string, createIfNotExists = false) {
     if (!simulationRuntimes.has(id) && createIfNotExists) {
       return create({id});
     }
@@ -19,7 +21,7 @@ export function createSimulationService() {
     return simRuntime.sim;
   }
 
-  function create(configInput: SimConfigInput) {
+  async function create(configInput: SimConfigInput) {
     if (simulationRuntimes.has(configInput.id)) throw new Error(`Sim ${configInput.id} already exists`);
 
     // use default values, when missing
@@ -28,6 +30,7 @@ export function createSimulationService() {
     const initialAzimuth = configInput.initialAzimuth ? configInput.initialAzimuth : Math.random() * 360;
     const type = configInput.type ? configInput.type : "follow";
     const speed = configInput.speed ? configInput.speed : 20;
+    const playing = configInput.playing ? configInput.playing : true;
 
     const config: SimConfig = {
       id: configInput.id,
@@ -36,35 +39,41 @@ export function createSimulationService() {
       initialAzimuth: initialAzimuth,
       type: type,
       speed: speed,
+      playing: playing,
     };
 
     const simRuntime = createSimulationRuntime(config);
     simulationRuntimes.set(config.id, simRuntime);
-    simRuntime.start(config)
+
+    await storage.setItem(`sims:${config.id}`, config)
+
+    simRuntime.configure(config)
 
     configListStream.emit();
 
     return simRuntime.sim;
   }
 
-  function update(configInput: SimConfigInput) {
+  async function update(configInput: SimConfigInput) {
     if (!simulationRuntimes.has(configInput.id)) {
-      create(configInput);
+      await create(configInput);
     }
     const simRuntime = simulationRuntimes.get(configInput.id);
     if (!simRuntime) return; // should not happen
-    simRuntime.start(configInput);
+    simRuntime.configure(configInput);
+    await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     configListStream.emit();
 
     return simRuntime.sim;
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
     simulationRuntimes.delete(id);
     simRuntime.stop();
     configListStream.emit();
+    await storage.removeItem(`sims:${id}`);
   }
 
   function list(): Simulation[] {
@@ -77,17 +86,33 @@ export function createSimulationService() {
     return simulationRuntimes.get(id)?.simStream;
   }
 
-  function startSim(id: string) {
+  async function startSim(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
-    simRuntime.start();
+    simRuntime.configure({id, playing: true});
+    await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
   }
 
-  function stopSim(id: string) {
+  async function stopSim(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
-    simRuntime.stop();
+    simRuntime.configure({id, playing: false});
+    await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
   }
+
+  // load simConfigs, add and start simulations
+  const loadedKeys = await storage.getKeys("sims")
+
+  for (const key of loadedKeys) {
+    const config = await storage.getItem<SimConfig>(key);
+    if (config) {
+      console.log("loading sim", config)
+      const simRuntime = createSimulationRuntime(config);
+      simulationRuntimes.set(config.id, simRuntime);
+      simRuntime.configure(config)
+    }
+  }
+  configListStream.emit();
 
 
   return {

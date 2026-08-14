@@ -23,7 +23,8 @@ const simConfigInput = z.object({
   target: positionInput.optional(),
   initialDistance: number().optional(),
   initialAzimuth: number().optional(),
-  speed: z.number().default(10).optional()
+  speed: z.number().default(10).optional(),
+  playing: z.boolean().optional()
 });
 
 

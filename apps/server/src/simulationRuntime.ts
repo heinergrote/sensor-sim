@@ -17,6 +17,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
   const simStream = createEventStream<Simulation>(() => sim);
 
+
   function updateState(deltaMs: number) {
     if (sim.state) {
 
@@ -82,13 +83,21 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     simStream.emit();
   }
 
-  function start(newConfig?: SimConfigInput) {
+  function configure(newConfig: SimConfigInput) {
+    const {id: _, ...rest} = newConfig;
+    sim.config = {...sim.config, ...rest};
+
+    if (sim.config.playing) {
+      start();
+    } else {
+      stop();
+    }
+  }
+
+
+  function start() {
     stop()
 
-    if (newConfig) {
-      const {id: _, ...rest} = newConfig;
-      sim.config = {...sim.config, ...rest};
-    }
     // initial state
     sim.state = {
       id: sim.config.id,
@@ -104,6 +113,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     }, 100);
   }
 
+
   function stop() {
     if (!interval) return;
     sim.state = null;
@@ -112,7 +122,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
   }
 
   return {
-    sim,
+    sim, configure,
     start, stop, simStream
   };
 
