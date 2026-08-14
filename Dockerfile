@@ -48,7 +48,7 @@ ENV TRCP_PORT=4000
 ENV WS_PORT=4001
 ENV REST_PORT=4002
 
-CMD ["node", "dist/index.cjs"]
+CMD ["node", "dist/index.js"]
 
 # ── web (runtime) ─────────────────────────────────────────────────────────────
 # The Nitro/SolidStart .output directory is fully self-contained — no node_modules needed.
