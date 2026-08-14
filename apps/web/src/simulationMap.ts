@@ -29,7 +29,7 @@ export function createSimulationMap(
     })
 
     const currentMarker = new Marker({
-      draggable: true,
+      draggable: false,
       color: 'red'
     })
 

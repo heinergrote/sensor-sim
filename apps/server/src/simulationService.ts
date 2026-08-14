@@ -12,10 +12,7 @@ export async function createSimulationService() {
   const simulationRuntimes = new Map<string, SimulationRuntime>();
   const storage = getStorage()
 
-  async function get(id: string, createIfNotExists = false) {
-    if (!simulationRuntimes.has(id) && createIfNotExists) {
-      return create({id});
-    }
+  function get(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) throw new Error(`Sim ${id} not found`);
     return simRuntime.sim;
@@ -30,7 +27,7 @@ export async function createSimulationService() {
     const initialAzimuth = configInput.initialAzimuth ? configInput.initialAzimuth : Math.random() * 360;
     const type = configInput.type ? configInput.type : "follow";
     const speed = configInput.speed ? configInput.speed : 20;
-    const playing = configInput.playing ? configInput.playing : true;
+    const playing = configInput.playing ?? true;
 
     const config: SimConfig = {
       id: configInput.id,
@@ -43,37 +40,30 @@ export async function createSimulationService() {
     };
 
     const simRuntime = createSimulationRuntime(config);
-    simulationRuntimes.set(config.id, simRuntime);
-
     await storage.setItem(`sims:${config.id}`, config)
-
+    simulationRuntimes.set(config.id, simRuntime);
     simRuntime.configure(config)
-
     configListStream.emit();
 
     return simRuntime.sim;
   }
 
   async function update(configInput: SimConfigInput) {
-    if (!simulationRuntimes.has(configInput.id)) {
-      await create(configInput);
-    }
     const simRuntime = simulationRuntimes.get(configInput.id);
-    if (!simRuntime) return; // should not happen
+    if (!simRuntime) throw new Error(`Sim ${configInput.id} not found`);
     simRuntime.configure(configInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     configListStream.emit();
-
     return simRuntime.sim;
   }
 
   async function remove(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
+    await storage.removeItem(`sims:${id}`);
     simulationRuntimes.delete(id);
     simRuntime.stop();
     configListStream.emit();
-    await storage.removeItem(`sims:${id}`);
   }
 
   function list(): Simulation[] {
@@ -106,7 +96,6 @@ export async function createSimulationService() {
   for (const key of loadedKeys) {
     const config = await storage.getItem<SimConfig>(key);
     if (config) {
-      console.log("loading sim", config)
       const simRuntime = createSimulationRuntime(config);
       simulationRuntimes.set(config.id, simRuntime);
       simRuntime.configure(config)
