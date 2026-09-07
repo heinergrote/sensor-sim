@@ -1,7 +1,7 @@
 import type {SimConfig, Simulation} from "@sensor-sim/shared";
 import {createEventStream} from "./eventStream";
-import {getPosition} from "./util/getPosition";
-import {SimConfigInput} from "./trcp/appRouter";
+import {getDistanceAndAzimuth, getPosition} from "./util/getPosition";
+import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";
 
 export type SimulationRuntime = ReturnType<typeof createSimulationRuntime>
 
@@ -17,23 +17,10 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
   const simStream = createEventStream<Simulation>(() => sim);
 
-
   function updateState(deltaMs: number) {
     if (sim.state) {
 
       const {target, speed} = sim.config;
-
-      // const bearing = turf.bearing(
-      //   [current.longitude, current.latitude],
-      //   [target.longitude, target.latitude]
-      // )
-
-      // const currentDistance = turf.distance(
-      //   [target.longitude, target.latitude],
-      //   [current.longitude, current.latitude],
-      //   {units: "meters"}
-      // )
-
       const stepDistance = speed * deltaMs / 1000;
 
       switch (sim.config.type) {
@@ -83,15 +70,47 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     simStream.emit();
   }
 
-  function configure(newConfig: SimConfigInput) {
-    const {id: _, ...rest} = newConfig;
-    sim.config = {...sim.config, ...rest};
+  function configure(configInput: SimConfigInput) {
+    const {id: _, ...newConfig} = configInput;
+
+    sim.config = {...sim.config, ...newConfig};
 
     if (sim.config.playing) {
       start();
     } else {
       stop();
     }
+  }
+
+  function updateTarget(updateTargetInput: SimUpdateTargetInput) {
+    sim.config.target = updateTargetInput.target;
+
+    switch (sim.config.type) {
+      case 'circle':
+        // circle mode: simply restart with same initials
+        start();
+        break;
+      case "follow":
+        // follow mode: use current position to calculate new initial distance and azimuth
+        if (sim.state) {
+          const {current} = sim.state;
+          const {distance, azimuth} = getDistanceAndAzimuth(sim.config.target, current);
+          sim.config.initialDistance = distance;
+          sim.config.initialAzimuth = azimuth;
+          start()
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function updateCurrent(updateCurrentInput: SimUpdateCurrentInput) {
+    const {distance, azimuth} = getDistanceAndAzimuth(sim.config.target, updateCurrentInput.current);
+    stop();
+    sim.config.initialDistance = distance;
+    sim.config.initialAzimuth = azimuth;
+    start()
   }
 
 
@@ -122,7 +141,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
   }
 
   return {
-    sim, configure,
+    sim, configure, updateTarget, updateCurrent,
     start, stop, simStream
   };
 

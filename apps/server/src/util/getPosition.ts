@@ -9,3 +9,20 @@ export function getPosition(origin: Position, distance: number, azimuth: number)
     latitude: position.geometry.coordinates[1],
   };
 }
+
+export function getDistanceAndAzimuth(from: Position, to: Position): { distance: number, azimuth: number } {
+  const distance = turf.distance(
+    point([from.longitude, from.latitude]),
+    point([to.longitude, to.latitude]), {units: "meters"}
+  );
+  const azimuth = turf.bearing(
+    point([from.longitude, from.latitude]),
+    point([to.longitude, to.latitude])
+  );
+  return {
+    distance,
+    azimuth,
+  };
+}
+
+

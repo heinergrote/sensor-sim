@@ -15,7 +15,7 @@ const simIdInput = z.object({
 const positionInput = z.object({
   latitude: z.number(),
   longitude: z.number()
-}).optional();
+});
 
 const simConfigInput = z.object({
   id: z.string().min(1).max(64),
@@ -27,8 +27,21 @@ const simConfigInput = z.object({
   playing: z.boolean().optional()
 });
 
+const simUpdateTargetInput = z.object({
+  id: z.string().min(1).max(64),
+  target: positionInput,
+});
+
+
+const simUpdateCurrentInput = z.object({
+  id: z.string().min(1).max(64),
+  current: positionInput,
+});
 
 export type SimConfigInput = z.infer<typeof simConfigInput>;
+export type SimUpdateTargetInput = z.infer<typeof simUpdateTargetInput>;
+export type SimUpdateCurrentInput = z.infer<typeof simUpdateCurrentInput>;
+
 
 export const appRouter = router({
 
@@ -43,11 +56,18 @@ export const appRouter = router({
       return await simulationService.create(input);
     }),
 
-  updateSim: publicProcedure
-    .input(simConfigInput)
+  updateSimTarget: publicProcedure
+    .input(simUpdateTargetInput)
     .mutation(async ({input}) => {
-      await simulationService.update(input);
+      await simulationService.updateTarget(input);
     }),
+
+  updateSimCurrent: publicProcedure
+    .input(simUpdateCurrentInput)
+    .mutation(async ({input}) => {
+      await simulationService.updateCurrent(input);
+    }),
+
 
   deleteSim: publicProcedure
     .input(simIdInput)

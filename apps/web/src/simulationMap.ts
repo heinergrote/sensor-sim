@@ -1,7 +1,33 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {TRPCClient} from "@trpc/client";
 import type {AppRouter} from "@sensor-sim/server";
+
 //import {FeatureCollection} from "geojson";
+
+
+function createTargetMarkerElement(): HTMLElement {
+  const svgMarker = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://w3.org">
+     <circle cx="24" cy="24" r="22" fill="blue" fill-opacity="0.2" stroke="blue" stroke-width="2"/>
+     <circle cx="24" cy="24" r="2" fill="blue"/>
+  </svg>`;
+  const el = document.createElement('div');
+  el.innerHTML = svgMarker;
+  el.className = 'target-marker';
+  el.style.cursor = 'pointer';
+  return el;
+}
+
+function createCurrentMarkerElement(): HTMLElement {
+  const svgMarker = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://w3.org">
+     <circle cx="12" cy="12" r="11" fill="red" />
+  </svg>`;
+  const el = document.createElement('div');
+  el.innerHTML = svgMarker;
+  el.className = 'target-marker';
+  el.style.cursor = 'pointer';
+  return el;
+}
+
 
 export type SimulationMap = {
   map: MapLibre,
@@ -25,12 +51,14 @@ export function createSimulationMap(
 
     const targetMarker = new Marker({
       draggable: true,
-      color: 'blue'
+      element: createTargetMarkerElement(),
+      anchor: 'center',
     })
 
     const currentMarker = new Marker({
-      draggable: false,
-      color: 'red'
+      draggable: true,
+      element: createCurrentMarkerElement(),
+      anchor: 'center',
     })
 
 
@@ -40,18 +68,33 @@ export function createSimulationMap(
       targetMarker: null as Marker | null,
       currentMarker: null as Marker | null,
       draggingTarget: false,
+      draggingCurrent: false,
+
     }
 
     targetMarker.on('dragend', () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      client.updateSim.mutate({
+      client.updateSimTarget.mutate({
         id: id,
         target: {latitude: lngLat.lat, longitude: lngLat.lng}
       });
     });
     targetMarker.on('dragstart', () => {
       trackedSim.draggingTarget = true;
+    });
+
+
+    currentMarker.on('dragend', () => {
+      trackedSim.draggingCurrent = false;
+      const lngLat = currentMarker.getLngLat()
+      client.updateSimCurrent.mutate({
+        id: id,
+        current: {latitude: lngLat.lat, longitude: lngLat.lng}
+      });
+    });
+    currentMarker.on('dragstart', () => {
+      trackedSim.draggingCurrent = true;
     });
 
 
@@ -65,7 +108,6 @@ export function createSimulationMap(
           trackedSim.targetMarker = targetMarker
           targetMarker.setLngLat([data.config.target.longitude, data.config.target.latitude])
           trackedSim.targetMarker.addTo(map)
-          targetMarker.getElement().style.zIndex = "9999";
         }
 
         if (!trackedSim.draggingTarget)
@@ -73,15 +115,6 @@ export function createSimulationMap(
             [data.config.target.longitude, data.config.target.latitude]
           );
 
-        if (data.state) {
-          currentMarker.setLngLat([data.state.current.longitude, data.state.current.latitude])
-        }
-
-        if (!trackedSim.currentMarker && data.state) {
-          // add on first data received
-          trackedSim.currentMarker = currentMarker
-          trackedSim.currentMarker.addTo(map)
-        }
 
         if (trackedSim.currentMarker && !data.state) {
           // remove, when there is no state
@@ -89,6 +122,17 @@ export function createSimulationMap(
           trackedSim.currentMarker = null
         }
 
+
+        if (data.state && !trackedSim.draggingCurrent) {
+          currentMarker.setLngLat([data.state.current.longitude, data.state.current.latitude])
+        }
+
+        if (!trackedSim.currentMarker && data.state) {
+          // add on first data received
+          trackedSim.currentMarker = currentMarker
+          trackedSim.currentMarker.addTo(map)
+          currentMarker.getElement().style.zIndex = "9999";
+        }
 
       },
 

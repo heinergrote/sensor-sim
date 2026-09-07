@@ -1,5 +1,5 @@
 import {SimConfig, Simulation} from "@sensor-sim/shared";
-import {SimConfigInput} from "./trcp/appRouter";
+import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";
 import {createEventStream} from "./eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
@@ -48,14 +48,24 @@ export async function createSimulationService() {
     return simRuntime.sim;
   }
 
-  async function update(configInput: SimConfigInput) {
-    const simRuntime = simulationRuntimes.get(configInput.id);
-    if (!simRuntime) throw new Error(`Sim ${configInput.id} not found`);
-    simRuntime.configure(configInput);
+  async function updateTarget(updateTargetInput: SimUpdateTargetInput) {
+    const simRuntime = simulationRuntimes.get(updateTargetInput.id);
+    if (!simRuntime) throw new Error(`Sim ${updateTargetInput.id} not found`);
+    simRuntime.updateTarget(updateTargetInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     simListStream.emit();
     return simRuntime.sim;
   }
+
+  async function updateCurrent(updateCurrentInput: SimUpdateCurrentInput) {
+    const simRuntime = simulationRuntimes.get(updateCurrentInput.id);
+    if (!simRuntime) throw new Error(`Sim ${updateCurrentInput.id} not found`);
+    simRuntime.updateCurrent(updateCurrentInput);
+    await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
+    simListStream.emit();
+    return simRuntime.sim;
+  }
+
 
   async function remove(id: string) {
     const simRuntime = simulationRuntimes.get(id);
@@ -105,7 +115,8 @@ export async function createSimulationService() {
 
 
   return {
-    get, create, update, remove, list, simListStream,
+    get, create, updateTarget, updateCurrent,
+    remove, list, simListStream,
     startSim, stopSim, getSimStream
   };
 }

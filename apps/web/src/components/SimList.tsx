@@ -15,7 +15,7 @@ export function SimList(props: {}) {
 
   const [sims, setSims] = createSignal<Simulation[]>([])
   const [newSimId, setNewSimId] = createSignal<string>("")
-  const [newType, setNewType] = createSignal<"follow" | "circle">("circle")
+  const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
 
   createEffect(() => {
     const client = trpcService.client();
