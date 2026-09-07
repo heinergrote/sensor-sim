@@ -1,6 +1,7 @@
 import {createEffect, createSignal, For, onCleanup} from "solid-js";
 import {SimDetails} from "~/components/SimDetails";
 import {trpcService} from "~/trcpService";
+import {Simulation} from "@sensor-sim/shared";
 
 export function SimList(props: {}) {
 
@@ -12,7 +13,7 @@ export function SimList(props: {}) {
   //   }
   // );
 
-  const [sims, setSims] = createSignal<string[]>([])
+  const [sims, setSims] = createSignal<Simulation[]>([])
   const [newSimId, setNewSimId] = createSignal<string>("")
   const [newType, setNewType] = createSignal<"follow" | "circle">("circle")
 
@@ -41,7 +42,7 @@ export function SimList(props: {}) {
     const simArray = sims();
     // get the highest sim id, and set the next id in the form
     const highestSimId = simArray.reduce((acc, sim) => {
-      const simId = parseInt(sim.split("-")[1]);
+      const simId = parseInt(sim.config.id.split("-")[1]);
       return simId > acc ? simId : acc;
     }, 0);
     setNewSimId(`sim-${highestSimId + 1}`)
@@ -89,10 +90,10 @@ export function SimList(props: {}) {
           {(sim) => (
             <li class="list-row">
               <div>
-                {sim}
+                {sim.config.id}
               </div>
               <div>
-                <SimDetails id={sim}/>
+                <SimDetails id={sim.config.id}/>
               </div>
             </li>
           )}

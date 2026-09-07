@@ -31,7 +31,14 @@ Standalone Node.js simulation engine (`@sensor-sim/server`). Runs three independ
 
 ## Raw WebSocket (`src/ws/wsServer.ts`)
 
-Connect with `ws://host:4001?id=<simId>`. Sends `SimState` JSON on connect and on every update.
+Resource-oriented paths, mirroring the REST API:
+
+| Path | Payload | Update trigger |
+|------|---------|----------------|
+| `ws://host:4001/ws/sims` | `Simulation[]` | Configuration changes only (create / update / delete) |
+| `ws://host:4001/ws/sims/:id` | `Simulation` | Every position tick |
+
+Each connection immediately receives the current snapshot, then subsequent pushes on change.
 
 ## REST endpoints (`src/rest/restServer.ts`)
 

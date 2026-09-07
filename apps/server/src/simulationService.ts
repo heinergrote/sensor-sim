@@ -43,7 +43,7 @@ export async function createSimulationService() {
     await storage.setItem(`sims:${config.id}`, config)
     simulationRuntimes.set(config.id, simRuntime);
     simRuntime.configure(config)
-    configListStream.emit();
+    simListStream.emit();
 
     return simRuntime.sim;
   }
@@ -53,7 +53,7 @@ export async function createSimulationService() {
     if (!simRuntime) throw new Error(`Sim ${configInput.id} not found`);
     simRuntime.configure(configInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
-    configListStream.emit();
+    simListStream.emit();
     return simRuntime.sim;
   }
 
@@ -63,14 +63,14 @@ export async function createSimulationService() {
     await storage.removeItem(`sims:${id}`);
     simulationRuntimes.delete(id);
     simRuntime.stop();
-    configListStream.emit();
+    simListStream.emit();
   }
 
   function list(): Simulation[] {
     return [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
   }
 
-  const configListStream = createEventStream(() => [...simulationRuntimes.keys()]);
+  const simListStream = createEventStream(() => list());
 
   function getSimStream(id: string) {
     return simulationRuntimes.get(id)?.simStream;
@@ -101,11 +101,11 @@ export async function createSimulationService() {
       simRuntime.configure(config)
     }
   }
-  configListStream.emit();
+  simListStream.emit();
 
 
   return {
-    get, create, update, remove, list, configListStream,
+    get, create, update, remove, list, simListStream,
     startSim, stopSim, getSimStream
   };
 }

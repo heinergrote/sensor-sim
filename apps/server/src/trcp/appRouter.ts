@@ -68,7 +68,7 @@ export const appRouter = router({
     }),
 
   onSimListChange: publicProcedure
-    .subscription(() => simulationService.configListStream.collect()),
+    .subscription(() => simulationService.simListStream.collect()),
 
   onSimChange: publicProcedure
     .input(simIdInput)

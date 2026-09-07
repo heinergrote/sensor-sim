@@ -115,15 +115,14 @@ export function createSimulationMap(
   const listSub = client.onSimListChange.subscribe(
     undefined,
     {
-      onData: (ids) => {
-        console.log("onSimListChange", ids);
+      onData: (sims) => {
+        const simIds = sims.map(sim => sim.config.id);
         // subscribe new, unsubscribe deleted sims
-        ids.forEach(id => {
-          if (!trackedSims.has(id)) addSim(id);
+        simIds.forEach(simId => {
+          if (!trackedSims.has(simId)) addSim(simId);
         });
         trackedSims.forEach((_, id) => {
-          console.log("onSimListChange", id);
-          if (!ids.includes(id)) removeSim(id);
+          if (!simIds.includes(id)) removeSim(id);
         });
       },
       onError: (err) => console.error("onSimListChange error", err),
