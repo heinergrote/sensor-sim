@@ -1,33 +1,18 @@
 import {Hono} from "hono";
 import {serve} from "@hono/node-server";
-import {simulationService} from "../index";
+import maptiler from "./maptiler";
+import sims from "./sims";
+
 
 export function initRestServer(port: number) {
+
   const app = new Hono().basePath('/api');
 
-  app.get('/health', (c) =>
-    c.json({status: "ok", uptime: process.uptime()})
-  );
-
-  app.get('/sims', (c) => {
-    return c.json([...simulationService.list()]);
-  });
-
-  app.get('/sims/:id', (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-    return c.json(sim);
-  });
-
+  app.route("/maptiler", maptiler)
+  app.route("/sims", sims)
 
   serve(
-    {
-      fetch: app.fetch,
-      port
-    },
+    {fetch: app.fetch, port},
     (info) => console.log(`REST Server running on port ${info.port}`)
   );
 
