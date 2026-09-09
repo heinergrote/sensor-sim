@@ -1,4 +1,4 @@
-import type {SimConfig, Simulation} from "@sensor-sim/shared";
+import type {SimConfig, Simulation} from "@sensor-sim/server";
 import {createEventStream} from "./eventStream";
 import {getDistanceAndAzimuth, getPosition} from "./util/getPosition";
 import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";

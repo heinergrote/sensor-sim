@@ -1,4 +1,4 @@
-import {SimConfig, Simulation} from "@sensor-sim/shared";
+import {SimConfig, Simulation} from "@sensor-sim/server";
 import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";
 import {createEventStream} from "./eventStream";
 import {randomOffset} from "./util/randomOffset";

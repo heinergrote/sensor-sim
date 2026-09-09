@@ -1,6 +1,0 @@
-{
-  "name": "@sensor-sim/shared",
-  "type": "module",
-  "exports": "./src/index.ts",
-  "types": "./src/index.ts"
-}

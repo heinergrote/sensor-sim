@@ -17,3 +17,4 @@ initRestServer(restPort);
 
 export type AppRouter = typeof appRouter;
 
+export * from "./types";

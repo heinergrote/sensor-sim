@@ -4,4 +4,4 @@
 .git
 **/.env
 **/AGENTS.md
-/apps/server/data
+/packages/server/data

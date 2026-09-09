@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@sensor-sim/server": "workspace:*",
-    "@sensor-sim/shared": "workspace:*",
     "@solidjs/router": "^1.0.0",
     "@solidjs/start": "^2.0.0",
     "nitro": "^3.0.260903-beta",

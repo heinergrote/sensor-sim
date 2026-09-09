@@ -1,5 +1,4 @@
 import {createEffect, createSignal, onCleanup, Show} from "solid-js";
-import {Simulation} from "@sensor-sim/shared";
 import {trpcService} from "~/trcpService";
 import {
   TbFillPlayerPlay,
@@ -12,6 +11,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
+import {Simulation} from "@sensor-sim/server";
 
 export function SimDetails(props: { id: string }) {
 

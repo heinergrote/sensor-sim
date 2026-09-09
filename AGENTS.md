@@ -5,9 +5,8 @@ GPS simulation monorepo. Simulations move along routes or in circles and broadca
 ## Structure
 
 ```
-apps/server   – simulation engine with tRPC, WebSocket, and REST endpoints → apps/server/AGENTS.md
-apps/web      – SolidStart management UI and map proxy                      → apps/web/AGENTS.md
-packages/shared – shared TypeScript types (SimState, etc.)
+packages/server   – simulation engine with tRPC, WebSocket, and REST endpoints → packages/server/AGENTS.md
+packages/frontend      – SolidStart management UI and map proxy                → packages/frontend/AGENTS.md
 ```
 
 ## Workspace

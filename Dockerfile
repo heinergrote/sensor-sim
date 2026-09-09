@@ -12,21 +12,16 @@ RUN corepack enable pnpm
 WORKDIR /repo
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-
-COPY packages/shared/package.json ./packages/shared/
-
-COPY apps/server/package.json      ./apps/server/
-COPY apps/web/package.json         ./apps/web/
+COPY packages/server/package.json      ./packages/server/
+COPY packages/frontend/package.json    ./packages/frontend/
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # ── build ─────────────────────────────────────────────────────────────────────
 # Builds all apps in parallel via the root "build" script (pnpm --parallel -r build).
 FROM deps AS build
-
-COPY packages/shared  ./packages/shared
-COPY apps/server      ./apps/server
-COPY apps/web         ./apps/web
+COPY packages/server      ./packages/server
+COPY packages/frontend      ./packages/frontend
 
 RUN pnpm build
 
@@ -56,7 +51,7 @@ CMD ["node", "dist/index.js"]
 FROM node:24-slim AS web
 WORKDIR /app
 
-COPY --from=build /repo/apps/web/.output ./
+COPY --from=build /repo/packages/frontend/.output ./
 
 EXPOSE 3000
 

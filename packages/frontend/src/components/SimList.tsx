@@ -1,7 +1,7 @@
 import {createEffect, createSignal, For, onCleanup} from "solid-js";
 import {SimDetails} from "~/components/SimDetails";
 import {trpcService} from "~/trcpService";
-import {Simulation} from "@sensor-sim/shared";
+import {Simulation} from "@sensor-sim/server";
 
 export function SimList(props: {}) {
 
