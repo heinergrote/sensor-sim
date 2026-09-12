@@ -1,24 +1,20 @@
-import {useLocation} from "@solidjs/router";
-import {trpcService} from "~/trcpService";
-import {createSignal, onMount} from "solid-js";
+import {createSignal, onSettled} from "solid-js";
 import {TbFillHome} from "solid-icons/tb";
+import {serverUrl, setServerUrl} from "../simulationsService";
 
 
 export default function Nav() {
-  const location = useLocation();
-  const active = (path: string) => path == location.pathname ? "border-sky-600" : "border-transparent hover:border-sky-600";
 
-  const [inputUrl, setInputUrl] = createSignal(trpcService.url());
+  const [inputUrl, setInputUrl] = createSignal("");
+
+  onSettled(() => {
+    setInputUrl(serverUrl());
+  })
 
   const handleUrlSubmit = (e: SubmitEvent) => {
     e.preventDefault();
-    trpcService.setUrl(inputUrl());
+    setServerUrl(inputUrl());
   };
-
-  onMount(() => {
-    trpcService.initUrl();
-    setInputUrl(trpcService.url());
-  })
 
   return (
     <nav class="bg-gray-200">

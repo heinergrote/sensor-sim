@@ -1,6 +1,7 @@
 import {Hono} from 'hono'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
+
 const app = new Hono()
 
 app.get('/:path{.+$}', async (c) => {

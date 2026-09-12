@@ -2,13 +2,13 @@
 
 Standalone Node.js simulation engine (`@sensor-sim/server`). Runs three independent servers:
 
-| Server | Default port | Env var     | Notes                             |
-|--------|--------------|-------------|-----------------------------------|
-| tRPC   | 4000         | `TRCP_PORT` | HTTP queries + WS subscriptions   |
-| Raw WS | 4001         | `WS_PORT`   | Streams `SimState` JSON           |
-| REST   | 4002         | `REST_PORT` | Hono, health + sim read endpoints |
+| Server | Default port | Env var     | Notes                               |
+|--------|--------------|-------------|-------------------------------------|
+| tRPC   | 4000         | `TRCP_PORT` | HTTP queries + subscriptions        |
+| Raw WS | 4001         | `WS_PORT`   | Streams `SimState` JSON             |
+| REST   | 4002         | `REST_PORT` | Hono, sim read endpoints, map proxy |
 
-## tRPC procedures (`src/trcp/appRouter.ts`)
+## tRPC procedures (`src/trcp/schema.ts`)
 
 **Queries**
 
@@ -33,19 +33,19 @@ Standalone Node.js simulation engine (`@sensor-sim/server`). Runs three independ
 
 Resource-oriented paths, mirroring the REST API:
 
-| Path | Payload | Update trigger |
-|------|---------|----------------|
-| `ws://host:4001/ws/sims` | `Simulation[]` | Configuration changes only (create / update / delete) |
-| `ws://host:4001/ws/sims/:id` | `Simulation` | Every position tick |
+| Path                         | Payload        | Update trigger                                        |
+|------------------------------|----------------|-------------------------------------------------------|
+| `ws://host:4001/ws/sims`     | `Simulation[]` | Configuration changes only (create / update / delete) |
+| `ws://host:4001/ws/sims/:id` | `Simulation`   | Every position tick                                   |
 
 Each connection immediately receives the current snapshot, then subsequent pushes on change.
 
-## REST endpoints (`src/rest/restServer.ts`)
+## REST endpoints (`src/routes`)
 
 ```
-GET /api/health        → { status, uptime }
 GET /api/sims          → SimState[]
 GET /api/sims/:id      → SimState
+GET /api/maptiler/...  → MapTile proxy
 ```
 
 ## Dev & build

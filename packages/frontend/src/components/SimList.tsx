@@ -1,58 +1,33 @@
-import {createEffect, createSignal, For, onCleanup} from "solid-js";
-import {SimDetails} from "~/components/SimDetails";
-import {trpcService} from "~/trcpService";
+import {createEffect, createSignal, For} from "solid-js";
+import {SimDetails} from "./SimDetails";
+import {honoClient, simulations} from "../simulationsService";
 import {Simulation} from "@sensor-sim/server";
 
 export function SimList(props: {}) {
 
-  // const [sims, {refetch}] = createResource(
-  //   () => ({client: trpcService.client()}), // wrap source, to always be truthy -> always refetch
-  //   async ({client}) => {
-  //     if (!client) return [];
-  //     return await client.listSims.query();
-  //   }
-  // );
-
-  const [sims, setSims] = createSignal<Simulation[]>([])
   const [newSimId, setNewSimId] = createSignal<string>("")
   const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
 
-  createEffect(() => {
-    const client = trpcService.client();
-    if (!client) {
-      setSims([]);
-      return;
-    }
-
-    if (client) {
-      const unsubscribe = client.onSimListChange.subscribe(
-        undefined,
-        {
-          onData: (data) => setSims(data),
-          onError: (err) => console.error(err)
-        }
-      );
-
-      onCleanup(() => unsubscribe.unsubscribe());
-    }
-
-  })
-
-  createEffect(() => {
-    const simArray = sims();
-    // get the highest sim id, and set the next id in the form
-    const highestSimId = simArray.reduce((acc, sim) => {
+  const nextSimId = (sims: Simulation[]) => {
+    const highest = sims.reduce((acc, sim) => {
       const simId = parseInt(sim.config.id.split("-")[1]);
       return simId > acc ? simId : acc;
     }, 0);
-    setNewSimId(`sim-${highestSimId + 1}`)
-  })
+    return highest + 1;
+  }
+
+  createEffect(
+    () => nextSimId(simulations),
+    (id) => {
+      setNewSimId(`sim-${id}`)
+    })
 
   const handleCreateSim = (e: SubmitEvent) => {
     e.preventDefault();
-    const client = trpcService.client();
-    if (!client) return;
-    client.createSim.mutate({id: newSimId(), type: newType()})
+    const res = honoClient?.api.sims.create.$post({
+      json: {id: newSimId(), type: newType()}
+    })
+
   }
 
   return (
@@ -86,7 +61,7 @@ export function SimList(props: {}) {
 
 
       <ul class="list bg-base-100 rounded-box shadow-md">
-        <For each={sims()}>
+        <For each={simulations}>
           {(sim) => (
             <li class="list-row">
               <div>

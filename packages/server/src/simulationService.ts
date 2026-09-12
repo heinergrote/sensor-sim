@@ -1,6 +1,6 @@
 import {SimConfig, Simulation} from "@sensor-sim/server";
-import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";
-import {createEventStream} from "./eventStream";
+import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./schema";
+import {createEventStream} from "./util/eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
 import {getStorage} from "./storage";
@@ -113,6 +113,15 @@ export async function createSimulationService() {
   }
   simListStream.emit();
 
+
+  let lastTick = Date.now();
+
+  setInterval(() => {
+    const now = Date.now();
+    const deltaMs = now - lastTick;
+    lastTick = now;
+    simListStream.emit()
+  }, 200);
 
   return {
     get, create, updateTarget, updateCurrent,

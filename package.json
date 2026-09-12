@@ -1,9 +1,12 @@
 {
   "name": "sensor-sim-root",
   "scripts": {
-    "dev": "pnpm --parallel -r dev",
+    "dev": "concurrently -k \"pnpm:dev:server\" \"pnpm:dev:frontend\"",
     "dev:frontend": "pnpm --filter @sensor-sim/frontend dev",
     "dev:server": "pnpm --filter @sensor-sim/server dev",
     "build": "pnpm --parallel -r build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }

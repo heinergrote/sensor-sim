@@ -1,5 +1,5 @@
-import {SimList} from "~/components/SimList";
-import SimMap from "~/components/SimMap";
+import {SimList} from "./SimList";
+import SimMap from "./SimMap";
 
 export default function SimControl() {
 
