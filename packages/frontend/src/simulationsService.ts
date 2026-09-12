@@ -1,13 +1,34 @@
 import {hc} from 'hono/client'
 import {AppType, Simulation} from "@sensor-sim/server";
-import {createEffect, createRoot, createSignal, createStore, reconcile} from "solid-js";
+import {createStore, reconcile} from "solid-js";
 
 export type HonoClient = ReturnType<typeof hc<AppType>>
 export type SimulationsListener = (simulations: readonly Simulation[]) => void
 
-export const STORAGE_KEY = "server_url";
-export const [serverUrl, setServerUrl] = createSignal<string>(localStorage.getItem(STORAGE_KEY) || "");
-export let honoClient: HonoClient | null = null
+// The server is always reachable at a single, fixed origin: in development
+// the Hono server runs standalone on :4000 (separate from the Vite dev
+// server on :3000), and in production the server serves the built frontend
+// itself, so client and server share the same origin.
+export const serverUrl = import.meta.env.DEV ? "http://localhost:4000" : window.location.origin;
+
+export const honoClient: HonoClient = hc<AppType>(serverUrl);
+
+const wsUrl = serverUrl.replace(/^http/, "ws");
+const ws = new WebSocket(`${wsUrl}/ws/sims`)
+ws.onmessage = (event) => {
+  const newSims = JSON.parse(event.data) as Simulation[]
+  const newSimIds = newSims.map(sim => sim.config.id)
+
+  latestSimulations = newSims
+
+  setSimulations(reconcile(newSims, (sim) => {
+    return sim?.config?.id
+  }))
+
+  setSimulationIds(reconcile(newSimIds, null))
+  notifySimulationsListeners(newSims)
+}
+
 
 export const [simulationIds, setSimulationIds] = createStore<string[]>([])
 export const [simulations, setSimulations] = createStore<Simulation[]>([])
@@ -41,33 +62,3 @@ function notifySimulationsListeners(nextSimulations: readonly Simulation[]) {
 }
 
 
-createRoot(() => {
-  createEffect(
-    () => serverUrl().trim(),
-    (url) => {
-
-      localStorage.setItem(STORAGE_KEY, url);
-
-      honoClient = hc<AppType>(url);
-
-      const wsUrl = url.replace(/^http/, "ws");
-      const ws = new WebSocket(`${wsUrl}/ws/sims`)
-      ws.onmessage = (event) => {
-        const newSims = JSON.parse(event.data) as Simulation[]
-        const newSimIds = newSims.map(sim => sim.config.id)
-
-        latestSimulations = newSims
-
-        setSimulations(reconcile(newSims, (sim) => {
-          return sim?.config?.id
-        }))
-
-        setSimulationIds(reconcile(newSimIds, null))
-        notifySimulationsListeners(newSims)
-      }
-      return () => {
-        ws.close();
-        honoClient = null;
-      };
-    });
-});

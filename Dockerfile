@@ -1,12 +1,11 @@
 # Build context must be the repository root.
 #
-# Build a specific target:
-#   docker build --target server -t sensor-sim-server .
-#   docker build --target web    -t sensor-sim-web .
+# Build the image:
+#   docker build -t sensor-sim-server .
 
 # ── deps ──────────────────────────────────────────────────────────────────────
-# Shared install layer. apps/web imports AppRouter types from apps/server at
-# build time, so all manifests are needed here regardless of target.
+# Shared install layer. packages/frontend imports AppType from packages/server
+# at build time, so both manifests are needed here.
 FROM node:24-slim AS deps
 RUN corepack enable pnpm
 WORKDIR /repo
@@ -18,46 +17,37 @@ COPY packages/frontend/package.json    ./packages/frontend/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # ── build ─────────────────────────────────────────────────────────────────────
-# Builds all apps in parallel via the root "build" script (pnpm --parallel -r build).
+# Building the server also builds the frontend and bundles its static output
+# into packages/server/dist/public (see packages/server/scripts/copy-frontend.mjs),
+# so this single build step produces one self-contained server+frontend artifact.
 FROM deps AS build
 COPY packages/server      ./packages/server
 COPY packages/frontend      ./packages/frontend
 
-RUN pnpm build
+RUN pnpm --filter @sensor-sim/server build
 
-# ── deploy-server ─────────────────────────────────────────────────────────────
+# ── deploy ────────────────────────────────────────────────────────────────────
 # pnpm deploy produces a self-contained folder with only production node_modules.
-# package.json#files whitelist ensures only dist/ is copied (not src/).
-FROM build AS deploy-server
+# package.json#files whitelist ensures only dist/ (server code + bundled
+# frontend static assets) is copied, not src/.
+FROM build AS deploy
 
 RUN pnpm --filter @sensor-sim/server deploy --prod /deploy
 
 # ── server (runtime) ──────────────────────────────────────────────────────────
+# Serves both the API and the static frontend from a single process/origin.
 FROM node:24-slim AS server
 WORKDIR /app
 
-COPY --from=deploy-server /deploy ./
+COPY --from=deploy /deploy ./
 
-EXPOSE 4000 4001 4002
+EXPOSE 4000
 
-ENV TRCP_PORT=4000
-ENV WS_PORT=4001
-ENV REST_PORT=4002
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Configure at runtime, e.g.:
+# ENV MAPTILER_KEY=your_key_here
+# ENV STORAGE_DIR=/app/data/storage
 
 CMD ["node", "dist/index.js"]
-
-# ── web (runtime) ─────────────────────────────────────────────────────────────
-# The Nitro/SolidStart .output directory is fully self-contained — no node_modules needed.
-FROM node:24-slim AS web
-WORKDIR /app
-
-COPY --from=build /repo/packages/frontend/.output ./
-
-EXPOSE 3000
-
-ENV PORT=3000
-
-# Configure at runtime:
-# ENV MAPTILER_KEY=your_key_here
-
-CMD ["node", "server/index.mjs"]

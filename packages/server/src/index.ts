@@ -14,22 +14,21 @@ import {serveStatic} from "@hono/node-server/serve-static";
 
 console.log("Starting server -", process.env.NODE_ENV);
 
-const restPort = Number(process.env.REST_PORT) || 4000;
+const port = Number(process.env.PORT) || 4000;
 
 export const simulationService = await createSimulationService()
 
 const app = new Hono();
 
-app.use(
-  '*',
-  cors({
-    // Allows local testing in dev, but locks down to your real site in prod
-    origin: process.env.NODE_ENV === 'development'
-      ? 'http://localhost:3000'
-      : 'https://sensor-sim-web.h9e.de',
-    credentials: true,
-  })
-)
+if (process.env.NODE_ENV === 'development') {
+  app.use(
+    '*',
+    cors({
+      origin: 'http://localhost:3000',
+      credentials: true,
+    })
+  )
+}
 
 
 app.route("/api/maptiler", maptilerApp)
@@ -77,9 +76,13 @@ serve(
   {
     fetch: app.fetch,
     websocket: {server: wsServer},
-    port: restPort,
+    port: port,
   },
-  (info) => console.log(`Server running on port ${info.port}`)
+  (info) => {
+    console.log(`Server running on port ${info.port}`)
+    if (process.env.NODE_ENV === 'development')
+      console.log(`Frontend on: http://localhost:${info.port}`)
+  }
 );
 
 export type AppType = typeof apiSimsRoutes

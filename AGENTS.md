@@ -5,7 +5,7 @@ GPS simulation monorepo. Simulations move along routes or in circles and broadca
 ## Structure
 
 ```
-packages/server   – simulation engine with tRPC, WebSocket, and REST endpoints, including map proxy → packages/server/AGENTS.md
+packages/server   – simulation engine (Hono) with REST and WebSocket endpoints, including map proxy → packages/server/AGENTS.md
 packages/frontend – Solid JS V2 management UI → packages/frontend/AGENTS.md
 ```
 

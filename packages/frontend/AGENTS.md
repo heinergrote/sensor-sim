@@ -2,6 +2,28 @@
 
 This is a SolidJS 2.x project. Solid is not React: components run once (there is no re-render), reactivity is fine-grained through signals, and effects/memos have Solid-specific semantics. Do not port React patterns.
 
+## Architecture
+
+Single-page Solid app (`@sensor-sim/frontend`) that visualizes and controls simulations running on `@sensor-sim/server`. In dev it runs on Vite (default `:3000`) against the server on `:4000`; in production it's built to `dist/client` and served by the server itself from the same origin.
+
+- `src/router.ts` / `src/routes/` — filesystem-based routing (`filesystem-routing` + `@solidjs/router`). `routes/index.tsx` renders `SimControl`; `routes/[...404].tsx` is the catch-all.
+- `src/app.tsx` / `src/Document.tsx` — app shell: `Router`, page `<Title>`, `Nav`, and the HTML document wrapper.
+- `src/components/Nav.tsx` — top nav bar (home link, dev indicator).
+- `src/components/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).
+- `src/components/SimList.tsx` — create-sim form (id/type) plus a list of sim rows, each rendering a `SimDetails`. Reads live sims from the shared `simulations` store.
+- `src/components/SimDetails.tsx` — per-sim control card: shows config (type, target, distance/azimuth/speed) and live state (current position/distance/azimuth); start/stop/delete buttons call the Hono client.
+- `src/components/SimMap.tsx` — mounts a MapLibre instance via `createSimulationMap` on an element ref; disposes it on unmount.
+- `src/map/simulationMap.ts` — imperative MapLibre wrapper (outside Solid's reactivity). Tracks one target marker + one current-position marker per sim, updates them from the simulations listener, and posts `updateTarget`/`updateCurrent` on marker drag via the Hono client.
+- `src/simulationsService.ts` — the single source of live state for the whole app:
+  - Opens one WebSocket to `${serverUrl}/ws/sims` (server URL is `http://localhost:4000` in dev, `window.location.origin` in prod) and keeps two Solid stores in sync on every message: `simulations` (`Simulation[]`, reconciled by `config.id`) and `simulationIds` (`string[]`).
+  - Also maintains a plain (non-reactive) `latestSimulations` snapshot plus a listener registry (`addSimulationsListener`/`removeSimulationsListener`) for non-Solid consumers like `simulationMap.ts`.
+  - Exports `honoClient = hc<AppType>(serverUrl)` — the typed REST client (`AppType` imported from `@sensor-sim/server`) used everywhere for mutations: `create`, `updateTarget`, `updateCurrent`, `start`, `stop`, `delete` under `honoClient.api.sims`.
+- Components read reactive state from the Solid stores (`simulations`) and never poll REST for state — all live updates flow through the single WebSocket; REST calls are write-only (mutations).
+
+## Env vars
+
+- `VITE_MAP_STYLE` — MapLibre style URL (see `.env.development` / `.env.production`)
+
 ## Versioned skills (in node_modules — read on demand)
 
 The installed packages ship agent skills that match their exact installed versions:
