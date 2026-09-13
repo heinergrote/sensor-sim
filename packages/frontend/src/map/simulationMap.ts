@@ -4,7 +4,7 @@ import {addSimulationsListener, honoClient} from "../simulationsService";
 
 //import {FeatureCollection} from "geojson";
 
-const mapStyle = import.meta.env.VITE_MAP_STYLE || "/api/maptiler/maps/streets-v2/style.json";
+const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
 function createTargetMarkerElement(): HTMLElement {
   const svgMarker = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://w3.org">
