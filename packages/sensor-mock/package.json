@@ -1,6 +1,6 @@
 {
   "name": "sensor-mock",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Mock browser sensor APIs (starting with Geolocation) with live data streamed from a sensor-sim server, no browser extension required.",
   "keywords": [
     "geolocation",
