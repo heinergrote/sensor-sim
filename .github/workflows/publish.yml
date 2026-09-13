@@ -1,4 +1,4 @@
-name: Publish Docker Images
+name: Publish Docker Image
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
 
 jobs:
   publish:
-    name: Build & publish server and web images
+    name: Build & publish images
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,46 +31,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── server ──────────────────────────────────────────────────────────────
-
-      - name: Extract metadata for server image
+      - name: Extract metadata for image
         id: meta-server
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sensor-sim-server
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sensor-sim
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push server image
+      - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
-          target: server
           push: true
           tags: ${{ steps.meta-server.outputs.tags }}
           labels: ${{ steps.meta-server.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # ── web ─────────────────────────────────────────────────────────────────
-
-      - name: Extract metadata for web image
-        id: meta-web
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sensor-sim-web
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=sha-,format=short
-
-      - name: Build and push web image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          target: web
-          push: true
-          tags: ${{ steps.meta-web.outputs.tags }}
-          labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
