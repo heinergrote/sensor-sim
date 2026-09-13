@@ -22,7 +22,7 @@ Standalone Node.js simulation engine (`@sensor-sim/server`), a single Hono app s
 | Method | Path             | Body                          | Notes                                    |
 |--------|------------------|-------------------------------|-------------------------------------------|
 | GET    | `/`              | —                              | List all `Simulation[]`                   |
-| GET    | `/list`          | —                              | Same as `/` (alias)                       |
+| GET    | `/list`          | —                              | Same as `/` (alias). Must stay registered *before* `/:id` — Hono matches in registration order, so a sim whose id is literally `list` is unreachable via `/:id` |
 | GET    | `/:id`           | —                              | Single `Simulation`, 404 if missing        |
 | POST   | `/create`        | `simConfigInput`               | `type`: `follow` \| `circle`               |
 | POST   | `/updateTarget`  | `simUpdateTargetInput`         | Move target (follow: recomputes distance/azimuth from current position; circle: restarts orbit) |

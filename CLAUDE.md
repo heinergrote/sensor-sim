@@ -12,7 +12,7 @@ packages/frontend    – SolidJS 2.x management UI (MapLibre map, live sim contr
 packages/sensor-mock – standalone published npm package; patches navigator.geolocation in any web app with a live sim feed
 ```
 
-Per-package detail lives in `packages/server/AGENTS.md` and `packages/frontend/AGENTS.md` — read the relevant one before working in a package.
+Per-package detail lives in `packages/server/AGENTS.md` and `packages/frontend/AGENTS.md` — read the relevant one before working in a package. Each package also has a human-facing `README.md` covering its API, env vars and scripts.
 
 ## Commands
 
@@ -68,7 +68,7 @@ Two versioned agent skills ship inside `node_modules` and match the installed ve
 
 When debugging reactivity, capture evidence rather than guessing: `captureArtifact()` + the `@solidjs/diagnostics/vitest` matchers in tests, or the `/__solid/diagnostics` dev-server endpoint (needs `diagnostics: true` in `vite.config.ts`, currently `false`). Name your signals/memos/effects — attribution reports scopes by name.
 
-Routing is filesystem-based (`filesystem-routing` + `@solidjs/router`) over `src/routes`, with no `index.html` and no mount file: `@solidjs/vite-plugin`'s turnkey mode (`start: true`) generates entries around `src/App.tsx` and `src/Document.tsx`. Styling is Tailwind 4 + DaisyUI. `tRPC` still appears in dependencies but is no longer used — the code moved to the typed Hono client.
+Routing is filesystem-based (`filesystem-routing` + `@solidjs/router`) over `src/routes`, with no `index.html` and no mount file: `@solidjs/vite-plugin`'s turnkey mode (`start: true`) generates entries around `src/App.tsx` and `src/Document.tsx`. Styling is Tailwind 4 + DaisyUI.
 
 ## Env vars
 

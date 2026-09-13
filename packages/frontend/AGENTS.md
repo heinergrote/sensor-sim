@@ -7,7 +7,7 @@ This is a SolidJS 2.x project. Solid is not React: components run once (there is
 Single-page Solid app (`@sensor-sim/frontend`) that visualizes and controls simulations running on `@sensor-sim/server`. In dev it runs on Vite (default `:3000`) against the server on `:4000`; in production it's built to `dist/client` and served by the server itself from the same origin.
 
 - `src/router.ts` / `src/routes/` — filesystem-based routing (`filesystem-routing` + `@solidjs/router`). `routes/index.tsx` renders `SimControl`; `routes/[...404].tsx` is the catch-all.
-- `src/app.tsx` / `src/Document.tsx` — app shell: `Router`, page `<Title>`, `Nav`, and the HTML document wrapper.
+- `src/App.tsx` / `src/Document.tsx` — app shell: `Router`, page `<Title>`, `Nav`, and the HTML document wrapper.
 - `src/components/Nav.tsx` — top nav bar (home link, dev indicator).
 - `src/components/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).
 - `src/components/SimList.tsx` — create-sim form (id/type) plus a list of sim rows, each rendering a `SimDetails`. Reads live sims from the shared `simulations` store.

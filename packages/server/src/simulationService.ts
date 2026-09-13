@@ -12,10 +12,10 @@ export async function createSimulationService() {
   const simulationRuntimes = new Map<string, SimulationRuntime>();
   const storage = getStorage()
 
+  // Returns undefined for unknown ids so callers can answer with a 404
+  // instead of an unhandled throw turning into a 500.
   function get(id: string) {
-    const simRuntime = simulationRuntimes.get(id);
-    if (!simRuntime) throw new Error(`Sim ${id} not found`);
-    return simRuntime.sim;
+    return simulationRuntimes.get(id)?.sim;
   }
 
   async function create(configInput: SimConfigInput) {

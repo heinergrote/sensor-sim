@@ -1,110 +1,100 @@
-SolidJS V2 app (`@sensor-sim/frontend`). Manages simulations and displays live positions on a map.
+# @sensor-sim/frontend
+
+SolidJS 2.x management UI for sensor-sim. Create and control simulations, and
+watch their positions move live on a map.
+
+## Quick start
+
+From the repo root (`pnpm dev` starts this and the server together), or here:
+
+```bash
+pnpm dev      # vite dev server on http://localhost:3000
+pnpm build    # static build → dist/client
+pnpm serve    # preview the production build
+pnpm test     # vitest (jsdom)
+pnpm lint     # oxlint src
+```
+
+In development this app expects `@sensor-sim/server` to be running on
+`http://localhost:4000`. In production it is built to `dist/client` and served
+by that same server from the same origin — `vite build` emits a purely static
+site with no server dependencies of its own.
 
 ## Key dependencies
 
-- **SolidJS 2.0** — UI framework (and SSR, currently client only)
+- **SolidJS 2.0** — UI framework (client-only; SSR is one boolean away, see below)
 - **MapLibre GL** — interactive map rendering
-- **tRPC client** — typed communication with `apps/server`
-- **Tailwind CSS + DaisyUI** — styling
+- **Hono client** — typed REST calls to `@sensor-sim/server` via `hc<AppType>`
+- **Tailwind CSS 4 + DaisyUI** — styling
+- **oxlint** (with `eslint-plugin-solid`'s v2 config) — linting
 
 ## Environment variables
 
-| Variable         | Default      | Purpose               |
-|------------------|--------------|-----------------------|
-| `VITE_MAP_STYLE` | **Required** | URL of MapLibre Style |
+| Variable         | Default                                                 | Purpose               |
+|------------------|---------------------------------------------------------|-----------------------|
+| `VITE_MAP_STYLE` | `<origin>/api/maptiler/maps/streets-v2/style.json`       | URL of a MapLibre style |
 
----
+`.env.development` points at the dev server's proxy on `:4000`;
+`.env.production` is empty on purpose, so production falls back to the server's
+MapTiler proxy on its own origin. Either way the MapTiler API key stays
+server-side.
 
-## Created with Solid `basic` template
+## How data flows
 
-`bare` plus the app floors most projects want: `@solidjs/router` with file-system routes, per-page titles via
-`@solidjs/meta`, and a `vitest` test suite.
+- `src/simulationsService.ts` is the single source of live state. It opens **one**
+  WebSocket to `/ws/sims` and reconciles every message into Solid stores
+  (`simulations`, `simulationIds`), keyed by `config.id`. It also keeps a plain
+  non-reactive `latestSimulations` snapshot plus a listener registry for
+  consumers that live outside Solid's reactivity.
+- The same module exports `honoClient = hc<AppType>(serverUrl)`, where `AppType`
+  is imported from `@sensor-sim/server`. All mutations (`create`, `start`,
+  `stop`, `delete`, `updateTarget`, `updateCurrent`) go through it.
+- Components never poll and never fetch state: **reads come from the stores,
+  writes go over REST.**
+- `src/map/simulationMap.ts` is imperative MapLibre code deliberately outside
+  Solid's reactivity. It subscribes through the listener registry and posts
+  `updateTarget` / `updateCurrent` when a marker is dragged.
 
-**Deployment contract:** still zero server dependencies — `vite build` emits a purely static site; deploy `dist/client`
-to any static host.
+Because `AppType` is imported from the server's *source*, changing a server
+route or Zod schema changes this package's types immediately — no rebuild step
+in between.
 
-## How it works
+## Project shape
 
-There is no `index.html` and no mount file. `@solidjs/vite-plugin`'s turnkey mode (`start: true` in `vite.config.ts`)
-generates the entries around two conventions:
+There is no `index.html` and no mount file. `@solidjs/vite-plugin`'s turnkey
+mode (`start: true` in `vite.config.ts`) generates the entries around two
+conventions:
 
-- **`src/App.tsx`** — the app, router included. The `<Router>` wraps a shared nav and a `<Loading>` boundary; its routes
-  come from the file system (below).
-- **`src/Document.tsx`** — the document shell, the new `index.html`. Site-wide head tags go here; it is compiled only
-  into the prerendered static shell and adds **zero client-side JS**. Per-page head tags (`<Title>` from
+- **`src/App.tsx`** — the app, router included.
+- **`src/Document.tsx`** — the document shell, i.e. the new `index.html`.
+  Site-wide head tags go here; it compiles only into the prerendered static
+  shell and adds zero client-side JS. Per-page tags (`<Title>` from
   `@solidjs/meta`) live in the route modules.
 
-## File-system routing
+Routing is filesystem-based: `fileRoutes()` (from `filesystem-routing/vite`)
+scans `src/routes` and exposes it as the `virtual:file-routes` module, which
+`@solidjs/router/fs` turns into routes. `index.tsx` is `/`, `[...404].tsx`
+catches everything else, and pairing `foo.tsx` with a `foo/` directory makes it
+a layout. A module is a page only if it has a default export. Every route is
+code-split automatically.
 
-The `fileRoutes()` plugin (from `filesystem-routing/vite`) scans `src/routes` and exposes the result as the
-`virtual:file-routes` module, which `@solidjs/router/fs` turns into router routes inside `src/App.tsx`. You edit files
-under `src/routes`; the route table follows:
-
-- `index.tsx` is `/`, `users/[id].tsx` is `/users/:id`, `[...404].tsx` catches everything else.
-- Pairing `users.tsx` with the `users/` directory makes it a layout wrapping every page inside.
-- A module is a page when it has a **default export** (a file without one is not a route), and may export a `route`
-  config object — `src/routes/users/[id].tsx` uses `preload` to start its data fetch as navigation begins.
-
-Every route is code-split automatically; navigating loads only that page's module.
-
-## Data loading
-
-`src/routes/users/[id].tsx` shows the data pattern: a `query()` (from `@solidjs/router`) over a plain `fetch`, read
-through a memo. The surrounding `<Loading>` boundary in `App.tsx` shows its fallback until the promise settles, and
-`query()` caches by key so preload and render share one request. Swap the static `/users.json` for any API endpoint.
+To switch on streaming SSR, add `ssr: true` next to `start: true` in
+`vite.config.ts`; `App.tsx`, `Document.tsx` and the routes carry over unchanged
+(`<HydrationScript />` is already in the Document).
 
 ## Testing
 
-`vitest` runs component tests in jsdom via `@solidjs/testing-library` — add `*.test.tsx` files next to what they test.
-See `src/components/Counter.test.tsx` for the pattern; note Solid 2.0 batches DOM updates, so tests call `flush()` after
-firing events before asserting on the DOM.
+`vitest` runs component tests in jsdom via `@solidjs/testing-library` — add
+`*.test.tsx` files next to what they test. Note that Solid 2.0 batches DOM
+updates, so tests must `flush()` after firing events before asserting on the
+DOM.
 
-## Usage
+`@solidjs/diagnostics` is available for reactivity debugging — see
+[AGENTS.md](./AGENTS.md) for how to capture evidence instead of guessing.
 
-Those templates dependencies are maintained via [pnpm](https://pnpm.io) via `pnpm up -Lri`.
+## Notes for contributors
 
-This is the reason you see a `pnpm-lock.yaml`. That being said, any package manager will work. This file can be safely
-be removed once you clone a template.
-
-```bash
-$ npm install # or pnpm install or yarn install
-```
-
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
-
-## Available Scripts
-
-In the project directory, you can run:
-
-### `npm run dev` or `npm start`
-
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.<br>
-
-### `npm run build`
-
-Builds the static production site to `dist/client`, routes code-split.
-
-### `npm run serve`
-
-Serves the production build locally.
-
-### `npm test`
-
-Runs the test suite.
-
-## The `ssr` flip
-
-Streaming SSR is one boolean: add `ssr: true` next to `start: true` in `vite.config.ts`. `src/App.tsx`,
-`src/Document.tsx`, and the routes carry over unchanged — `<HydrationScript />` is already in place in the Document (in
-client mode it is stripped from the static shell).
-
-## Growing out of `basic`
-
-- **A server** (data loading via server functions, mutations, sessions, API routes) is the `fullstack` template — same
-  structure, more floors.
-- Want less? The `bare` template is the same shape without the router.
-
-## This project was created with the [Solid CLI](https://github.com/solidjs-community/solid-cli)
+Solid is **not** React: components run once, there is no re-render, and
+reactivity is fine-grained through signals. Don't port React patterns. See
+[AGENTS.md](./AGENTS.md) for the details that matter most when changing this
+package.
