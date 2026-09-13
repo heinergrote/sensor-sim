@@ -1,5 +1,7 @@
 # sensor-sim
 
+(Work in progress, but should work)
+
 GPS simulation for testing location-aware apps. Create simulated devices that
 move toward a target or orbit a point, watch them live on a map, and feed their
 positions into your own app as if they came from a real GPS.
