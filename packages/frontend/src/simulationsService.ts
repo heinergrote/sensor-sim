@@ -2,7 +2,6 @@ import {hc} from 'hono/client'
 import {AppType, Simulation} from "@sensor-sim/server";
 import {createStore, reconcile} from "solid-js";
 
-export type HonoClient = ReturnType<typeof hc<AppType>>
 export type SimulationsListener = (simulations: readonly Simulation[]) => void
 
 // The server is always reachable at a single, fixed origin: in development
@@ -11,11 +10,10 @@ export type SimulationsListener = (simulations: readonly Simulation[]) => void
 // itself, so client and server share the same origin.
 export const serverUrl = import.meta.env.DEV ? "http://localhost:4000" : window.location.origin;
 
-export const honoClient: HonoClient = hc<AppType>(serverUrl);
+export const honoClient = hc<AppType>(serverUrl);
 
-const wsUrl = serverUrl.replace(/^http/, "ws");
-const ws = new WebSocket(`${wsUrl}/ws/sims`)
-ws.onmessage = (event) => {
+const socket = honoClient.ws.sims.$ws()
+socket.onmessage = (event) => {
   const newSims = JSON.parse(event.data) as Simulation[]
   const newSimIds = newSims.map(sim => sim.config.id)
 

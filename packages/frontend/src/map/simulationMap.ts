@@ -4,6 +4,7 @@ import {addSimulationsListener, honoClient} from "../simulationsService";
 
 //import {FeatureCollection} from "geojson";
 
+const mapStyle = import.meta.env.VITE_MAP_STYLE || "/api/maptiler/maps/streets-v2/style.json";
 
 function createTargetMarkerElement(): HTMLElement {
   const svgMarker = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://w3.org">
@@ -51,7 +52,7 @@ export function createSimulationMap(
 
   const map = new MapLibre({
     container: element,
-    style: import.meta.env.VITE_MAP_STYLE,
+    style: mapStyle,
     center: [10.523783, 52.264683],
     zoom: 16,
     canvasContextAttributes: {
@@ -69,7 +70,7 @@ export function createSimulationMap(
   }), 'bottom-right');
 
   map.on('load', () => {
-    console.log("Map ready", import.meta.env.VITE_MAP_STYLE)
+    console.log("Map ready", mapStyle)
   });
 
   const trackedSims = new Map<string, TrackedSim>();
@@ -129,7 +130,7 @@ export function createSimulationMap(
     targetMarker.on('dragend', () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      honoClient?.api.sims.updateTarget.$post({
+      honoClient.api.sims.updateTarget.$post({
         json: {
           id: id,
           target: {latitude: lngLat.lat, longitude: lngLat.lng}
@@ -144,7 +145,7 @@ export function createSimulationMap(
     currentMarker.on('dragend', () => {
       trackedSim.draggingCurrent = false;
       const lngLat = currentMarker.getLngLat()
-      honoClient?.api.sims.updateCurrent.$post({
+      honoClient.api.sims.updateCurrent.$post({
         json: {
           id: id,
           current: {latitude: lngLat.lat, longitude: lngLat.lng}
@@ -159,7 +160,7 @@ export function createSimulationMap(
 
   }
 
-  
+
   function updateSims(sims: readonly Simulation[]) {
     // add new, remove deleted sims
     sims.forEach(sim => {

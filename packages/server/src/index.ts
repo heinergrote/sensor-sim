@@ -30,10 +30,10 @@ if (process.env.NODE_ENV === 'development') {
   )
 }
 
-
-app.route("/api/maptiler", maptilerApp)
-app.route("/ws/sims", simsWebsocketApp)
-const apiSimsRoutes = app.route('/api/sims', simsApp)
+const apiRoutes = app
+  .route("/api/maptiler", maptilerApp)
+  .route("/ws/sims", simsWebsocketApp)
+  .route('/api/sims', simsApp)
 
 // Serve the built frontend from the same origin/process. Two possible
 // locations, checked in order:
@@ -85,7 +85,7 @@ serve(
   }
 );
 
-export type AppType = typeof apiSimsRoutes
+export type AppType = typeof apiRoutes
 
 export * from "./types";
 

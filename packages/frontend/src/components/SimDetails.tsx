@@ -21,19 +21,19 @@ export function SimDetails(props: { id: string }) {
   })
 
   const handleStartSim = (id: string) => {
-    honoClient?.api.sims.start.$post({
+    honoClient.api.sims.start.$post({
       json: {id}
     })
   }
 
   const handleStopSim = (id: string) => {
-    honoClient?.api.sims.stop.$post({
+    honoClient.api.sims.stop.$post({
       json: {id}
     })
   }
 
   const handleDeleteSim = (id: string) => {
-    honoClient?.api.sims.delete.$post({
+    honoClient.api.sims.delete.$post({
       json: {id}
     })
   }

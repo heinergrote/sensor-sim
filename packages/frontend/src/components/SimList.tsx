@@ -24,7 +24,7 @@ export function SimList(props: {}) {
 
   const handleCreateSim = (e: SubmitEvent) => {
     e.preventDefault();
-    const res = honoClient?.api.sims.create.$post({
+    const res = honoClient.api.sims.create.$post({
       json: {id: newSimId(), type: newType()}
     })
 
