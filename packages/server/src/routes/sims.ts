@@ -9,13 +9,6 @@ const app = new Hono()
     return c.json([...simulationService.list()]);
   })
 
-  // Must stay registered before '/:id' — Hono matches in registration order,
-  // so a '/:id' declared first would swallow '/list' as id="list".
-  .get('/list', (c) => {
-    const sims = simulationService.list()
-    return c.json(sims)
-  })
-
   .get('/:id', (c) => {
     const id = c.req.param('id');
     const sim = simulationService.get(id);

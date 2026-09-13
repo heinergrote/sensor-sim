@@ -23,12 +23,12 @@ sibling packages at runtime.
 
 ## Environment variables
 
-| Variable        | Default           | Purpose                                                        |
-|-----------------|-------------------|----------------------------------------------------------------|
-| `PORT`          | `4000`            | HTTP port (shared by REST, WebSockets and static files)         |
-| `NODE_ENV`      | —                 | `development` enables CORS for the Vite dev server on `:3000`   |
-| `STORAGE_DIR`   | `./data/storage`  | Where simulation configs are persisted (resolved from `cwd`)    |
-| `MAPTILER_KEY`  | —                 | Required for `/api/maptiler`; without it the proxy returns 500  |
+| Variable       | Default          | Purpose                                                        |
+|----------------|------------------|----------------------------------------------------------------|
+| `PORT`         | `4000`           | HTTP port (shared by REST, WebSockets and static files)        |
+| `NODE_ENV`     | —                | `development` enables CORS for the Vite dev server on `:3000`  |
+| `STORAGE_DIR`  | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)   |
+| `MAPTILER_KEY` | —                | Required for `/api/maptiler`; without it the proxy returns 500 |
 
 `.env` files are loaded via `dotenv/config`.
 
@@ -56,28 +56,23 @@ Position math is geodesic, via `@turf/turf` (`util/getPosition.ts`).
 
 All inputs are validated with Zod (`src/schema.ts`).
 
-| Method | Path             | Body                    | Result                                                      |
-|--------|------------------|-------------------------|-------------------------------------------------------------|
-| GET    | `/`              | —                       | `Simulation[]`                                              |
-| GET    | `/list`          | —                       | Same as `/`                                                 |
-| GET    | `/:id`           | —                       | A single `Simulation`, or `404` with `{ error }` if unknown  |
-| POST   | `/create`        | `simConfigInput`        | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
-| POST   | `/updateTarget`  | `{ id, target }`        | Moves the target. `follow` recomputes distance/azimuth from the current position so motion continues smoothly; `circle` restarts the orbit |
-| POST   | `/updateCurrent` | `{ id, current }`       | Teleports the current position and recomputes the config from it |
-| POST   | `/start`         | `{ id }`                | Resumes a stopped simulation (fresh state from config)       |
-| POST   | `/stop`          | `{ id }`                | Pauses it — config is kept and persisted, `state` becomes `null` |
-| POST   | `/delete`        | `{ id }`                | Removes the simulation and its persisted config              |
-
-`/list` must stay registered before `/:id` in `routes/sims.ts`, because Hono
-matches in registration order. One consequence: a simulation whose id is
-literally `list` can't be fetched through `/:id`.
+| Method | Path             | Body              | Result                                                                                                                                                                |
+|--------|------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/`              | —                 | `Simulation[]`                                                                                                                                                        |
+| GET    | `/:id`           | —                 | A single `Simulation`, or `404` with `{ error }` if unknown                                                                                                           |
+| POST   | `/create`        | `simConfigInput`  | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
+| POST   | `/updateTarget`  | `{ id, target }`  | Moves the target. `follow` recomputes distance/azimuth from the current position so motion continues smoothly; `circle` restarts the orbit                            |
+| POST   | `/updateCurrent` | `{ id, current }` | Teleports the current position and recomputes the config from it                                                                                                      |
+| POST   | `/start`         | `{ id }`          | Resumes a stopped simulation (fresh state from config)                                                                                                                |
+| POST   | `/stop`          | `{ id }`          | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                      |
+| POST   | `/delete`        | `{ id }`          | Removes the simulation and its persisted config                                                                                                                       |
 
 ## WebSocket API — `/ws/sims`
 
-| Path            | Payload        | Emitted when                                            |
-|-----------------|----------------|---------------------------------------------------------|
-| `/ws/sims`      | `Simulation[]` | Any create/update/delete, plus a 200 ms re-emit of the whole list |
-| `/ws/sims/:id`  | `Simulation`   | Every tick of that simulation while it is playing        |
+| Path           | Payload        | Emitted when                                                      |
+|----------------|----------------|-------------------------------------------------------------------|
+| `/ws/sims`     | `Simulation[]` | Any create/update/delete, plus a 200 ms re-emit of the whole list |
+| `/ws/sims/:id` | `Simulation`   | Every tick of that simulation while it is playing                 |
 
 Both are **push-only**: a client receives a snapshot as soon as it connects and
 then keeps receiving them. There is no request/response and nothing to poll —
