@@ -18,11 +18,6 @@ const app = new Hono()
     return c.json(sim);
   })
 
-  .get('/list', (c) => {
-    const sims = simulationService.list()
-    return c.json(sims)
-  })
-
   .post('/create', zValidator('json', simConfigInput), async (c) => {
     const input = c.req.valid('json')
     console.log("createSim", input)
