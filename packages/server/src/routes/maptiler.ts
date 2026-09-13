@@ -51,10 +51,12 @@ const app = new Hono()
       // them), so we can't rewrite to root-relative paths. Instead, rebuild the origin
       // from forwarding headers when present, so a TLS-terminating reverse proxy in
       // front of this (http) server still produces https:// URLs for the browser.
-      const reqUrl = new URL(c.req.url)
-      const protocol = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim() || reqUrl.protocol.replace(':', '')
-      const host = c.req.header('x-forwarded-host')?.split(',')[0]?.trim() || reqUrl.host
-      const origin = `${protocol}://${host}`
+      const originUrl = new URL(c.req.url)
+      const forwardedProto = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim()
+      const forwardedHost = c.req.header('x-forwarded-host')?.split(',')[0]?.trim()
+      if (forwardedProto) originUrl.protocol = forwardedProto
+      if (forwardedHost) originUrl.host = forwardedHost
+      const origin = originUrl.origin
       body = body.replace(/https:\/\/api\.maptiler\.com\//g, `${origin}/api/maptiler/`)
 
       // Strip embedded key params
