@@ -47,8 +47,14 @@ const app = new Hono()
     if (contentType.includes("application/json")) {
       let body = await upstreamResponse.text()
 
-      // Rewrite MapTiler absolute URLs to point to this Hono instance proxy route
-      const origin = new URL(c.req.url).origin
+      // MapLibre requires sprite/glyph URLs to be absolute (it calls `new URL()` on
+      // them), so we can't rewrite to root-relative paths. Instead, rebuild the origin
+      // from forwarding headers when present, so a TLS-terminating reverse proxy in
+      // front of this (http) server still produces https:// URLs for the browser.
+      const reqUrl = new URL(c.req.url)
+      const protocol = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim() || reqUrl.protocol.replace(':', '')
+      const host = c.req.header('x-forwarded-host')?.split(',')[0]?.trim() || reqUrl.host
+      const origin = `${protocol}://${host}`
       body = body.replace(/https:\/\/api\.maptiler\.com\//g, `${origin}/api/maptiler/`)
 
       // Strip embedded key params
