@@ -9,27 +9,30 @@
   ],
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm --filter @sensor-sim/frontend build && pnpm typecheck && tsup src/index.ts && node ./scripts/copy-frontend.mjs",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.12",
+    "@hono/trpc-server": "^0.4.2",
+    "@hono/zod-validator": "^0.9.1",
     "@trpc/server": "^11.18.0",
     "@turf/turf": "7.3.5",
     "cors": "^2.8.6",
     "dotenv": "17.4.2",
     "geolib": "^3.3.14",
     "hono": "^4.12.34",
+    "unstorage": "^1.17.5",
     "ws": "^8.21.1",
-    "zod": "^4.4.3",
-    "unstorage": "^1.17.5"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/node": "^26.1.2",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.23.5",
     "tsup": "^8.5.0",
+    "tsx": "^4.23.5",
     "typescript": "^6.0.3"
   }
 }

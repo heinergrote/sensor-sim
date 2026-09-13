@@ -1,5 +1,4 @@
-import {createEffect, createSignal, onCleanup, Show} from "solid-js";
-import {trpcService} from "~/trcpService";
+import {createMemo, Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerSkipBack,
@@ -11,49 +10,32 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {Simulation} from "@sensor-sim/server";
+import {honoClient, simulations} from "../simulationsService";
 
 export function SimDetails(props: { id: string }) {
 
-  const [sim, setSim] = createSignal<Simulation | undefined>(undefined);
-
-  createEffect(() => {
-    const client = trpcService.client();
-    if (!client) {
-      setSim(undefined);
-      return;
-    }
-
-    if (client) {
-      const unsubscribe = client.onSimChange.subscribe(
-        {id: props.id},
-        {
-          onData: (data) => setSim(data),
-          onError: (err) => console.error(err)
-        }
-      );
-
-      onCleanup(() => unsubscribe.unsubscribe());
-    }
-
+  const sim = createMemo(() => {
+    return simulations.find(
+      (sim) => sim.config.id === props.id
+    )
   })
 
   const handleStartSim = (id: string) => {
-    const client = trpcService.client();
-    if (!client) return;
-    client.startSim.mutate({id})
+    honoClient?.api.sims.start.$post({
+      json: {id}
+    })
   }
 
   const handleStopSim = (id: string) => {
-    const client = trpcService.client();
-    if (!client) return;
-    client.stopSim.mutate({id})
+    honoClient?.api.sims.stop.$post({
+      json: {id}
+    })
   }
 
   const handleDeleteSim = (id: string) => {
-    const client = trpcService.client();
-    if (!client) return;
-    client.deleteSim.mutate({id})
+    honoClient?.api.sims.delete.$post({
+      json: {id}
+    })
   }
 
   return (

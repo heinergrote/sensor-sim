@@ -1,7 +1,7 @@
 import type {SimConfig, Simulation} from "@sensor-sim/server";
-import {createEventStream} from "./eventStream";
+import {createEventStream} from "./util/eventStream";
 import {getDistanceAndAzimuth, getPosition} from "./util/getPosition";
-import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./trcp/appRouter";
+import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./schema";
 
 export type SimulationRuntime = ReturnType<typeof createSimulationRuntime>
 
@@ -129,7 +129,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
     interval = setInterval(() => {
       tick()
-    }, 100);
+    }, 200);
   }
 
 

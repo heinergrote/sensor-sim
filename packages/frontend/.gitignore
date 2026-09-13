@@ -4,7 +4,24 @@ dist
 .vercel
 .netlify
 .vinxi
-.nitro
-.solid-start
 app.config.timestamp_*.js
 
+# Environment
+.env*
+
+# dependencies
+/node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+*.launch
+.settings/
+
+# Temp
+gitignore
+
+# System Files
+.DS_Store
+Thumbs.db

@@ -1,6 +1,13 @@
 // utility functions for creating event streams in the server application.
 
-export function createEventStream<T>(get: (options?: any) => T) {
+export type EventStream<T> = {
+  emit: () => void;
+  collect: () => AsyncGenerator<T>;
+  get: () => T;
+}
+
+
+export function createEventStream<T>(get: (options?: any) => T): EventStream<T> {
   const collectors = new Set<() => void>();
 
   function emit() {

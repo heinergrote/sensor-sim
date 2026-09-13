@@ -3,16 +3,10 @@ services:
     image: ghcr.io/heinergrote/sensor-sim-server:latest
     env_file: .env
     ports:
-      - "${TRCP_PORT:-4000}:${TRCP_PORT:-4000}"
-      - "${WS_PORT:-4001}:${WS_PORT:-4001}"
-      - "${REST_PORT:-4002}:${REST_PORT:-4002}"
+      - "${PORT:-4000}:${PORT:-4000}"
+    volumes:
+      - sensor-sim-data:/app/data/storage
     restart: unless-stopped
 
-  web:
-    image: ghcr.io/heinergrote/sensor-sim-web:latest
-    env_file: .env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - server
-    restart: unless-stopped
+volumes:
+  sensor-sim-data:
