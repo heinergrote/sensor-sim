@@ -1,5 +1,5 @@
 import {SimConfig, Simulation} from "@sensor-sim/server";
-import {SimConfigInput, SimUpdateCurrentInput} from "./schema";
+import {SimConfigInput, SimUpdateCurrentInput} from "./zodSchema";
 import {createEventStream} from "./util/eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";

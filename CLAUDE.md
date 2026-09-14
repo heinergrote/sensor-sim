@@ -48,7 +48,8 @@ only when `NODE_ENV=development`. The frontend picks its base URL accordingly
 
 **Types cross the package boundary through source, not a build.** `@sensor-sim/server`'s `exports` points at
 `./src/index.ts`, and it re-exports `AppType` (the Hono route tree) plus the domain types. The frontend consumes that
-with `hc<AppType>(serverUrl)`. Consequence: **editing `packages/server/src/routes/*` or `schema.ts` immediately changes
+with `hc<AppType>(serverUrl)`. Consequence: **editing `packages/server/src/routes/*` or `zodSchema.ts` immediately
+changes
 frontend types** — check both sides, and note the Docker build needs both package manifests present for this reason.
 
 **Push-only state, write-only REST.** All live state reaches clients via WebSocket; REST is used exclusively for
@@ -56,7 +57,7 @@ mutations. Nothing polls.
 
 - `util/eventStream.ts` is a tiny pub/sub whose `.collect()` yields an async generator, consumed directly by the WS
   handlers.
-- `simulationService.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` via `unstorage` (fs driver,
+- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` via `unstorage` (fs driver,
   `STORAGE_DIR`) so sims survive restarts, and re-emits the sim list every 200ms so list snapshots stay fresh even
   without config changes.
 - `simulationRuntime.ts` runs a per-sim 200ms tick advancing `SimState` with geodesic math (`geolib`/`@turf/turf`).

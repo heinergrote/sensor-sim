@@ -4,9 +4,15 @@ import {EventStream} from "../util/eventStream";
 import {Simulation} from "../types";
 import {simulationService} from "../index";
 
-const app = new Hono<{ Variables: { simId: string, simStream: EventStream<Simulation> } }>()
-  .get(
-    '/',
+type Vars = {
+  simId: string,
+  simStream: EventStream<Simulation>
+}
+
+const app = new Hono<{ Variables: Vars }>()
+
+  .get('/',
+    
     upgradeWebSocket((c) => {
       const stream = simulationService.simListStream.collect()
       return {
@@ -26,9 +32,8 @@ const app = new Hono<{ Variables: { simId: string, simStream: EventStream<Simula
       }
     })
   )
-  .get(
-    '/:id',
-    (c, next) => {
+
+  .get('/:id', async (c, next) => {
       const simId = c.req.param('id') || ""
       const simStream = simulationService.getSimStream(simId);
 
@@ -37,10 +42,10 @@ const app = new Hono<{ Variables: { simId: string, simStream: EventStream<Simula
       }
       c.set('simId', simId)
       c.set('simStream', simStream)
-      next()
+      await next()
     },
 
-    upgradeWebSocket((c) => {
+    upgradeWebSocket(async (c) => {
 
       const simId = c.get('simId') as string;
       const simStream = c.get('simStream') as EventStream<Simulation>;
@@ -56,9 +61,9 @@ const app = new Hono<{ Variables: { simId: string, simStream: EventStream<Simula
         onMessage(event, ws) {
           console.log(`Message from client: ${event.data}`)
         },
-        onClose: () => {
+        onClose: async () => {
           console.log('WS: closing stream for sim details, simId: ', simId);
-          simStreamGenerator.return(undefined)
+          await simStreamGenerator.return(undefined)
         },
       }
     })

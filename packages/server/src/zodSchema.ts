@@ -34,3 +34,20 @@ export type SimConfigInput = z.infer<typeof simConfigInput>;
 export type SimUpdateCurrentInput = z.infer<typeof simUpdateCurrentInput>;
 
 
+export const userInput = z.object({
+  username: z.string().trim(),
+  password: z.string().trim().optional(),
+  admin: z.boolean().default(false),
+});
+
+
+export const userUpdate = userInput.partial();
+
+
+export type UserInput = z.infer<typeof userInput>;
+export type UserUpdate = z.infer<typeof userUpdate>;
+
+
+
+
+

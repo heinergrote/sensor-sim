@@ -1,6 +1,6 @@
 import type {SimConfig, Simulation} from "@sensor-sim/server";
 import {createEventStream} from "./util/eventStream";
-import {SimConfigInput, SimUpdateCurrentInput} from "./schema";
+import {SimConfigInput, SimUpdateCurrentInput} from "./zodSchema";
 import {getAzimuth, getDistance, getPosition} from "./util/geoCalc";
 
 export type SimulationRuntime = ReturnType<typeof createSimulationRuntime>

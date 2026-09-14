@@ -1,0 +1,30 @@
+GET {{baseUrl}}/api/users
+
+###
+
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "username": "foo2",
+  "password": "bar2"
+}
+
+###
+
+GET {{baseUrl}}/api/users/2
+
+###
+
+PUT {{baseUrl}}/api/users/2
+Content-Type: application/json
+
+{
+  "username": "xyz"
+}
+
+###
+
+DELETE {{baseUrl}}/api/users/2
+
+###

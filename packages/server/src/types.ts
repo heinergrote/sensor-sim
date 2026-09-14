@@ -1,3 +1,5 @@
+import {users} from "./db/schema";
+
 export type Position = {
   latitude: number;
   longitude: number;
@@ -26,3 +28,4 @@ export type Simulation = {
   state: SimState | null,
 }
 
+export type User = typeof users.$inferSelect;

@@ -2,15 +2,21 @@ import "dotenv/config";
 import {existsSync} from "node:fs";
 import {readFile} from "node:fs/promises";
 import path from "node:path";
-import {createSimulationService} from "./simulationService";
+import {createSimulationService} from "./simulations.service";
 import {Hono} from "hono";
 import {cors} from "hono/cors";
 import maptilerApp from "./routes/maptiler";
 import simsApp from "./routes/sims";
+import usersApp from "./routes/users";
 import simsWebsocketApp from "./routes/simsWebsocket";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
+import dbInit from "./db/dbInit";
+
+console.log("Init DB", process.env.DATABASE_URL);
+
+await dbInit()
 
 console.log("Starting server -", process.env.NODE_ENV);
 
@@ -34,6 +40,7 @@ const apiRoutes = app
   .route("/api/maptiler", maptilerApp)
   .route("/ws/sims", simsWebsocketApp)
   .route('/api/sims', simsApp)
+  .route('/api/users', usersApp)
 
 // Serve the built frontend from the same origin/process. Two possible
 // locations, checked in order:
@@ -80,8 +87,8 @@ serve(
   },
   (info) => {
     console.log(`Server running on port ${info.port}`)
-    if (process.env.NODE_ENV === 'development')
-      console.log(`Frontend on: http://localhost:${info.port}`)
+    //if (process.env.NODE_ENV === 'development')
+    //  console.log(`Frontend on: http://localhost:${info.port}`)
   }
 );
 

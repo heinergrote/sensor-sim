@@ -54,7 +54,7 @@ Position math is geodesic, via `@turf/turf` (`util/getPosition.ts`).
 
 ## REST API — `/api/sims`
 
-All inputs are validated with Zod (`src/schema.ts`).
+All inputs are validated with Zod (`src/zodSchema.ts`).
 
 | Method | Path             | Body              | Result                                                                                                                                                                |
 |--------|------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|

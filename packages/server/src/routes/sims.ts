@@ -1,7 +1,7 @@
 import {Hono} from 'hono'
 import {simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
-import {simConfigInput, simIdInput, simUpdateCurrentInput} from "../schema";
+import {simConfigInput, simIdInput, simUpdateCurrentInput} from "../zodSchema";
 
 const app = new Hono()
 

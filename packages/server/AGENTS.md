@@ -9,10 +9,10 @@ Standalone Node.js simulation engine (`@sensor-sim/server`), a single Hono app s
 - `index.ts` — app bootstrap: creates the simulation service, mounts routes, sets up CORS (dev only), serves the built
   frontend, starts the combined HTTP+WS server. Exports `simulationService` (module-level singleton, imported by route
   handlers) and `AppType` (the Hono route tree, used by the frontend's `hc<AppType>` typed client).
-- `schema.ts` — Zod schemas/types for all REST inputs (`simConfigInput`, `simIdInput`, `simUpdateTargetInput`,
+- `zodSchema.ts` — Zod schemas/types for all REST inputs (`simConfigInput`, `simIdInput`, `simUpdateTargetInput`,
   `simUpdateCurrentInput`).
 - `types.ts` — core domain types: `Position`, `SimConfig`, `SimState`, `Simulation` (`{ config, state }`).
-- `simulationService.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s via
+- `simulations.service.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s via
   `storage.ts`, loads persisted sims on startup, and exposes `create` / `remove` / `updateTarget` / `updateCurrent` /
   `startSim` / `stopSim` / `list` / `get` / `getSimStream` / `simListStream`. Also runs a 200ms interval to periodically
   re-emit the sim list (keeps clients' snapshots fresh even without config changes).
