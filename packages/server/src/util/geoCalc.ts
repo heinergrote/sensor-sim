@@ -10,19 +10,19 @@ export function getPosition(origin: Position, distance: number, azimuth: number)
   };
 }
 
-export function getDistanceAndAzimuth(from: Position, to: Position): { distance: number, azimuth: number } {
-  const distance = turf.distance(
+export function getDistance(from: Position, to: Position): number {
+  return turf.distance(
     point([from.longitude, from.latitude]),
     point([to.longitude, to.latitude]), {units: "meters"}
   );
-  const azimuth = turf.bearing(
+}
+
+export function getAzimuth(from: Position, to: Position): number {
+  return turf.bearing(
     point([from.longitude, from.latitude]),
     point([to.longitude, to.latitude])
   );
-  return {
-    distance,
-    azimuth,
-  };
 }
+
 
 

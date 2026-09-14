@@ -1,7 +1,7 @@
 import type {SimConfig, Simulation} from "@sensor-sim/server";
 import {createEventStream} from "./util/eventStream";
-import {getDistanceAndAzimuth, getPosition} from "./util/getPosition";
-import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./schema";
+import {SimConfigInput, SimUpdateCurrentInput} from "./schema";
+import {getAzimuth, getDistance, getPosition} from "./util/geoCalc";
 
 export type SimulationRuntime = ReturnType<typeof createSimulationRuntime>
 
@@ -18,46 +18,57 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
   const simStream = createEventStream<Simulation>(() => sim);
 
   function updateState(deltaMs: number) {
-    if (sim.state) {
 
-      const {target, speed} = sim.config;
-      const stepDistance = speed * deltaMs / 1000;
+    if (!sim.state) {
 
-      switch (sim.config.type) {
-
-        case "follow":
-          if (sim.state.distance <= stepDistance) {
-            // snap to target
-            sim.state.current = {...target};
-            sim.state.distance = 0;
-          } else {
-            sim.state.distance -= stepDistance;
-            sim.state.current = getPosition(
-              sim.config.target,
-              sim.state.distance,
-              sim.state.azimuth
-            )
-          }
-          break;
-
-        case "circle":
-
-          if (sim.state.distance <= stepDistance) {
-            // snap to target
-            sim.state.current = {...target};
-            sim.state.distance = 0;
-          } else {
-            // get the rotation angle from the step distance and radius distance
-            const angle = (stepDistance / sim.state.distance) * (180 / Math.PI);
-            sim.state.azimuth = (sim.state.azimuth + angle) % 360;
-            sim.state.current = getPosition(
-              sim.config.target,
-              sim.state.distance,
-              sim.state.azimuth
-            )
-          }
-          break;
+      // set initial state
+      sim.state = {
+        id: sim.config.id,
+        start: Date.now(),
+        current: getPosition(sim.config.target, sim.config.initialDistance, sim.config.initialAzimuth),
+        distance: sim.config.initialDistance,
+        azimuth: sim.config.initialAzimuth,
       }
+
+    }
+
+    const {target, speed} = sim.config;
+    const stepDistance = speed * deltaMs / 1000;
+
+    switch (sim.config.type) {
+
+      case "follow":
+        if (sim.state.distance <= stepDistance) {
+          // snap to target
+          sim.state.current = {...target};
+          sim.state.distance = 0;
+        } else {
+          sim.state.distance -= stepDistance;
+          sim.state.current = getPosition(
+            sim.config.target,
+            sim.state.distance,
+            sim.state.azimuth
+          )
+        }
+        break;
+
+      case "circle":
+
+        if (sim.state.distance <= stepDistance) {
+          // snap to target
+          sim.state.current = {...target};
+          sim.state.distance = 0;
+        } else {
+          // get the rotation angle from the step distance and radius distance
+          const angle = (stepDistance / sim.state.distance) * (180 / Math.PI);
+          sim.state.azimuth = (sim.state.azimuth + angle) % 360;
+          sim.state.current = getPosition(
+            sim.config.target,
+            sim.state.distance,
+            sim.state.azimuth
+          )
+        }
+        break;
     }
 
   }
@@ -70,10 +81,25 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     simStream.emit();
   }
 
-  function configure(configInput: SimConfigInput) {
-    const {id: _, ...newConfig} = configInput;
+  function update(updateInput: SimConfigInput) {
+    // remove id
+    const {id: _, ...newConfig} = updateInput;
 
+    // apply new config
     sim.config = {...sim.config, ...newConfig};
+
+    // for follow type: infer initial distance and azimuth from current position, if available
+    if (sim.config.type === "follow" && sim.state) {
+      if (!newConfig.initialDistance) {
+        sim.config.initialDistance = getDistance(sim.config.target, sim.state.current);
+      }
+      if (!newConfig.initialAzimuth) {
+        sim.config.initialAzimuth = getAzimuth(sim.config.target, sim.state.current);
+      }
+    }
+
+    sim.state = null;
+    tick()
 
     if (sim.config.playing) {
       start();
@@ -82,66 +108,38 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     }
   }
 
-  function updateTarget(updateTargetInput: SimUpdateTargetInput) {
-    sim.config.target = updateTargetInput.target;
-
-    switch (sim.config.type) {
-      case 'circle':
-        // circle mode: simply restart with same initials
-        start();
-        break;
-      case "follow":
-        // follow mode: use current position to calculate new initial distance and azimuth
-        if (sim.state) {
-          const {current} = sim.state;
-          const {distance, azimuth} = getDistanceAndAzimuth(sim.config.target, current);
-          sim.config.initialDistance = distance;
-          sim.config.initialAzimuth = azimuth;
-          start()
-        }
-        break;
-      default:
-        break;
-    }
-  }
-
   function updateCurrent(updateCurrentInput: SimUpdateCurrentInput) {
-    const {distance, azimuth} = getDistanceAndAzimuth(sim.config.target, updateCurrentInput.current);
     stop();
-    sim.config.initialDistance = distance;
-    sim.config.initialAzimuth = azimuth;
+    sim.config.initialDistance = getDistance(sim.config.target, updateCurrentInput.current);
+    sim.config.initialAzimuth = getAzimuth(sim.config.target, updateCurrentInput.current);
     start()
   }
 
 
-  function start() {
-    stop()
-
-    // initial state
-    sim.state = {
-      id: sim.config.id,
-      start: Date.now(),
-      current: getPosition(sim.config.target, sim.config.initialDistance, sim.config.initialAzimuth),
-      distance: sim.config.initialDistance,
-      azimuth: sim.config.initialAzimuth,
+  function start(reset: boolean = false) {
+    if (reset) {
+      sim.state = null;
     }
-    tick()
-
-    interval = setInterval(() => {
+    if (!interval) {
       tick()
-    }, 200);
+      interval = setInterval(() => {
+        tick()
+      }, 200);
+    }
   }
 
 
   function stop() {
-    if (!interval) return;
     sim.state = null;
-    clearInterval(interval);
+    if (interval) {
+      clearInterval(interval);
+      interval = undefined;
+    }
     simStream.emit();
   }
 
   return {
-    sim, configure, updateTarget, updateCurrent,
+    sim, update, updateCurrent,
     start, stop, simStream
   };
 

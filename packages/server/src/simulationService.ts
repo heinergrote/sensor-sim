@@ -42,7 +42,7 @@ export async function createSimulationService() {
     const simRuntime = createSimulationRuntime(config);
     await storage.setItem(`sims:${config.id}`, config)
     simulationRuntimes.set(config.id, simRuntime);
-    simRuntime.configure(config)
+    simRuntime.update(config)
     simListStream.emit();
 
     return simRuntime.sim;
@@ -51,7 +51,7 @@ export async function createSimulationService() {
   async function updateTarget(updateTargetInput: SimUpdateTargetInput) {
     const simRuntime = simulationRuntimes.get(updateTargetInput.id);
     if (!simRuntime) throw new Error(`Sim ${updateTargetInput.id} not found`);
-    simRuntime.updateTarget(updateTargetInput);
+    simRuntime.update(updateTargetInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     simListStream.emit();
     return simRuntime.sim;
@@ -89,14 +89,14 @@ export async function createSimulationService() {
   async function startSim(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
-    simRuntime.configure({id, playing: true});
+    simRuntime.start(true)
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
   }
 
   async function stopSim(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
-    simRuntime.configure({id, playing: false});
+    simRuntime.stop()
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
   }
 
@@ -108,7 +108,7 @@ export async function createSimulationService() {
     if (config) {
       const simRuntime = createSimulationRuntime(config);
       simulationRuntimes.set(config.id, simRuntime);
-      simRuntime.configure(config)
+      simRuntime.update(config)
     }
   }
   simListStream.emit();
@@ -121,7 +121,7 @@ export async function createSimulationService() {
     const deltaMs = now - lastTick;
     lastTick = now;
     simListStream.emit()
-  }, 200);
+  }, 500);
 
   return {
     get, create, updateTarget, updateCurrent,

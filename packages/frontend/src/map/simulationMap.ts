@@ -160,21 +160,19 @@ export function createSimulationMap(
 
   }
 
-
   function updateSims(sims: readonly Simulation[]) {
     // add new, remove deleted sims
     sims.forEach(sim => {
       const trackedSim = trackedSims.getOrInsertComputed(
-        sim.config.id,
-        (id) => createTrackedSim(id)
+        sim.config.id, createTrackedSim
       )
       trackedSim.update(sim)
-      trackedSims.forEach((trackedSim, trackedId) => {
-        if (!sims.some(sim => sim.config.id === trackedId)) {
-          trackedSim.dispose();
-          trackedSims.delete(trackedId);
-        }
-      });
+    });
+    trackedSims.forEach((trackedSim, trackedId) => {
+      if (!sims.some(sim => sim.config.id === trackedId)) {
+        trackedSim.dispose();
+        trackedSims.delete(trackedId);
+      }
     });
   }
 
