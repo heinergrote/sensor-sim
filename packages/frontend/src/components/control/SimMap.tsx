@@ -1,5 +1,5 @@
 import {onSettled} from "solid-js";
-import {createSimulationMap, SimulationMap} from "../map/simulationMap";
+import {createSimulationMap, SimulationMap} from "./simulationMap";
 
 export default function SimMap() {
 

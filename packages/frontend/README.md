@@ -30,9 +30,9 @@ site with no server dependencies of its own.
 
 ## Environment variables
 
-| Variable         | Default                                                 | Purpose               |
-|------------------|---------------------------------------------------------|-----------------------|
-| `VITE_MAP_STYLE` | `<origin>/api/maptiler/maps/streets-v2/style.json`       | URL of a MapLibre style |
+| Variable         | Default                                            | Purpose                 |
+|------------------|----------------------------------------------------|-------------------------|
+| `VITE_MAP_STYLE` | `<origin>/api/maptiler/maps/streets-v2/style.json` | URL of a MapLibre style |
 
 `.env.development` points at the dev server's proxy on `:4000`;
 `.env.production` is empty on purpose, so production falls back to the server's
@@ -42,8 +42,8 @@ server-side.
 ## How data flows
 
 - `src/simulationsService.ts` is the single source of live state. It opens **one**
-  WebSocket to `/ws/sims` and reconciles every message into Solid stores
-  (`simulations`, `simulationIds`), keyed by `config.id`. It also keeps a plain
+  WebSocket to `/ws/sims` and reconciles every message into Solid stores (`simulations`, `simulationIds`), keyed by
+  `config.id`. It also keeps a plain
   non-reactive `latestSimulations` snapshot plus a listener registry for
   consumers that live outside Solid's reactivity.
 - The same module exports `honoClient = hc<AppType>(serverUrl)`, where `AppType`
@@ -51,7 +51,7 @@ server-side.
   `stop`, `delete`, `updateTarget`, `updateCurrent`) go through it.
 - Components never poll and never fetch state: **reads come from the stores,
   writes go over REST.**
-- `src/map/simulationMap.ts` is imperative MapLibre code deliberately outside
+- `src/components/control/simulationMap.ts` is imperative MapLibre code deliberately outside
   Solid's reactivity. It subscribes through the listener registry and posts
   `updateTarget` / `updateCurrent` when a marker is dragged.
 
@@ -79,8 +79,8 @@ a layout. A module is a page only if it has a default export. Every route is
 code-split automatically.
 
 To switch on streaming SSR, add `ssr: true` next to `start: true` in
-`vite.config.ts`; `App.tsx`, `Document.tsx` and the routes carry over unchanged
-(`<HydrationScript />` is already in the Document).
+`vite.config.ts`; `App.tsx`, `Document.tsx` and the routes carry over unchanged (`<HydrationScript />` is already in the
+Document).
 
 ## Testing
 

@@ -1,6 +1,6 @@
 import {createEffect, createSignal, For} from "solid-js";
 import {SimDetails} from "./SimDetails";
-import {honoClient, simulations} from "../simulationsService";
+import {honoClient, simulations} from "../../simulationsService";
 import {Simulation} from "@sensor-sim/server";
 
 export function SimList(props: {}) {

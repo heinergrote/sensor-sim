@@ -10,7 +10,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {honoClient, simulations} from "../simulationsService";
+import {honoClient, simulations} from "../../simulationsService";
 
 export function SimDetails(props: { id: string }) {
 

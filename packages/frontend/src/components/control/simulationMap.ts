@@ -1,6 +1,6 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {Simulation} from "@sensor-sim/server";
-import {addSimulationsListener, honoClient} from "../simulationsService";
+import {addSimulationsListener, honoClient} from "../../simulationsService";
 
 //import {FeatureCollection} from "geojson";
 
