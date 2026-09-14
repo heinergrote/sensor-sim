@@ -14,7 +14,7 @@ export default function App() {
           <Title>SensorSim</Title>
           <div class="flex flex-col h-screen">
             <Nav/>
-            <main class="flex-1 h-full p-2">
+            <main class="flex-1 min-h-0 p-2">
               <Loading fallback={<main>Loading…</main>}>
                 {props.children}
               </Loading>
