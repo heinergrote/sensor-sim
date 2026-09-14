@@ -4,7 +4,8 @@
     "dev": "concurrently -k \"pnpm:dev:server\" \"pnpm:dev:frontend\"",
     "dev:frontend": "pnpm --filter @sensor-sim/frontend dev",
     "dev:server": "pnpm --filter @sensor-sim/server dev",
-    "build": "pnpm --parallel -r build"
+    "build": "pnpm --filter @sensor-sim/server build",
+    "typecheck": "pnpm --parallel -r typecheck"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"

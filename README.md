@@ -10,8 +10,6 @@ positions into your own app as if they came from a real GPS.
   WebSocket API, MapTiler proxy, and in production it serves the UI too.
 - **[packages/frontend](packages/frontend)** — the management UI: map and live
   simulation controls (SolidJS 2 + MapLibre).
-- **[packages/sensor-mock](packages/sensor-mock)** — published npm library that
-  patches `navigator.geolocation` in any web app with a live simulation feed.
 
 ## Quick start
 
