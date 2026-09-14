@@ -17,7 +17,7 @@ export default function SimMap() {
 
   return (
     <>
-      <div class="w-full h-full rounded shadow-lg" ref={mapEl}/>
+      <div class="w-full h-full rounded-lg shadow-sm" ref={mapEl}/>
     </>
   );
 

@@ -31,39 +31,9 @@ declare module "virtual:file-routes" {
   }
 
   /** The flat route manifest, in scan order. */
-  const routes: readonly [
-    {
-      path: "/*404";
-      page: true;
-      $component: FileRouteLazyRef<typeof import("./src/routes/[...404]")>;
-      $$route: FileRouteEagerRef<typeof import("./src/routes/[...404]")>;
-    },
-    {
-      path: "/";
-      page: true;
-      $component: FileRouteLazyRef<typeof import("./src/routes/index")>;
-      $$route?: undefined;
-    }
-  ];
+  const routes: readonly [];
   export default routes;
 
   /** The page entries, nested by path with grouping segments stripped. */
-  export const pageRoutes: readonly [
-    {
-      path: "/";
-      id: "/";
-      page: true;
-      $component: FileRouteLazyRef<typeof import("./src/routes/index")>;
-      $$route?: undefined;
-      children?: undefined;
-    },
-    {
-      path: "/*404";
-      id: "/*404";
-      page: true;
-      $component: FileRouteLazyRef<typeof import("./src/routes/[...404]")>;
-      $$route: FileRouteEagerRef<typeof import("./src/routes/[...404]")>;
-      children?: undefined;
-    }
-  ];
+  export const pageRoutes: readonly [];
 }

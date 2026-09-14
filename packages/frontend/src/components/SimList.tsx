@@ -31,8 +31,7 @@ export function SimList(props: {}) {
   }
 
   return (
-    <div class="p-2">
-
+    <>
       <form onSubmit={handleCreateSim}>
         <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
           <div class="flex gap-1">
@@ -60,7 +59,7 @@ export function SimList(props: {}) {
       </form>
 
 
-      <ul class="list bg-base-100 rounded-box shadow-md">
+      <ul class="list bg-base-100 rounded-box bg-base-200 border-base-300 border">
         <For each={simulations}>
           {(sim) => (
             <li class="list-row">
@@ -76,6 +75,6 @@ export function SimList(props: {}) {
       </ul>
 
 
-    </div>
+    </>
   );
 }
