@@ -7,9 +7,10 @@ import {addSimulationsListener, honoClient} from "../simulationsService";
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
 function createTargetMarkerElement(): HTMLElement {
-  const svgMarker = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://w3.org">
-     <circle cx="24" cy="24" r="22" fill="blue" fill-opacity="0.2" stroke="blue" stroke-width="2"/>
-     <circle cx="24" cy="24" r="2" fill="blue"/>
+  const svgMarker = `<svg width="48" height="96" viewBox="0 0 48 96" xmlns="http://w3.org">
+     <circle cx="24" cy="48" r="2" fill="blue"/>
+     <line x1="24" y1="48" x2="24" y2="62" stroke="blue" stroke-width="1"/>
+     <circle cx="24" cy="78" r="16" fill="blue" fill-opacity="0.2" stroke="blue" stroke-width="1"/>
   </svg>`;
   const el = document.createElement('div');
   el.innerHTML = svgMarker;
@@ -20,7 +21,8 @@ function createTargetMarkerElement(): HTMLElement {
 
 function createCurrentMarkerElement(): HTMLElement {
   const svgMarker = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://w3.org">
-     <circle cx="12" cy="12" r="11" fill="red" />
+     <circle cx="12" cy="12" r="2" fill="red" />
+     <circle cx="12" cy="12" r="11" fill="red" fill-opacity="0.2" stroke="red" stroke-width="1"/>
   </svg>`;
   const el = document.createElement('div');
   el.innerHTML = svgMarker;
@@ -130,7 +132,7 @@ export function createSimulationMap(
     targetMarker.on('dragend', () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      honoClient.api.sims.updateTarget.$post({
+      honoClient.api.sims.update.$post({
         json: {
           id: id,
           target: {latitude: lngLat.lat, longitude: lngLat.lng}

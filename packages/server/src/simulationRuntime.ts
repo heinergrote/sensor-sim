@@ -124,7 +124,7 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
       tick()
       interval = setInterval(() => {
         tick()
-      }, 200);
+      }, 100);
     }
   }
 

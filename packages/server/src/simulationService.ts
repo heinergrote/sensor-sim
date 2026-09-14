@@ -1,5 +1,5 @@
 import {SimConfig, Simulation} from "@sensor-sim/server";
-import {SimConfigInput, SimUpdateCurrentInput, SimUpdateTargetInput} from "./schema";
+import {SimConfigInput, SimUpdateCurrentInput} from "./schema";
 import {createEventStream} from "./util/eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
@@ -48,10 +48,10 @@ export async function createSimulationService() {
     return simRuntime.sim;
   }
 
-  async function updateTarget(updateTargetInput: SimUpdateTargetInput) {
-    const simRuntime = simulationRuntimes.get(updateTargetInput.id);
-    if (!simRuntime) throw new Error(`Sim ${updateTargetInput.id} not found`);
-    simRuntime.update(updateTargetInput);
+  async function update(configInput: SimConfigInput) {
+    const simRuntime = simulationRuntimes.get(configInput.id);
+    if (!simRuntime) throw new Error(`Sim ${configInput.id} not found`);
+    simRuntime.update(configInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     simListStream.emit();
     return simRuntime.sim;
@@ -121,10 +121,10 @@ export async function createSimulationService() {
     const deltaMs = now - lastTick;
     lastTick = now;
     simListStream.emit()
-  }, 500);
+  }, 100);
 
   return {
-    get, create, updateTarget, updateCurrent,
+    get, create, update, updateCurrent,
     remove, list, simListStream,
     startSim, stopSim, getSimStream
   };

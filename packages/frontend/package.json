@@ -1,5 +1,6 @@
 {
   "name": "@sensor-sim/frontend",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "start": "vite",

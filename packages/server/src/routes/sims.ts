@@ -1,7 +1,7 @@
 import {Hono} from 'hono'
 import {simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
-import {simConfigInput, simIdInput, simUpdateCurrentInput, simUpdateTargetInput} from "../schema";
+import {simConfigInput, simIdInput, simUpdateCurrentInput} from "../schema";
 
 const app = new Hono()
 
@@ -25,9 +25,9 @@ const app = new Hono()
     return c.json(result)
   })
 
-  .post('/updateTarget', zValidator('json', simUpdateTargetInput), async (c) => {
+  .post('/update', zValidator('json', simConfigInput), async (c) => {
     const input = c.req.valid('json')
-    await simulationService.updateTarget(input)
+    await simulationService.update(input)
     return c.json({success: true})
   })
 

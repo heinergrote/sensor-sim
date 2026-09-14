@@ -31,7 +31,6 @@ export const simUpdateCurrentInput = z.object({
 });
 
 export type SimConfigInput = z.infer<typeof simConfigInput>;
-export type SimUpdateTargetInput = z.infer<typeof simUpdateTargetInput>;
 export type SimUpdateCurrentInput = z.infer<typeof simUpdateCurrentInput>;
 
 

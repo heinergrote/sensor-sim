@@ -38,52 +38,79 @@ export function SimDetails(props: { id: string }) {
     })
   }
 
+  const handleUpdateType = (id: string, type: "follow" | "circle") => {
+    honoClient.api.sims.update.$post({
+      json: {id, type}
+    })
+  }
+
+  const handleUpdateSpeed = (id: string, speed: number) => {
+    honoClient.api.sims.update.$post({
+      json: {id, speed}
+    })
+  }
+
+
   return (
-    <div>
+    <>
       <Show fallback={<div>Connecting...</div>} when={sim()}>
         {(sim) =>
           <>
-            <div class={"flex gap-1"}>
 
-              <div class={"flex-1"}>
-                <div>Type: {sim().config.type}</div>
-                <div class="flex gap-1 items-center">
-                  <TbOutlineWorldLatitude/>{sim().config.target.latitude.toFixed(5)}
-                  <TbOutlineWorldLongitude/>{sim().config.target.longitude.toFixed(5)}
+            <div class={"flex flex-col w-full"}>
+              <div class="flex gap-2 items-center">
+                <div class="join">
+                  <input
+                    class={`join-item btn ${sim().config.type === "follow" ? "btn-primary" : ""} btn-xs`}
+                    type="radio" name="options" value={"follow"}
+                    onClick={() => handleUpdateType(sim().config.id, "follow")}
+                    checked={sim().config.type === "follow"} aria-label="Follow"/>
+                  <input
+                    class={`join-item btn ${sim().config.type === "circle" ? "btn-primary" : ""} btn-xs`}
+                    type="radio" name="options" value={"circle"}
+                    onClick={() => handleUpdateType(sim().config.id, "circle")}
+                    checked={sim().config.type === "circle"} aria-label="Circle"/>
                 </div>
-                <div class="flex gap-1 items-center">
-                  <TbOutlineRulerMeasure/> {sim().config.initialDistance.toFixed(2)}m
-                  <TbOutlineAngle/> {sim().config.initialAzimuth.toFixed(2)}°
-                  <BsSpeedometer/> {sim().config.speed}m/s
-                </div>
-              </div>
-
-              <div>
                 <div class="join">
                   {sim().state ?
                     <>
-                      <button class="btn btn-sm join-item" onClick={() => handleStartSim(sim().config.id)}>
-                        <TbFillPlayerSkipBack size={24}/>
+                      <button class="btn btn-xs join-item" onClick={() => handleStartSim(sim().config.id)}>
+                        <TbFillPlayerSkipBack/>
                       </button>
-                      <button class="btn btn-sm join-item" onClick={() => handleStopSim(sim().config.id)}>
-                        <TbFillPlayerStop size={24}/>
+                      <button class="btn btn-xs join-item" onClick={() => handleStopSim(sim().config.id)}>
+                        <TbFillPlayerStop/>
                       </button>
                     </>
                     :
                     <>
-                      <button class="btn btn-sm join-item" onClick={() => handleStartSim(sim().config.id)}>
-                        <TbFillPlayerPlay size={24}/>
+                      <button class="btn btn-xs join-item" onClick={() => handleStartSim(sim().config.id)}>
+                        <TbFillPlayerPlay/>
                       </button>
                     </>
                   }
-                  <button class="btn btn-sm join-item" onClick={() => handleDeleteSim(sim().config.id)}>
-                    <TbFillTrash size={20}/>
+                  <button class="btn btn-xs join-item" onClick={() => handleDeleteSim(sim().config.id)}>
+                    <TbFillTrash/>
                   </button>
                 </div>
+              </div>
 
+              <div class="flex gap-1 items-center">
+                <TbOutlineWorldLatitude/>{sim().config.target.latitude.toFixed(5)}
+                <TbOutlineWorldLongitude/>{sim().config.target.longitude.toFixed(5)}
+              </div>
+              <div class="flex gap-1 items-center">
+                <TbOutlineRulerMeasure/> {sim().config.initialDistance.toFixed(2)}m
+                <TbOutlineAngle/> {sim().config.initialAzimuth.toFixed(2)}°
+              </div>
+              <div class="flex gap-1 items-center">
+                <div class="flex gap-1 items-center"><BsSpeedometer/> {sim().config.speed}m/s</div>
+                <div><input type="range" min="0" max="40" value={sim().config.speed}
+                            onChange={(e) => handleUpdateSpeed(sim().config.id, +e.currentTarget.value)}
+                            class="range range-xs w-60"/></div>
               </div>
 
             </div>
+
 
             <Show when={sim().state}>
               {(state) => <>
@@ -101,10 +128,8 @@ export function SimDetails(props: { id: string }) {
             </Show>
 
           </>
-
-
         }
       </Show>
-    </div>
+    </>
   )
 }
