@@ -1,6 +1,6 @@
 import type {SimConfig, Simulation} from "@sensor-sim/server";
 import {createEventStream} from "./util/eventStream";
-import {SimConfigInput, SimUpdateCurrentInput} from "./zodSchema";
+import {PositionInput, SimConfigInput} from "./zodSchema";
 import {getAzimuth, getDistance, getPosition} from "./util/geoCalc";
 
 export type SimulationRuntime = ReturnType<typeof createSimulationRuntime>
@@ -83,17 +83,16 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
   function update(updateInput: SimConfigInput) {
     // remove id
-    const {id: _, ...newConfig} = updateInput;
 
     // apply new config
-    sim.config = {...sim.config, ...newConfig};
+    sim.config = {...sim.config, ...updateInput};
 
     // for follow type: infer initial distance and azimuth from current position, if available
     if (sim.config.type === "follow" && sim.state) {
-      if (!newConfig.initialDistance) {
+      if (!updateInput.initialDistance) {
         sim.config.initialDistance = getDistance(sim.config.target, sim.state.current);
       }
-      if (!newConfig.initialAzimuth) {
+      if (!updateInput.initialAzimuth) {
         sim.config.initialAzimuth = getAzimuth(sim.config.target, sim.state.current);
       }
     }
@@ -108,10 +107,10 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     }
   }
 
-  function updateCurrent(updateCurrentInput: SimUpdateCurrentInput) {
+  function updateCurrent(position: PositionInput) {
     stop();
-    sim.config.initialDistance = getDistance(sim.config.target, updateCurrentInput.current);
-    sim.config.initialAzimuth = getAzimuth(sim.config.target, updateCurrentInput.current);
+    sim.config.initialDistance = getDistance(sim.config.target, position);
+    sim.config.initialAzimuth = getAzimuth(sim.config.target, position);
     start()
   }
 

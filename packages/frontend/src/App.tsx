@@ -16,6 +16,12 @@ export default function App() {
             <Nav/>
             <main class="flex-1 min-h-0 p-2">
               <Loading fallback={<main>Loading…</main>}>
+                {/*<Errored*/}
+                {/*  fallback={error => (*/}
+                {/*    <p>{String(error())}</p>*/}
+                {/*  )}*/}
+                {/*>*/}
+                {/*</Errored>*/}
                 {props.children}
               </Loading>
             </main>

@@ -10,7 +10,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {honoClient, simulations} from "../../simulationsService";
+import {deleteSim, simulations, startSim, stopSim, updateSpeed, updateType} from "../../service/simulations.service";
 
 export function SimDetails(props: { id: string }) {
 
@@ -19,37 +19,6 @@ export function SimDetails(props: { id: string }) {
       (sim) => sim.config.id === props.id
     )
   })
-
-  const handleStartSim = (id: string) => {
-    honoClient.api.sims.start.$post({
-      json: {id}
-    })
-  }
-
-  const handleStopSim = (id: string) => {
-    honoClient.api.sims.stop.$post({
-      json: {id}
-    })
-  }
-
-  const handleDeleteSim = (id: string) => {
-    honoClient.api.sims.delete.$post({
-      json: {id}
-    })
-  }
-
-  const handleUpdateType = (id: string, type: "follow" | "circle") => {
-    honoClient.api.sims.update.$post({
-      json: {id, type}
-    })
-  }
-
-  const handleUpdateSpeed = (id: string, speed: number) => {
-    honoClient.api.sims.update.$post({
-      json: {id, speed}
-    })
-  }
-
 
   return (
     <>
@@ -63,32 +32,32 @@ export function SimDetails(props: { id: string }) {
                   <input
                     class={`join-item btn ${sim().config.type === "follow" ? "btn-primary" : ""} btn-xs`}
                     type="radio" name="options" value={"follow"}
-                    onClick={() => handleUpdateType(sim().config.id, "follow")}
+                    onClick={() => updateType(sim().config.id, "follow")}
                     checked={sim().config.type === "follow"} aria-label="Follow"/>
                   <input
                     class={`join-item btn ${sim().config.type === "circle" ? "btn-primary" : ""} btn-xs`}
                     type="radio" name="options" value={"circle"}
-                    onClick={() => handleUpdateType(sim().config.id, "circle")}
+                    onClick={() => updateType(sim().config.id, "circle")}
                     checked={sim().config.type === "circle"} aria-label="Circle"/>
                 </div>
                 <div class="join">
                   {sim().state ?
                     <>
-                      <button class="btn btn-xs join-item" onClick={() => handleStartSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => startSim(sim().config.id)}>
                         <TbFillPlayerSkipBack/>
                       </button>
-                      <button class="btn btn-xs join-item" onClick={() => handleStopSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => stopSim(sim().config.id)}>
                         <TbFillPlayerStop/>
                       </button>
                     </>
                     :
                     <>
-                      <button class="btn btn-xs join-item" onClick={() => handleStartSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => startSim(sim().config.id)}>
                         <TbFillPlayerPlay/>
                       </button>
                     </>
                   }
-                  <button class="btn btn-xs join-item" onClick={() => handleDeleteSim(sim().config.id)}>
+                  <button class="btn btn-xs join-item" onClick={() => deleteSim(sim().config.id)}>
                     <TbFillTrash/>
                   </button>
                 </div>
@@ -105,7 +74,7 @@ export function SimDetails(props: { id: string }) {
               <div class="flex gap-1 items-center">
                 <div class="flex gap-1 items-center"><BsSpeedometer/> {sim().config.speed}m/s</div>
                 <div><input type="range" min="0" max="40" value={sim().config.speed}
-                            onChange={(e) => handleUpdateSpeed(sim().config.id, +e.currentTarget.value)}
+                            onChange={(e) => updateSpeed(sim().config.id, +e.currentTarget.value)}
                             class="range range-xs w-60"/></div>
               </div>
 

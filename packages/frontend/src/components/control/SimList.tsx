@@ -1,9 +1,9 @@
 import {createEffect, createSignal, For} from "solid-js";
 import {SimDetails} from "./SimDetails";
-import {honoClient, simulations} from "../../simulationsService";
+import {createSim, simulations} from "../../service/simulations.service";
 import {Simulation} from "@sensor-sim/server";
 
-export function SimList(props: {}) {
+export function SimList() {
 
   const [newSimId, setNewSimId] = createSignal<string>("")
   const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
@@ -22,12 +22,9 @@ export function SimList(props: {}) {
       setNewSimId(`sim-${id}`)
     })
 
-  const handleCreateSim = (e: SubmitEvent) => {
+  const handleCreateSim = async (e: SubmitEvent) => {
     e.preventDefault();
-    const res = honoClient.api.sims.create.$post({
-      json: {id: newSimId(), type: newType()}
-    })
-
+    const res = await createSim(newSimId(), newType())
   }
 
   return (

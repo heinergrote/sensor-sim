@@ -10,7 +10,6 @@ export const positionInput = z.object({
 });
 
 export const simConfigInput = z.object({
-  id: z.string().min(1).max(64),
   type: z.enum(['follow', 'circle']).optional(),
   target: positionInput.optional(),
   initialDistance: number().optional(),
@@ -19,20 +18,14 @@ export const simConfigInput = z.object({
   playing: z.boolean().optional()
 });
 
-export const simUpdateTargetInput = z.object({
+// adds an id to simConfigInput
+export const simCreateInput = simConfigInput.extend({
   id: z.string().min(1).max(64),
-  target: positionInput,
-});
-
-
-export const simUpdateCurrentInput = z.object({
-  id: z.string().min(1).max(64),
-  current: positionInput,
-});
+})
 
 export type SimConfigInput = z.infer<typeof simConfigInput>;
-export type SimUpdateCurrentInput = z.infer<typeof simUpdateCurrentInput>;
-
+export type SimCreateInput = z.infer<typeof simCreateInput>;
+export type PositionInput = z.infer<typeof positionInput>;
 
 export const userInput = z.object({
   username: z.string().trim(),

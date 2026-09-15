@@ -24,7 +24,7 @@ served by the server itself from the same origin.
   target marker + one
   current-position marker per sim, updates them from the simulations listener, and posts `updateTarget`/`updateCurrent`
   on marker drag via the Hono client.
-- `src/simulationsService.ts` — the single source of live state for the whole app:
+- `src/service/simulations.service.ts` — the single source of live state for the whole app:
     - Opens one WebSocket to `${serverUrl}/ws/sims` (server URL is `http://localhost:4000` in dev,
       `window.location.origin` in prod) and keeps two Solid stores in sync on every message: `simulations`
       (`Simulation[]`, reconciled by `config.id`) and `simulationIds` (`string[]`).

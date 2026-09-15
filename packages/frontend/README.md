@@ -41,7 +41,7 @@ server-side.
 
 ## How data flows
 
-- `src/simulationsService.ts` is the single source of live state. It opens **one**
+- `src/service/simulations.service.ts` is the single source of live state. It opens **one**
   WebSocket to `/ws/sims` and reconciles every message into Solid stores (`simulations`, `simulationIds`), keyed by
   `config.id`. It also keeps a plain
   non-reactive `latestSimulations` snapshot plus a listener registry for
