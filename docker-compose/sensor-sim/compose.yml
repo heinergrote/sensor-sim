@@ -1,12 +1,50 @@
 services:
   server:
-    image: ghcr.io/heinergrote/sensor-sim-server:latest
+    # Pinned deliberately. The server applies Drizzle migrations on startup and they
+    # are forward-only, so a floating :latest lets any restart that re-pulls migrate
+    # the database as a side effect — with no way back short of restoring a dump.
+    # Bump this line as its own step when rolling out a release.
+    image: ghcr.io/heinergrote/sensor-sim:0.0.2
     env_file: .env
+    environment:
+      # The server reaches Postgres over the compose network, so the host is the
+      # service name below — not localhost, and not the published host port.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sensorsim}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-sensorsim}
     ports:
       - "${PORT:-4000}:${PORT:-4000}"
     volumes:
       - sensor-sim-data:/app/data/storage
+    depends_on:
+      db:
+        # Wait for Postgres to accept connections. src/db/dbInit.ts migrates before
+        # the HTTP server starts listening and nothing retries, so a server that
+        # boots first exits and restart-loops until the database is up.
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sensorsim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-sensorsim}
+    volumes:
+      # Postgres 18+ images store data in a major-version subdirectory, so the mount
+      # goes at /var/lib/postgresql — not the /var/lib/postgresql/data used by 17 and
+      # earlier, which these images refuse to start against.
+      - sensor-sim-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sensorsim} -d ${POSTGRES_DB:-sensorsim}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Not published: only the server needs it. Uncomment to reach the database from
+    # the host, e.g. for `pnpm --filter @sensor-sim/server db:studio`.
+    # ports:
+    #   - "5432:5432"
     restart: unless-stopped
 
 volumes:
   sensor-sim-data:
+  sensor-sim-db:

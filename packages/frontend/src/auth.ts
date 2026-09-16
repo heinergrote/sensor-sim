@@ -24,7 +24,7 @@ export function useAuth() {
     const res = await honoClient.api.me.$get()
 
     if (res.ok) {
-      const data: { id: string; username: string } = await res.json()
+      const data: { id: number; username: string } = await res.json()
       return data
     } else {
       logout()

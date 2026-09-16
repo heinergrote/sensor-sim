@@ -133,8 +133,14 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 ## Release
 
 - Docker: `Dockerfile` must be built with the **repo root as context**. `.github/workflows/publish.yml` publishes
-  `ghcr.io/<owner>/sensor-sim` on GitHub releases and on manual dispatch; `docker-compose/sensor-sim/compose.yml` runs
-  it with a volume at `/app/data/storage`.
+  `ghcr.io/<owner>/sensor-sim` on GitHub releases and on manual dispatch, tagged `<version>` + `<major>.<minor>` (from
+  the release's git tag), `latest` and `sha-<short>`; `docker-compose/sensor-sim/compose.yml` runs it with a volume at
+  `/app/data/storage`, alongside a `postgres:18-alpine` `db` service (volume at `/var/lib/postgresql`, the path 18+
+  images require). `DATABASE_URL` is assembled in `compose.yml` from the `POSTGRES_*` vars in `.env` and points at the
+  `db` service name; the server waits on `condition: service_healthy` because `dbInit()` has no connection retry.
+- `compose.yml` **pins an explicit version tag** rather than tracking `latest`, because startup migrations are
+  forward-only: with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling
+  the image back does not roll the schema back. Upgrading is a deliberate bump of that line.
 - The container needs `DATABASE_URL` pointing at a reachable Postgres plus `JWT_SECRET`; migrations run on startup.
-  Caveat: `package.json#files` is `["dist"]`, so `pnpm deploy --prod` does **not** copy `drizzle/` into the image —
-  startup migrations have no migrations folder to read there until that is addressed.
+  `package.json#files` is `["dist", "drizzle"]` so `pnpm deploy --prod` carries the migrations into the image at
+  `/app/drizzle`, where `dbInit` reads them — a new migration only has to be committed, never copied separately.

@@ -24,8 +24,6 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET environment variable is not set')
 }
 
-console.log("Init DB", process.env.DATABASE_URL);
-
 await dbInit()
 
 console.log("Starting server -", process.env.NODE_ENV);

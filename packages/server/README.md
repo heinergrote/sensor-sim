@@ -256,16 +256,41 @@ untouched.
 The repo-root `Dockerfile` builds this package into a single image (build
 context **must** be the repo root — the frontend imports `AppType` from here at
 build time, so both manifests are needed). Releases publish
-`ghcr.io/<owner>/sensor-sim` via `.github/workflows/publish.yml`, and
+`ghcr.io/<owner>/sensor-sim` via `.github/workflows/publish.yml`, tagged with the
+release version (`v1.2.3` → `1.2.3` and `1.2`) plus `latest` and `sha-<short>`.
 `docker-compose/sensor-sim/compose.yml` runs it with a named volume mounted at
 `/app/data/storage`.
+
+That compose file pins an explicit version tag instead of following `latest`.
+Startup migrations are forward-only, so a floating tag means any restart that
+re-pulls can migrate the database as a side effect — and because the migrator
+skips files older than the last applied one, an image rolled back to a previous
+version will run *silently* against the newer schema rather than erroring.
+Upgrading should be a deliberate bump of the pinned tag; `sha-<short>` tags are
+available when you need to pin a build that has no release.
 
 The container needs `DATABASE_URL` (a Postgres it can reach), `JWT_SECRET` and,
 for the first run, `DEFAULT_ADMIN_PASSWORD`. Mount a volume at whatever
 `STORAGE_DIR` points to — otherwise simulations are lost when the container is
 replaced.
 
-> **Known gap:** `package.json#files` is `["dist"]`, so `pnpm deploy --prod`
-> doesn't copy `drizzle/` into the image, while `dbInit` looks for migrations
-> in `<cwd>/drizzle`. The startup migration therefore has nothing to apply in a
-> container until the folder is included.
+The compose file ships that Postgres as a `db` service, so the stack is
+self-contained. Two details there are load-bearing:
+
+- `DATABASE_URL` is composed in `compose.yml` from the `POSTGRES_*` values in
+  `.env` and points at host `db` (the service name on the compose network), not
+  `localhost`. Keep the password URL-safe — `src/db/index.ts` validates the
+  string with `URL.canParse()`.
+- The server `depends_on` the database with `condition: service_healthy`.
+  `dbInit()` migrates before the HTTP server listens and nothing retries the
+  connection, so a server that starts first exits and restart-loops until
+  Postgres is accepting connections.
+
+The `db` volume mounts at `/var/lib/postgresql`, which is what the `postgres:18+`
+images expect — they refuse to start against the `/var/lib/postgresql/data` path
+used by 17 and earlier.
+
+Migrations ship with the image: `package.json#files` is `["dist", "drizzle"]`, so
+`pnpm deploy --prod` copies `drizzle/` alongside `dist/`, landing at
+`/app/drizzle` — exactly where `dbInit` looks (`<cwd>/drizzle`). A new migration
+therefore only needs to be committed; it is applied on the next container start.
