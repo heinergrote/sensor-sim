@@ -138,6 +138,9 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
   `/app/data/storage`, alongside a `postgres:18-alpine` `db` service (volume at `/var/lib/postgresql`, the path 18+
   images require). `DATABASE_URL` is assembled in `compose.yml` from the `POSTGRES_*` vars in `.env` and points at the
   `db` service name; the server waits on `condition: service_healthy` because `dbInit()` has no connection retry.
+- Deploys land on a Portainer BE stack: the publish workflow POSTs the released version to a stack webhook
+  (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=<version>`, which compose resolves into the image tag. The
+  step is release-only, since a manual dispatch produces no semver tag.
 - `compose.yml` **pins an explicit version tag** rather than tracking `latest`, because startup migrations are
   forward-only: with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling
   the image back does not roll the schema back. Upgrading is a deliberate bump of that line.

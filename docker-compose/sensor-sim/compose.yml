@@ -1,10 +1,14 @@
 services:
   server:
-    # Pinned deliberately. The server applies Drizzle migrations on startup and they
-    # are forward-only, so a floating :latest lets any restart that re-pulls migrate
-    # the database as a side effect — with no way back short of restoring a dump.
-    # Bump this line as its own step when rolling out a release.
-    image: ghcr.io/heinergrote/sensor-sim:0.0.2
+    # Pinned to an explicit version, never :latest. The server applies Drizzle
+    # migrations on startup and they are forward-only, so a floating tag lets any
+    # restart that re-pulls migrate the database as a side effect — with no way back
+    # short of restoring a dump.
+    #
+    # The publish workflow overrides SENSOR_SIM_VERSION through the Portainer stack
+    # webhook on each release, so the deployed version is always explicit. The
+    # default below is what a plain `docker compose up` gets.
+    image: ghcr.io/heinergrote/sensor-sim:${SENSOR_SIM_VERSION:-0.0.3}
     env_file: .env
     environment:
       # The server reaches Postgres over the compose network, so the host is the

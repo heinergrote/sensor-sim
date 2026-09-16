@@ -261,7 +261,16 @@ release version (`v1.2.3` → `1.2.3` and `1.2`) plus `latest` and `sha-<short>`
 `docker-compose/sensor-sim/compose.yml` runs it with a named volume mounted at
 `/app/data/storage`.
 
-That compose file pins an explicit version tag instead of following `latest`.
+Deployment is a Portainer (Business Edition) stack fed by a stack webhook. The
+compose file resolves its image tag from `SENSOR_SIM_VERSION`, and the publish
+workflow POSTs the released version to the webhook as a query parameter
+(`…/api/stacks/webhooks/<uuid>?SENSOR_SIM_VERSION=1.2.3`), so Portainer redeploys
+on an explicit tag rather than tracking a floating one. The webhook URL lives in
+the `PORTAINER_WEBHOOK_URL` repository secret; without it the workflow still
+publishes the image and logs a warning instead of deploying. That step runs on
+releases only — a manual dispatch has no semver tag to deploy.
+
+The compose file pins an explicit version tag instead of following `latest`.
 Startup migrations are forward-only, so a floating tag means any restart that
 re-pulls can migrate the database as a side effect — and because the migrator
 skips files older than the last applied one, an image rolled back to a previous
