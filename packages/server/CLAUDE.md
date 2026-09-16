@@ -10,7 +10,7 @@ throw at import time.
 
 ## Source layout (`src/`)
 
-- `index.ts` — app bootstrap: runs `dbInit()` (migrations + admin seed), creates the simulation service, mounts routes
+- `index.ts` — app bootstrap: creates the simulation service, mounts routes
   **in authorization order** (see below), sets up CORS, serves the built frontend, starts the combined HTTP+WS server,
   and handles SIGINT/SIGTERM shutdown (stops tick intervals, terminates sockets, closes the pg client). Exports
   `simulationService` (module-level singleton, imported by route handlers) and `AppType` (the Hono route tree, used by
@@ -32,9 +32,13 @@ throw at import time.
 - `db/index.ts` — the Drizzle client (`drizzle(DATABASE_URL, {schema})`, `node-postgres` driver), exported as `db`.
 - `db/schema.ts` — Drizzle table definitions. Currently one table: `users` (`id` serial PK, `username` text unique,
   `password` text, `admin` boolean).
-- `db/dbInit.ts` — startup routine: applies pending migrations from `<cwd>/drizzle` (resolved from `process.cwd()` so
-  it works in dev and in Docker), then seeds a default admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`
-  if that user doesn't exist. No password set → warn and skip.
+- `migrate.ts` — **second build entrypoint** (`dist/migrate.js`), not imported by the server. Calls `dbInit()`, closes
+  the pg client and exits 0/1. This is the only thing that migrates: `index.ts` does not. `tsup.config.ts` lists it
+  alongside `src/index.ts`, and the `build` script must invoke plain `tsup` — a CLI positional (`tsup src/index.ts`)
+  silently overrides the config's entry list and drops this file from `dist/`.
+- `db/dbInit.ts` — applies pending migrations from `<cwd>/drizzle` (resolved from `process.cwd()` so it works in dev and
+  in Docker), then seeds a default admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` if that user doesn't
+  exist. No password set → warn and skip. Invoked only from `migrate.ts`.
 - `user.service.ts` — Drizzle queries for users. Note `allowedColumns`: every exported read/write projects the `users`
   columns **minus `password`**, so hashes never leave this module. The one exception is
   `getUserWithSecretsByName(username)`, used by the login route.
@@ -136,13 +140,19 @@ Drizzle Kit is configured in `drizzle.config.ts` (schema `./src/db/schema.ts`, o
 
 ```bash
 pnpm db:generate  # schema change → new SQL migration in drizzle/
-pnpm db:migrate   # apply migrations manually (the server also does this on startup)
+pnpm migrate:dev  # tsx src/migrate.ts — migrations + admin seed; what the image runs
+pnpm migrate      # node dist/migrate.js — same, but needs a build first
+pnpm db:migrate   # drizzle-kit: migrations only, NO admin seed
 pnpm db:push      # push schema straight to the DB (dev shortcut, skips migration files)
 pnpm db:studio    # browse the DB
 ```
 
+**The server never migrates.** Nothing applies a migration as a side effect of starting the app, in dev or in
+production — run one of the migrate scripts yourself. On a fresh database prefer `migrate:dev`: `db:migrate` applies
+the schema but skips the admin seed, leaving you with no account to log in with.
+
 Workflow for a schema change: edit `src/db/schema.ts` → `pnpm db:generate` → commit the generated file in `drizzle/`
-→ restart the server (`dbInit` applies it). Because `types.ts` derives `User` from the schema, a column change
+→ `pnpm migrate:dev` → restart the server. Because `types.ts` derives `User` from the schema, a column change
 propagates to the frontend's types immediately.
 
 ## Static frontend serving (`src/index.ts`)
@@ -170,18 +180,19 @@ absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to this p
 - `MAPTILER_KEY` — required for the map proxy to function
 - `DATABASE_URL` — **required**, Postgres connection string for Drizzle
 - `JWT_SECRET` — **required**, HS256 signing secret
-- `DEFAULT_ADMIN_USERNAME` — default `admin`, seeded on startup
-- `DEFAULT_ADMIN_PASSWORD` — no default; without it no admin is seeded
+- `DEFAULT_ADMIN_USERNAME` — default `admin`, seeded by the migrate entrypoint
+- `DEFAULT_ADMIN_PASSWORD` — no default; without it no admin is seeded (`db:migrate` never seeds either way)
 
 `.env` is loaded via `dotenv/config`.
 
 ## Dev & build
 
 ```bash
-pnpm dev        # tsx watch src/index.ts (hot reload)
-pnpm typecheck  # tsc --noEmit
-pnpm build      # builds frontend, typechecks, tsup → dist/, copies frontend into dist/public
-pnpm start      # node dist/index.js
+pnpm migrate:dev # apply migrations + seed admin (run this before the first dev start)
+pnpm dev         # tsx watch src/index.ts (hot reload)
+pnpm typecheck   # tsc --noEmit
+pnpm build       # builds frontend, typechecks, tsup → dist/ (both entrypoints), copies frontend into dist/public
+pnpm start       # node dist/index.js
 ```
 
 `http/users.http` holds ready-made requests for the user/login endpoints (it stores the login token in

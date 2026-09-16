@@ -31,6 +31,8 @@ pnpm typecheck                               # tsc --noEmit in both packages
 pnpm --filter @sensor-sim/server typecheck   # tsc --noEmit
 pnpm --filter @sensor-sim/server build       # builds frontend → typechecks → tsup → copies frontend into dist/public
 pnpm --filter @sensor-sim/server start       # node dist/index.js
+pnpm --filter @sensor-sim/server migrate:dev # tsx src/migrate.ts — migrations + admin seed (run before dev)
+pnpm --filter @sensor-sim/server migrate     # node dist/migrate.js — same, from a build (used in the image)
 pnpm --filter @sensor-sim/server db:generate # drizzle-kit: SQL migration from src/db/schema.ts → drizzle/
 pnpm --filter @sensor-sim/server db:studio   # drizzle-kit studio
 
@@ -43,7 +45,9 @@ A single frontend test: `pnpm --filter @sensor-sim/frontend test -- run src/comp
 `-t "<test name>"`. Note there are currently no test files; `vitest` is configured and ready.
 
 The server needs a reachable Postgres (`DATABASE_URL`) and a `JWT_SECRET` to start at all — `src/db/index.ts` and
-`src/routes/login.ts` throw on import if they are missing.
+`src/routes/login.ts` throw on import if they are missing. It does **not** create or migrate the schema: run
+`migrate:dev` first against a fresh database, or the first query fails. Note `db:migrate` (drizzle-kit) applies the
+schema but skips the admin seed, so it leaves you unable to log in.
 
 ## Architecture
 
@@ -71,9 +75,15 @@ so the sequence in `src/index.ts` decides what is public:
 Moving a `.route()` call across one of those `.use()` lines silently changes its access level.
 
 **Two stores, on purpose.** Simulation configs are persisted as files through `unstorage` (fs driver, `STORAGE_DIR`);
-users live in Postgres via Drizzle. `db/dbInit.ts` runs pending migrations from `<cwd>/drizzle` on every startup and
-seeds a default admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` (skipped with a warning if the password
-is unset). There is no separate migrate step to run in deployment.
+users live in Postgres via Drizzle. `db/dbInit.ts` applies pending migrations from `<cwd>/drizzle` and seeds a default
+admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` (skipped with a warning if the password is unset).
+
+**Migrations are a separate step, not part of app boot.** `src/migrate.ts` is a second tsup entrypoint
+(`dist/migrate.js`) that calls `dbInit()` and exits 0/1; `src/index.ts` never migrates. In the compose stack a one-shot
+`migrate` service runs it and the server waits on `condition: service_completed_successfully`, so a failed migration is
+a failed deploy rather than a server crash-looping against a half-known schema. Consequences: `tsup.config.ts` lists
+both entrypoints (and the build script must call plain `tsup` — a CLI positional would override that list), and a fresh
+database needs `migrate:dev` before `pnpm dev`.
 
 **Push-only sim state, write-only sim REST.** All live simulation state reaches clients via WebSocket; `/api/sims` is
 used exclusively for mutations. Nothing polls. (Users are the exception: they are plain REST reads/writes through
@@ -137,13 +147,16 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
   the release's git tag), `latest` and `sha-<short>`; `docker-compose/sensor-sim/compose.yml` runs it with a volume at
   `/app/data/storage`, alongside a `postgres:18-alpine` `db` service (volume at `/var/lib/postgresql`, the path 18+
   images require). `DATABASE_URL` is assembled in `compose.yml` from the `POSTGRES_*` vars in `.env` and points at the
-  `db` service name; the server waits on `condition: service_healthy` because `dbInit()` has no connection retry.
+  `db` service name. Service order is `db` (healthy) → `migrate` (exited 0) → `server`; nothing retries a failed
+  connection, so both gates are load-bearing. Note `depends_on` is ignored by Swarm — this ordering only holds on
+  standalone Docker.
 - Deploys land on a Portainer BE stack: the publish workflow POSTs the released version to a stack webhook
   (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=<version>`, which compose resolves into the image tag. The
   step is release-only, since a manual dispatch produces no semver tag.
-- `compose.yml` **pins an explicit version tag** rather than tracking `latest`, because startup migrations are
-  forward-only: with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling
-  the image back does not roll the schema back. Upgrading is a deliberate bump of that line.
-- The container needs `DATABASE_URL` pointing at a reachable Postgres plus `JWT_SECRET`; migrations run on startup.
-  `package.json#files` is `["dist", "drizzle"]` so `pnpm deploy --prod` carries the migrations into the image at
-  `/app/drizzle`, where `dbInit` reads them — a new migration only has to be committed, never copied separately.
+- `compose.yml` **pins an explicit version tag** rather than tracking `latest`, because migrations are forward-only:
+  with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling the image back
+  does not roll the schema back (the migrator skips files older than the last applied one, so the old image runs
+  *silently* against the newer schema). The webhook supplies that version per deploy.
+- The container needs `DATABASE_URL` pointing at a reachable Postgres plus `JWT_SECRET`. `package.json#files` is
+  `["dist", "drizzle"]` so `pnpm deploy --prod` carries the migrations into the image at `/app/drizzle`, where the
+  migrate entrypoint reads them — a new migration only has to be committed, never copied separately.

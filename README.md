@@ -22,17 +22,24 @@ Create `packages/server/.env`:
 ```dotenv
 DATABASE_URL=postgres://user:password@localhost:5432/sensorsim
 JWT_SECRET=some-long-random-string
-DEFAULT_ADMIN_PASSWORD=choose-one     # seeds the first admin on startup
+DEFAULT_ADMIN_PASSWORD=choose-one     # seeds the first admin when migrations run
 MAPTILER_KEY=your-maptiler-key        # for map tiles; stays server-side
 ```
 
 ```bash
 pnpm install
-pnpm dev          # server on :4000, UI on :3000
+pnpm --filter @sensor-sim/server migrate:dev   # schema + admin account
+pnpm dev                                       # server on :4000, UI on :3000
 ```
 
-The server applies its database migrations on startup and creates the admin
-account (`DEFAULT_ADMIN_USERNAME`, default `admin`) if it doesn't exist yet.
+The migrate step is separate on purpose — the server does **not** migrate on
+boot. Run it once on a fresh database and again after any schema change. It
+applies pending migrations and creates the admin account
+(`DEFAULT_ADMIN_USERNAME`, default `admin`) if it doesn't exist yet.
+
+`pnpm db:migrate` (drizzle-kit) also applies migrations, but only the schema —
+it does not seed the admin, so a fresh database leaves you with no way to log
+in. `migrate:dev` runs exactly what the deployed image runs.
 
 Open http://localhost:3000, log in as that admin, create a simulation, and drag
 its markers around the map. Under **Users** you can add further accounts;
@@ -89,7 +96,7 @@ reads its environment from a local `.env`.
 |--------------------------|------------------|-----------------------------------------------------|
 | `DATABASE_URL`           | — (required)     | Postgres connection string for the user store       |
 | `JWT_SECRET`             | — (required)     | Signing secret for the login tokens                 |
-| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account seeded on startup                     |
+| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account seeded by the migrate step            |
 | `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded          |
 | `MAPTILER_KEY`           | —                | Required for the `/api/maptiler` tile proxy         |
 | `PORT`                   | `4000`           | HTTP port (REST, WebSockets and static files)       |

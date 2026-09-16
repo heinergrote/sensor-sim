@@ -13,7 +13,6 @@ import simsWebsocketApp from "./routes/simsWebsocket";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
-import dbInit from "./db/dbInit";
 import {jwt} from 'hono/jwt'
 import {db} from "./db";
 import {JwtPayload} from "./types";
@@ -24,8 +23,9 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET environment variable is not set')
 }
 
-await dbInit()
-
+// Migrations are NOT run here — they are applied by the separate "migrate"
+// entrypoint (src/migrate.ts) before this process starts. See the compose stack's
+// one-shot migrate service, or run "pnpm db:migrate" locally.
 console.log("Starting server -", process.env.NODE_ENV);
 
 const port = Number(process.env.PORT) || 4000;

@@ -44,7 +44,7 @@ endpoints; the login request stores its token for the calls below it.
 |--------------------------|------------------|----------------------------------------------------------------|
 | `DATABASE_URL`           | — (required)     | Postgres connection string used by Drizzle                     |
 | `JWT_SECRET`             | — (required)     | HS256 secret the login tokens are signed with                  |
-| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created on startup                               |
+| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created by the migrate step                      |
 | `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded (logged as a warning) |
 | `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500 |
 | `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)        |
@@ -91,13 +91,21 @@ generated SQL migrations in `drizzle/`, configured by `drizzle.config.ts`.
 
 ```bash
 pnpm db:generate  # schema change → new migration file in drizzle/
-pnpm db:migrate   # apply migrations by hand (the server does this on startup too)
+pnpm migrate:dev  # apply migrations + seed the admin (what the deployed image runs)
+pnpm migrate      # the same, from a build: node dist/migrate.js
+pnpm db:migrate   # drizzle-kit: migrations only, no admin seed
 pnpm db:push      # push the schema straight to the DB, no migration file (dev only)
 pnpm db:studio    # browse the database
 ```
 
+**Migrations are never applied by starting the server.** `src/migrate.ts` is a
+separate entrypoint that runs them and exits; `src/index.ts` only serves. On a
+fresh database use `migrate:dev` rather than `db:migrate` — the latter creates
+the schema but not the admin account, leaving no way to log in.
+
 Changing a table means: edit `src/db/schema.ts`, run `pnpm db:generate`, commit
-the file it writes into `drizzle/`, restart. `src/types.ts` derives the `User`
+the file it writes into `drizzle/`, run `pnpm migrate:dev`, restart.
+`src/types.ts` derives the `User`
 type from the schema, so the column change reaches the frontend's types
 straight away.
 
@@ -194,6 +202,7 @@ src/simulations.service.ts  owns Map<id, SimulationRuntime>, persistence, the si
 src/simulationRuntime.ts    one per simulation: tick loop, movement math, per-sim stream
 src/storage.ts              unstorage fs driver; configs under `sims:<id>` in STORAGE_DIR
 src/user.service.ts         Drizzle queries for users, with password columns projected away
+src/migrate.ts              standalone migrate entrypoint (dist/migrate.js); the server never migrates
 src/db/                     index.ts (Drizzle client), schema.ts (tables), dbInit.ts (migrate + seed admin)
 src/middleware/auth.ts      verifyAuth(requireAdmin, {checkDb}) — role check on top of hono/jwt
 src/zodSchema.ts            Zod input schemas
@@ -284,16 +293,27 @@ for the first run, `DEFAULT_ADMIN_PASSWORD`. Mount a volume at whatever
 replaced.
 
 The compose file ships that Postgres as a `db` service, so the stack is
-self-contained. Two details there are load-bearing:
+self-contained. It brings three services up in a fixed order — `db` (healthy) →
+`migrate` (exited 0) → `server` — and each gate is load-bearing:
 
 - `DATABASE_URL` is composed in `compose.yml` from the `POSTGRES_*` values in
   `.env` and points at host `db` (the service name on the compose network), not
   `localhost`. Keep the password URL-safe — `src/db/index.ts` validates the
   string with `URL.canParse()`.
-- The server `depends_on` the database with `condition: service_healthy`.
-  `dbInit()` migrates before the HTTP server listens and nothing retries the
-  connection, so a server that starts first exits and restart-loops until
-  Postgres is accepting connections.
+- `migrate` is a one-shot service on the **same image** with
+  `command: ["node", "dist/migrate.js"]` and `restart: "no"` (a restart policy
+  would make compose read its expected exit as a failure to stay alive). It runs
+  the migrations and the admin seed, then exits. drizzle-kit is a devDependency
+  and absent from the image, which is why this runs the compiled entrypoint
+  rather than `db:migrate`.
+- The server waits on `condition: service_completed_successfully`. A migration
+  that fails leaves the server in `created`, never started, and `docker compose
+  up` exits non-zero — so a bad migration is a failed deploy instead of an app
+  crash-looping against a half-known schema.
+
+Nothing retries a database connection anywhere, so ordering is the only thing
+keeping startup sane. Note `depends_on` is ignored under Docker Swarm: these
+gates hold on standalone Docker only.
 
 The `db` volume mounts at `/var/lib/postgresql`, which is what the `postgres:18+`
 images expect — they refuse to start against the `/var/lib/postgresql/data` path
@@ -302,4 +322,5 @@ used by 17 and earlier.
 Migrations ship with the image: `package.json#files` is `["dist", "drizzle"]`, so
 `pnpm deploy --prod` copies `drizzle/` alongside `dist/`, landing at
 `/app/drizzle` — exactly where `dbInit` looks (`<cwd>/drizzle`). A new migration
-therefore only needs to be committed; it is applied on the next container start.
+therefore only needs to be committed; the `migrate` service applies it on the
+next deploy.
