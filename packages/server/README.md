@@ -2,12 +2,23 @@
 
 The sensor-sim simulation engine: a single Node.js process that runs GPS
 simulations, broadcasts their positions over WebSockets, exposes a REST API to
-control them, proxies map tiles, and — in production — serves the management
-frontend from the same origin.
+control them, manages user accounts and their JWTs, proxies map tiles, and —
+in production — serves the management frontend from the same origin.
 
 ## Quick start
 
-From the repo root (`pnpm dev` starts this and the frontend together), or here:
+You need a reachable Postgres and a few environment variables; the process
+exits on startup without `DATABASE_URL` or `JWT_SECRET`. Create a `.env` here:
+
+```dotenv
+DATABASE_URL=postgres://user:password@localhost:5432/sensorsim
+JWT_SECRET=some-long-random-string
+DEFAULT_ADMIN_PASSWORD=choose-one
+MAPTILER_KEY=your-maptiler-key
+```
+
+Then, from the repo root (`pnpm dev` starts this and the frontend together), or
+here:
 
 ```bash
 pnpm dev        # tsx watch src/index.ts, hot reload, http://localhost:4000
@@ -16,21 +27,82 @@ pnpm build      # frontend build → typecheck → tsup → dist/, frontend copi
 pnpm start      # node dist/index.js
 ```
 
+On every startup the server applies pending database migrations and seeds the
+default admin account if it is missing — there is no separate migrate step.
+
 `pnpm build` deliberately builds `@sensor-sim/frontend` first and copies its
 static output into `dist/public` (see `scripts/copy-frontend.mjs`), so a built
 `dist/` is a **self-contained server + frontend artifact** that needs no
 sibling packages at runtime.
 
+`http/users.http` contains ready-made requests for the login and user
+endpoints; the login request stores its token for the calls below it.
+
 ## Environment variables
 
-| Variable       | Default          | Purpose                                                        |
-|----------------|------------------|----------------------------------------------------------------|
-| `PORT`         | `4000`           | HTTP port (shared by REST, WebSockets and static files)        |
-| `NODE_ENV`     | —                | `development` enables CORS for the Vite dev server on `:3000`  |
-| `STORAGE_DIR`  | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)   |
-| `MAPTILER_KEY` | —                | Required for `/api/maptiler`; without it the proxy returns 500 |
+| Variable                 | Default          | Purpose                                                        |
+|--------------------------|------------------|----------------------------------------------------------------|
+| `DATABASE_URL`           | — (required)     | Postgres connection string used by Drizzle                     |
+| `JWT_SECRET`             | — (required)     | HS256 secret the login tokens are signed with                  |
+| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created on startup                               |
+| `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded (logged as a warning) |
+| `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500 |
+| `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)        |
+| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)   |
+| `NODE_ENV`               | —                | Only logged; CORS is currently enabled for all origins         |
 
 `.env` files are loaded via `dotenv/config`.
+
+## Users & auth
+
+Accounts live in Postgres (`users`: `id`, `username`, `admin`, and a `password`
+column holding a scrypt hash in `salt:hash` form — see `src/util/passwords.ts`).
+`POST /api/login` checks the password with a constant-time comparison and
+returns a 24-hour HS256 token whose payload is
+`{sub: <user id>, username, admin, exp}`.
+
+Access is decided by the order in which routes are mounted in `src/index.ts`:
+
+| Scope             | Routes                                       |
+|-------------------|-----------------------------------------------|
+| public            | `POST /api/login`, `/ws/sims`, static files  |
+| any logged-in user| `/api/me`, `/api/sims`, `/api/maptiler`      |
+| admin only        | `/api/users`                                  |
+
+Two consequences worth spelling out:
+
+- **The WebSocket API is open.** Anything that can reach the port can read live
+  simulation positions without a token — convenient for the devices under test,
+  but don't expose the port to an untrusted network.
+- **The map proxy is not.** `/api/maptiler` sits behind the token, so map
+  clients have to send it; the frontend does that through MapLibre's
+  `transformRequest`.
+
+There is no refresh flow and no server-side session state: logging out just
+discards the token on the client. Never-expiring revocation isn't possible
+either — a token stays valid until `exp`, unless a route opts into the
+`verifyAuth(requireAdmin, {checkDb: true})` middleware, which re-reads the user
+from the database on each request.
+
+## Database & migrations
+
+Drizzle ORM (`node-postgres` driver) with the schema in `src/db/schema.ts` and
+generated SQL migrations in `drizzle/`, configured by `drizzle.config.ts`.
+
+```bash
+pnpm db:generate  # schema change → new migration file in drizzle/
+pnpm db:migrate   # apply migrations by hand (the server does this on startup too)
+pnpm db:push      # push the schema straight to the DB, no migration file (dev only)
+pnpm db:studio    # browse the database
+```
+
+Changing a table means: edit `src/db/schema.ts`, run `pnpm db:generate`, commit
+the file it writes into `drizzle/`, restart. `src/types.ts` derives the `User`
+type from the schema, so the column change reaches the frontend's types
+straight away.
+
+Only users are in Postgres. Simulation configs stay in files (see below) —
+losing the database costs you the accounts, not the simulations.
 
 ## Simulation model
 
@@ -43,41 +115,72 @@ A simulation is `{ config, state }`:
   `distance`, `azimuth`, `start` timestamp. It is `null` whenever the
   simulation is stopped, and rebuilt from `config` on every start.
 
-Two movement types, both advanced by a **200 ms tick**:
+Two movement types, both advanced by a **100 ms tick**:
 
 - **`follow`** — moves `current` straight toward `target` at `speed`, snapping
   to the target on the last step and then sitting there at distance 0.
 - **`circle`** — orbits `target` at a fixed radius, rotating `azimuth` by the
   angle that corresponds to `speed × delta` along the circumference.
 
-Position math is geodesic, via `@turf/turf` (`util/getPosition.ts`).
+Position math is geodesic, via `@turf/turf` (`util/geoCalc.ts`).
 
-## REST API — `/api/sims`
+## REST API
 
-All inputs are validated with Zod (`src/zodSchema.ts`).
+All inputs are validated with Zod (`src/zodSchema.ts`). Everything except
+`/api/login` expects an `Authorization: Bearer <token>` header.
 
-| Method | Path             | Body              | Result                                                                                                                                                                |
-|--------|------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | `/`              | —                 | `Simulation[]`                                                                                                                                                        |
-| GET    | `/:id`           | —                 | A single `Simulation`, or `404` with `{ error }` if unknown                                                                                                           |
-| POST   | `/create`        | `simConfigInput`  | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
-| POST   | `/updateTarget`  | `{ id, target }`  | Moves the target. `follow` recomputes distance/azimuth from the current position so motion continues smoothly; `circle` restarts the orbit                            |
-| POST   | `/updateCurrent` | `{ id, current }` | Teleports the current position and recomputes the config from it                                                                                                      |
-| POST   | `/start`         | `{ id }`          | Resumes a stopped simulation (fresh state from config)                                                                                                                |
-| POST   | `/stop`          | `{ id }`          | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                      |
-| POST   | `/delete`        | `{ id }`          | Removes the simulation and its persisted config                                                                                                                       |
+### `/api/login`
+
+| Method | Path | Body                     | Result                                           |
+|--------|------|--------------------------|---------------------------------------------------|
+| POST   | `/`  | `{ username, password }` | `{ token }`, or `401 { error }` on bad credentials |
+
+### `/api/me`
+
+`GET /api/me` → `{ id, username, admin, exp }`, read straight from the token —
+no database round-trip, so it reflects the claims as they were at login.
+
+### `/api/sims`
+
+| Method | Path                 | Body             | Result                                                                                                                                                              |
+|--------|----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/`                  | —                | `Simulation[]`                                                                                                                                                      |
+| GET    | `/:id`               | —                | A single `Simulation`, or `404 { error }` if unknown                                                                                                                |
+| POST   | `/`                  | `simCreateInput` | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
+| PUT    | `/:id`               | `simConfigInput` | Updates any subset of the config. Moving the `target` of a `follow` sim recomputes distance/azimuth from the current position so motion continues smoothly          |
+| DELETE | `/:id`               | —                | Removes the simulation and its persisted config                                                                                                                     |
+| PUT    | `/:id/updateCurrent` | `{ latitude, longitude }` | Teleports the current position and recomputes the config from it                                                                                           |
+| PUT    | `/:id/start`         | —                | Resumes a stopped simulation (fresh state from config)                                                                                                              |
+| PUT    | `/:id/stop`          | —                | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                    |
+
+The mutating routes answer `{ success: true }`, and `404 { error }` for an
+unknown id.
+
+### `/api/users` (admin only)
+
+| Method | Path   | Body                   | Result                                                        |
+|--------|--------|------------------------|-----------------------------------------------------------------|
+| GET    | `/`    | —                      | All users ordered by id                                        |
+| GET    | `/:id` | —                      | A single user, or `404 { error }`                              |
+| POST   | `/`    | `{ username, password, admin? }` | The created user; the password is hashed before insert |
+| PUT    | `/:id` | any subset of the above | The updated user; `password` is only re-hashed when present   |
+| DELETE | `/:id` | —                      | `{ message: 'User deleted' }`                                  |
+
+Password hashes never leave the server: `user.service.ts` projects every query
+onto the non-secret columns, with a single deliberate exception used by the
+login route.
 
 ## WebSocket API — `/ws/sims`
 
 | Path           | Payload        | Emitted when                                                      |
 |----------------|----------------|-------------------------------------------------------------------|
-| `/ws/sims`     | `Simulation[]` | Any create/update/delete, plus a 200 ms re-emit of the whole list |
+| `/ws/sims`     | `Simulation[]` | Any create/update/delete, plus a 100 ms re-emit of the whole list |
 | `/ws/sims/:id` | `Simulation`   | Every tick of that simulation while it is playing                 |
 
-Both are **push-only**: a client receives a snapshot as soon as it connects and
-then keeps receiving them. There is no request/response and nothing to poll —
-messages sent by the client are only logged. Connecting to an unknown sim id
-returns `404` before the upgrade.
+Both are **push-only** and need no token: a client receives a snapshot as soon
+as it connects and then keeps receiving them. There is no request/response and
+nothing to poll. Connecting to an unknown sim id returns `404` before the
+upgrade.
 
 Under the hood, `util/eventStream.ts` is a small pub/sub whose `.collect()`
 returns an async generator; each socket iterates its own generator and releases
@@ -86,31 +189,39 @@ it on close.
 ## Architecture
 
 ```
-src/index.ts               app bootstrap; exports `simulationService` (module singleton) and `AppType`
-src/simulationService.ts   owns Map<id, SimulationRuntime>, persistence, the sim-list stream
-src/simulationRuntime.ts   one per simulation: tick loop, movement math, per-sim stream
-src/storage.ts             unstorage fs driver; configs under `sims:<id>` in STORAGE_DIR
-src/schema.ts              Zod input schemas
-src/types.ts               Position, SimConfig, SimState, Simulation
-src/routes/                sims (REST), simsWebsocket (WS), maptiler (proxy)
-src/util/                  eventStream, getPosition, randomOffset
+src/index.ts                app bootstrap; exports `simulationService` (module singleton) and `AppType`
+src/simulations.service.ts  owns Map<id, SimulationRuntime>, persistence, the sim-list stream
+src/simulationRuntime.ts    one per simulation: tick loop, movement math, per-sim stream
+src/storage.ts              unstorage fs driver; configs under `sims:<id>` in STORAGE_DIR
+src/user.service.ts         Drizzle queries for users, with password columns projected away
+src/db/                     index.ts (Drizzle client), schema.ts (tables), dbInit.ts (migrate + seed admin)
+src/middleware/auth.ts      verifyAuth(requireAdmin, {checkDb}) — role check on top of hono/jwt
+src/zodSchema.ts            Zod input schemas
+src/types.ts                Position, SimConfig, SimState, Simulation, User, JwtPayload
+src/routes/                 login, users, sims (REST), simsWebsocket (WS), maptiler (proxy)
+src/util/                   eventStream, geoCalc, passwords, randomOffset
 ```
 
-Two things worth knowing before changing anything here:
+Three things worth knowing before changing anything here:
 
 - **`AppType` is part of the public API.** `index.ts` exports the Hono route
   tree as `AppType`, and `package.json#exports` points at `./src/index.ts`.
   The frontend builds its typed client with `hc<AppType>(serverUrl)` against
-  that *source*, so changing a route or a Zod schema changes frontend types
-  immediately, with no build in between. Check both sides.
+  that *source*, so changing a route, a Zod schema or a database column changes
+  frontend types immediately, with no build in between. Check both sides.
 - **Route handlers import the service from `index.ts`.** `simulationService` is
   a module-level singleton created with top-level `await`; routes import it
   rather than receiving it, so import cycles between `index.ts` and
   `routes/*` are load-order sensitive.
+- **Where a `.route()` call sits relative to the `.use()` calls decides who may
+  reach it.** Adding an endpoint in the wrong place makes it public, or makes
+  it admin-only, without any other visible change.
 
 Simulation configs are persisted on every mutation and reloaded on startup, so
 simulations survive a restart. They come back in whatever `playing` state they
-were saved in.
+were saved in. On `SIGINT`/`SIGTERM` the process stops all tick intervals,
+terminates open sockets and closes the Postgres client, so it can exit on its
+own.
 
 ## Serving the frontend
 
@@ -129,7 +240,8 @@ If neither exists the server logs a warning and runs API-only.
 `GET /api/maptiler/<path>` forwards to `https://api.maptiler.com/<path>` and
 injects `MAPTILER_KEY` server-side, so the key never reaches the browser.
 Client-supplied `key` query params are dropped, and any embedded keys are
-stripped from responses.
+stripped from responses. Like every other `/api/*` route it requires a bearer
+token.
 
 JSON responses (`style.json`, `tiles.json`, …) get absolute
 `https://api.maptiler.com/` URLs rewritten back to this proxy. MapLibre calls
@@ -143,9 +255,17 @@ untouched.
 
 The repo-root `Dockerfile` builds this package into a single image (build
 context **must** be the repo root — the frontend imports `AppType` from here at
-build time, so both manifests are needed). Pushes to `main` publish
-`ghcr.io/<owner>/sensor-sim`, and `docker-compose/sensor-sim/compose.yml` runs
-it with a named volume mounted at `/app/data/storage`.
+build time, so both manifests are needed). Releases publish
+`ghcr.io/<owner>/sensor-sim` via `.github/workflows/publish.yml`, and
+`docker-compose/sensor-sim/compose.yml` runs it with a named volume mounted at
+`/app/data/storage`.
 
-Mount a volume at whatever `STORAGE_DIR` points to — otherwise simulations are
-lost when the container is replaced.
+The container needs `DATABASE_URL` (a Postgres it can reach), `JWT_SECRET` and,
+for the first run, `DEFAULT_ADMIN_PASSWORD`. Mount a volume at whatever
+`STORAGE_DIR` points to — otherwise simulations are lost when the container is
+replaced.
+
+> **Known gap:** `package.json#files` is `["dist"]`, so `pnpm deploy --prod`
+> doesn't copy `drizzle/` into the image, while `dbInit` looks for migrations
+> in `<cwd>/drizzle`. The startup migration therefore has nothing to apply in a
+> container until the folder is included.
