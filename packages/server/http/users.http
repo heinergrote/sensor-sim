@@ -28,3 +28,25 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/users/2
 
 ###
+
+POST {{baseUrl}}/api/login
+Content-Type: application/json
+
+{
+  "username": "foo",
+  "password": "bar"
+}
+
+> {%
+  client.global.set("auth_token", response.body.token);
+  client.log("Logging Bearer Token.");
+  client.log("Bearer " + response.body.token);
+%}
+
+###
+
+GET {{baseUrl}}/api/profile
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+###

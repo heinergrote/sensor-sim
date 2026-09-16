@@ -1,6 +1,7 @@
 import {defineConfig} from 'vitest/config';
 import solid from '@solidjs/vite-plugin';
 import tailwindcss from "@tailwindcss/vite";
+import {fileRoutes} from 'filesystem-routing/vite';
 
 export default defineConfig({
   // Turnkey client mode: no index.html and no mount file — the plugin
@@ -15,7 +16,7 @@ export default defineConfig({
       extensions: ['.jsx', '.tsx'],
       diagnostics: false,
     }), // add `ssr: true` for streaming SSR
-    //fileRoutes({types: true}),
+    fileRoutes({types: true}),
     tailwindcss(),
   ],
   server: {

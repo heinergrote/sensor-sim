@@ -2,6 +2,13 @@ import {Hono} from 'hono'
 import {deleteUserById, getUserById, getUsers, insertUser, updateUser} from "../user.service";
 import {zValidator} from "@hono/zod-validator";
 import {userInput} from "../zodSchema";
+import {z} from "zod";
+import {hashPassword} from "../util/passwords";
+
+
+const idParamSchema = z.object({
+  id: z.coerce.number()
+})
 
 const app = new Hono()
 
@@ -21,21 +28,37 @@ const app = new Hono()
 
   .post('/', zValidator('json', userInput), async (c) => {
     const user = await c.req.json();
-    const createdUser = await insertUser(user);
+
+    if (!user.password) throw new Error("Password is required");
+
+    const hashedPassword = await hashPassword(user.password);
+    const userHashedPassword = {...user, password: hashedPassword};
+
+    const createdUser = await insertUser(userHashedPassword);
     return c.json(createdUser);
   })
 
-  .put('/:id', zValidator('json', userInput.partial()), async (c) => {
-    const id = c.req.param('id');
-    const user = await c.req.json();
-    const updatedUser = await updateUser(+id, user);
-    return c.json(updatedUser);
-  })
+  .put('/:id',
+    zValidator('param', idParamSchema),
+    zValidator('json', userInput.partial()),
+    async (c) => {
+      const id = c.req.param('id');
+      const user = await c.req.json();
 
-  .delete('/:id', async (c) => {
-    const id = c.req.param('id');
-    await deleteUserById(+id);
-    return c.json({message: 'User deleted'});
-  })
+      if (user.password) {
+        user.password = await hashPassword(user.password);
+      }
+
+      const updatedUser = await updateUser(+id, user);
+      return c.json(updatedUser);
+    })
+
+  .delete('/:id',
+    zValidator('param', idParamSchema),
+    async (c) => {
+      const {id} = c.req.valid('param');
+      await deleteUserById(id);
+      return c.json({message: 'User deleted'});
+    })
 
 export default app

@@ -14,7 +14,7 @@
   "dependencies": {
     "@sensor-sim/server": "workspace:*",
     "@solidjs/meta": "^1.0.0-next.2",
-    "@solidjs/router": "^2.0.0-next.23",
+    "@solidjs/router": "2.0.0-next.23",
     "@solidjs/web": "^2.0.0-rc.6",
     "@tailwindcss/vite": "^4.3.3",
     "daisyui": "^5.7.16",

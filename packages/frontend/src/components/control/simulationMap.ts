@@ -49,8 +49,12 @@ type TrackedSim = {
 }
 
 export function createSimulationMap(
-  element: HTMLDivElement
+  element: HTMLDivElement,
+  jwtToken: string | null
 ) {
+
+  // extract origin from mapStyle url
+  const tileServerUrl = new URL(mapStyle).origin;
 
   const map = new MapLibre({
     container: element,
@@ -59,7 +63,16 @@ export function createSimulationMap(
     zoom: 16,
     canvasContextAttributes: {
       preserveDrawingBuffer: true
-    }
+    },
+    transformRequest: jwtToken ?
+      (url, _resourceType) => {
+        // add bearer token to requests to tileServerUrl
+        if (url.startsWith(tileServerUrl)) {
+          return {url, headers: {'Authorization': 'Bearer ' + jwtToken}};
+        }
+        // keep other requests unmodified
+        return {url};
+      } : undefined
   });
 
   map.addControl(new NavigationControl(), 'top-right');

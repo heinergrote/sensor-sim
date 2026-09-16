@@ -29,3 +29,10 @@ export type Simulation = {
 }
 
 export type User = typeof users.$inferSelect;
+
+export type JwtPayload = {
+  sub: number,
+  username: string,
+  admin: boolean,
+  exp: number,
+}

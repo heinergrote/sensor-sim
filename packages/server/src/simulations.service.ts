@@ -116,16 +116,24 @@ export async function createSimulationService() {
 
   let lastTick = Date.now();
 
-  setInterval(() => {
+  const tickInterval = setInterval(() => {
     const now = Date.now();
     const deltaMs = now - lastTick;
     lastTick = now;
     simListStream.emit()
   }, 100);
 
+  // stops all timers so the process can exit cleanly on shutdown
+  function shutdown() {
+    clearInterval(tickInterval);
+    for (const simRuntime of simulationRuntimes.values()) {
+      simRuntime.stop();
+    }
+  }
+
   return {
     get, create, update, updateCurrent,
     remove, list, simListStream,
-    startSim, stopSim, getSimStream
+    startSim, stopSim, getSimStream, shutdown
   };
 }

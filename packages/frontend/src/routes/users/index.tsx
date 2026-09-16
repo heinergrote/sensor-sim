@@ -1,7 +1,8 @@
-import {Title} from "@solidjs/meta";
 import {createMemo, Loading} from "solid-js";
-import {UserList} from "../components/users/UserList";
-import {fetchUsers} from "../service/users.service";
+import {fetchUsers} from "../../service/users.service";
+import {Title} from "@solidjs/meta";
+import {UserList} from "../../components/users/UserList";
+import {UserAddForm} from "../../components/users/UserAddForm";
 
 export default function Users() {
 
@@ -10,7 +11,7 @@ export default function Users() {
   return (
     <>
       <Title>Users</Title>
-      <h1>TODO: Users</h1>
+      <UserAddForm/>
       <Loading fallback={<p>Loading users…</p>}>
         <UserList users={users()}></UserList>
       </Loading>

@@ -9,7 +9,6 @@ Single-page Solid app (`@sensor-sim/frontend`) that visualizes and controls simu
 In dev it runs on Vite (default `:3000`) against the server on `:4000`; in production it's built to `dist/client` and
 served by the server itself from the same origin.
 
-- `src/router.ts` — routing (`@solidjs/router`).
 - `src/App.tsx` / `src/Document.tsx` — app shell: `Router`, page `<Title>`, `Nav`, and the HTML document wrapper.
 - `src/components/Nav.tsx` — top nav bar (home link, dev indicator).
 - `src/components/control/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).

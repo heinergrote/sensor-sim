@@ -33,12 +33,18 @@ export const userInput = z.object({
   admin: z.boolean().default(false),
 });
 
-
 export const userUpdate = userInput.partial();
 
 
 export type UserInput = z.infer<typeof userInput>;
 export type UserUpdate = z.infer<typeof userUpdate>;
+
+export const loginInput = z.object({
+  username: z.string(),
+  password: z.string(),
+});
+
+
 
 
 
