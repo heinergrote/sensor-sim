@@ -62,24 +62,25 @@ jobs:
       # Releases only: a workflow_dispatch from a branch produces no semver tag, and
       # metadata-action would fall back to "latest" — which is exactly what the pin
       # exists to avoid deploying.
-      - name: Trigger Portainer redeploy
-        if: github.event_name == 'release'
-        env:
-          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
-          VERSION: ${{ steps.meta-server.outputs.version }}
-        run: |
-          case "$VERSION" in
-            ""|latest)
-              echo "::error::Refusing to deploy unexpected version '$VERSION'."
-              exit 1
-              ;;
-          esac
 
-          if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::PORTAINER_WEBHOOK_URL secret is not set — image $VERSION was published but not deployed."
-            exit 0
-          fi
-
-          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=$VERSION"
-          curl --fail-with-body --silent --show-error \
-            --request POST "${WEBHOOK_URL}?SENSOR_SIM_VERSION=${VERSION}"
+#      - name: Trigger Portainer redeploy
+#        if: github.event_name == 'release'
+#        env:
+#          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+#          VERSION: ${{ steps.meta-server.outputs.version }}
+#        run: |
+#          case "$VERSION" in
+#            ""|latest)
+#              echo "::error::Refusing to deploy unexpected version '$VERSION'."
+#              exit 1
+#              ;;
+#          esac
+#
+#          if [ -z "$WEBHOOK_URL" ]; then
+#            echo "::warning::PORTAINER_WEBHOOK_URL secret is not set — image $VERSION was published but not deployed."
+#            exit 0
+#          fi
+#
+#          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=$VERSION"
+#          curl --fail-with-body --silent --show-error \
+#            --request POST "${WEBHOOK_URL}?SENSOR_SIM_VERSION=${VERSION}"
