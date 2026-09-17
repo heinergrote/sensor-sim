@@ -6,7 +6,7 @@ export const positionInput = z.object({
 });
 
 export const simConfigInput = z.object({
-  type: z.enum(['follow', 'circle']).default('follow'),
+  type: z.enum(['follow', 'circle']).optional(),
   targetLatitude: number().optional(),
   targetLongitude: number().optional(),
   initialDistance: number().optional(),
