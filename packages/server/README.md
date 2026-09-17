@@ -40,16 +40,16 @@ endpoints; the login request stores its token for the calls below it.
 
 ## Environment variables
 
-| Variable                 | Default          | Purpose                                                        |
-|--------------------------|------------------|----------------------------------------------------------------|
-| `DATABASE_URL`           | — (required)     | Postgres connection string used by Drizzle                     |
-| `JWT_SECRET`             | — (required)     | HS256 secret the login tokens are signed with                  |
-| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created by the migrate step                      |
+| Variable                 | Default          | Purpose                                                          |
+|--------------------------|------------------|------------------------------------------------------------------|
+| `DATABASE_URL`           | — (required)     | Postgres connection string used by Drizzle                       |
+| `JWT_SECRET`             | — (required)     | HS256 secret the login tokens are signed with                    |
+| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created by the migrate step                        |
 | `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded (logged as a warning) |
-| `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500 |
-| `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)        |
-| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)   |
-| `NODE_ENV`               | —                | Only logged; CORS is currently enabled for all origins         |
+| `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500   |
+| `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)          |
+| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)     |
+| `NODE_ENV`               | —                | Only logged; CORS is currently enabled for all origins           |
 
 `.env` files are loaded via `dotenv/config`.
 
@@ -63,11 +63,11 @@ returns a 24-hour HS256 token whose payload is
 
 Access is decided by the order in which routes are mounted in `src/index.ts`:
 
-| Scope             | Routes                                       |
-|-------------------|-----------------------------------------------|
-| public            | `POST /api/login`, `/ws/sims`, static files  |
-| any logged-in user| `/api/me`, `/api/sims`, `/api/maptiler`      |
-| admin only        | `/api/users`                                  |
+| Scope              | Routes                                      |
+|--------------------|---------------------------------------------|
+| public             | `POST /api/login`, `/ws/sims`, static files |
+| any logged-in user | `/api/me`, `/api/sims`, `/api/maptiler`     |
+| admin only         | `/api/users`                                |
 
 Two consequences worth spelling out:
 
@@ -139,8 +139,8 @@ All inputs are validated with Zod (`src/zodSchema.ts`). Everything except
 
 ### `/api/login`
 
-| Method | Path | Body                     | Result                                           |
-|--------|------|--------------------------|---------------------------------------------------|
+| Method | Path | Body                     | Result                                             |
+|--------|------|--------------------------|----------------------------------------------------|
 | POST   | `/`  | `{ username, password }` | `{ token }`, or `401 { error }` on bad credentials |
 
 ### `/api/me`
@@ -150,29 +150,29 @@ no database round-trip, so it reflects the claims as they were at login.
 
 ### `/api/sims`
 
-| Method | Path                 | Body             | Result                                                                                                                                                              |
-|--------|----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | `/`                  | —                | `Simulation[]`                                                                                                                                                      |
-| GET    | `/:id`               | —                | A single `Simulation`, or `404 { error }` if unknown                                                                                                                |
-| POST   | `/`                  | `simCreateInput` | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
-| PUT    | `/:id`               | `simConfigInput` | Updates any subset of the config. Moving the `target` of a `follow` sim recomputes distance/azimuth from the current position so motion continues smoothly          |
-| DELETE | `/:id`               | —                | Removes the simulation and its persisted config                                                                                                                     |
-| PUT    | `/:id/updateCurrent` | `{ latitude, longitude }` | Teleports the current position and recomputes the config from it                                                                                           |
-| PUT    | `/:id/start`         | —                | Resumes a stopped simulation (fresh state from config)                                                                                                              |
-| PUT    | `/:id/stop`          | —                | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                    |
+| Method | Path                 | Body                      | Result                                                                                                                                                                |
+|--------|----------------------|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/`                  | —                         | `Simulation[]`                                                                                                                                                        |
+| GET    | `/:id`               | —                         | A single `Simulation`, or `404 { error }` if unknown                                                                                                                  |
+| POST   | `/`                  | `simCreateInput`          | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
+| PUT    | `/:id`               | `simConfigInput`          | Updates any subset of the config. Moving the `target` of a `follow` sim recomputes distance/azimuth from the current position so motion continues smoothly            |
+| DELETE | `/:id`               | —                         | Removes the simulation and its persisted config                                                                                                                       |
+| PUT    | `/:id/updateCurrent` | `{ latitude, longitude }` | Teleports the current position and recomputes the config from it                                                                                                      |
+| PUT    | `/:id/start`         | —                         | Resumes a stopped simulation (fresh state from config)                                                                                                                |
+| PUT    | `/:id/stop`          | —                         | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                      |
 
 The mutating routes answer `{ success: true }`, and `404 { error }` for an
 unknown id.
 
 ### `/api/users` (admin only)
 
-| Method | Path   | Body                   | Result                                                        |
-|--------|--------|------------------------|-----------------------------------------------------------------|
-| GET    | `/`    | —                      | All users ordered by id                                        |
-| GET    | `/:id` | —                      | A single user, or `404 { error }`                              |
-| POST   | `/`    | `{ username, password, admin? }` | The created user; the password is hashed before insert |
-| PUT    | `/:id` | any subset of the above | The updated user; `password` is only re-hashed when present   |
-| DELETE | `/:id` | —                      | `{ message: 'User deleted' }`                                  |
+| Method | Path   | Body                             | Result                                                      |
+|--------|--------|----------------------------------|-------------------------------------------------------------|
+| GET    | `/`    | —                                | All users ordered by id                                     |
+| GET    | `/:id` | —                                | A single user, or `404 { error }`                           |
+| POST   | `/`    | `{ username, password, admin? }` | The created user; the password is hashed before insert      |
+| PUT    | `/:id` | any subset of the above          | The updated user; `password` is only re-hashed when present |
+| DELETE | `/:id` | —                                | `{ message: 'User deleted' }`                               |
 
 Password hashes never leave the server: `user.service.ts` projects every query
 onto the non-secret columns, with a single deliberate exception used by the
@@ -267,7 +267,7 @@ context **must** be the repo root — the frontend imports `AppType` from here a
 build time, so both manifests are needed). Releases publish
 `ghcr.io/<owner>/sensor-sim` via `.github/workflows/publish.yml`, tagged with the
 release version (`v1.2.3` → `1.2.3` and `1.2`) plus `latest` and `sha-<short>`.
-`docker-compose/sensor-sim/compose.yml` runs it with a named volume mounted at
+`../../compose.yaml` runs it with a named volume mounted at
 `/app/data/storage`.
 
 Deployment is a Portainer (Business Edition) stack fed by a stack webhook. The
@@ -296,7 +296,7 @@ The compose file ships that Postgres as a `db` service, so the stack is
 self-contained. It brings three services up in a fixed order — `db` (healthy) →
 `migrate` (exited 0) → `server` — and each gate is load-bearing:
 
-- `DATABASE_URL` is composed in `compose.yml` from the `POSTGRES_*` values in
+- `DATABASE_URL` is composed in `compose.yaml` from the `POSTGRES_*` values in
   `.env` and points at host `db` (the service name on the compose network), not
   `localhost`. Keep the password URL-safe — `src/db/index.ts` validates the
   string with `URL.canParse()`.

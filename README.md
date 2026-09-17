@@ -34,8 +34,8 @@ pnpm dev                                       # server on :4000, UI on :3000
 
 The migrate step is separate on purpose — the server does **not** migrate on
 boot. Run it once on a fresh database and again after any schema change. It
-applies pending migrations and creates the admin account
-(`DEFAULT_ADMIN_USERNAME`, default `admin`) if it doesn't exist yet.
+applies pending migrations and creates the admin account (`DEFAULT_ADMIN_USERNAME`, default `admin`) if it doesn't exist
+yet.
 
 `pnpm db:migrate` (drizzle-kit) also applies migrations, but only the schema —
 it does not seed the admin, so a fresh database leaves you with no way to log
@@ -87,18 +87,18 @@ docker run -p 4000:4000 \
 
 Mount a volume at `/app/data/storage` — simulation configs are persisted there
 and reloaded on startup; users live in Postgres.
-`docker-compose/sensor-sim/compose.yml` runs the image with that volume and
-reads its environment from a local `.env`.
+`compose.yaml` runs the image with that volume and
+reads its environment from a local `stack.env`.
 
 ## Environment variables
 
-| Variable                 | Default          | Purpose                                             |
-|--------------------------|------------------|-----------------------------------------------------|
-| `DATABASE_URL`           | — (required)     | Postgres connection string for the user store       |
-| `JWT_SECRET`             | — (required)     | Signing secret for the login tokens                 |
-| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account seeded by the migrate step            |
-| `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded          |
-| `MAPTILER_KEY`           | —                | Required for the `/api/maptiler` tile proxy         |
-| `PORT`                   | `4000`           | HTTP port (REST, WebSockets and static files)       |
-| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted              |
-| `VITE_MAP_STYLE`         | server's proxy   | Frontend build-time MapLibre style URL              |
+| Variable                 | Default          | Purpose                                       |
+|--------------------------|------------------|-----------------------------------------------|
+| `DATABASE_URL`           | — (required)     | Postgres connection string for the user store |
+| `JWT_SECRET`             | — (required)     | Signing secret for the login tokens           |
+| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account seeded by the migrate step      |
+| `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded    |
+| `MAPTILER_KEY`           | —                | Required for the `/api/maptiler` tile proxy   |
+| `PORT`                   | `4000`           | HTTP port (REST, WebSockets and static files) |
+| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted        |
+| `VITE_MAP_STYLE`         | server's proxy   | Frontend build-time MapLibre style URL        |
