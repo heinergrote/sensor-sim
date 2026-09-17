@@ -59,6 +59,7 @@ jobs:
       # so the version (the github sha) travels as query parameter and the deployed tag stays explicit.
       - name: Trigger Portainer redeploy
         run: |
-          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=sha-${{ github.sha }}"
+          SHA_TAG=$(echo "${{ steps.meta-server.outputs.tags }}" | grep -m1 -oP '(?<=:sha-).*')
+          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=sha-${SHA_TAG}"
           curl --fail-with-body --silent --show-error \
-            --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}?SENSOR_SIM_VERSION=sha-${{ github.sha }}"
+            --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}?SENSOR_SIM_VERSION=sha-${SHA_TAG}"
