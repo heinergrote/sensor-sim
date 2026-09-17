@@ -1,7 +1,7 @@
 # Build context must be the repository root.
 #
 # Build the image:
-#   docker build -t sensor-sim-server .
+#   docker build -t ghcr.io/heinergrote/sensor-sim .
 
 # ── deps ──────────────────────────────────────────────────────────────────────
 # Shared install layer. packages/frontend imports AppType from packages/server

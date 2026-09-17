@@ -1,0 +1,24 @@
+networks:
+  web:
+    external: true   # Traefik's network
+
+services:
+  server:
+    networks:
+      - web
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sensor-sim.rule=Host(`sensor-sim.h9e.de`)"
+      - "traefik.http.routers.sensor-sim.tls=true"
+      - "traefik.http.routers.sensor-sim.tls.certresolver=lets-encrypt"
+      - "traefik.http.routers.sensor-sim.service=server"
+      - "traefik.http.services.sensor-sim.loadbalancer.server.port=4000"
+
+  migrate:
+    networks:
+      - default
+
+  db:
+    networks:
+      - default

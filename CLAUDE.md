@@ -144,16 +144,17 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 
 - Docker: `Dockerfile` must be built with the **repo root as context**. `.github/workflows/publish.yml` publishes
   `ghcr.io/<owner>/sensor-sim` on GitHub releases and on manual dispatch, tagged `<version>` + `<major>.<minor>` (from
-  the release's git tag), `latest` and `sha-<short>`; `docker-compose/sensor-sim/compose.yml` runs it with a volume at
+  the release's git tag), `latest` and `sha-<short>`; `compose.yaml` runs it with a volume at
   `/app/data/storage`, alongside a `postgres:18-alpine` `db` service (volume at `/var/lib/postgresql`, the path 18+
-  images require). `DATABASE_URL` is assembled in `compose.yml` from the `POSTGRES_*` vars in `.env` and points at the
+  images require). `DATABASE_URL` is assembled in `compose.yaml` from the `POSTGRES_*` vars in `stack.env` and points at
+  the
   `db` service name. Service order is `db` (healthy) → `migrate` (exited 0) → `server`; nothing retries a failed
   connection, so both gates are load-bearing. Note `depends_on` is ignored by Swarm — this ordering only holds on
   standalone Docker.
 - Deploys land on a Portainer BE stack: the publish workflow POSTs the released version to a stack webhook
   (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=<version>`, which compose resolves into the image tag. The
   step is release-only, since a manual dispatch produces no semver tag.
-- `compose.yml` **pins an explicit version tag** rather than tracking `latest`, because migrations are forward-only:
+- `compose.yaml` **pins an explicit version tag** rather than tracking `latest`, because migrations are forward-only:
   with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling the image back
   does not roll the schema back (the migrator skips files older than the last applied one, so the old image runs
   *silently* against the newer schema). The webhook supplies that version per deploy.
