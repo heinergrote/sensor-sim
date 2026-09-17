@@ -8,6 +8,20 @@
       "when": 1789402467880,
       "tag": "0000_bent_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789644633262,
+      "tag": "0001_good_meteorite",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789646655923,
+      "tag": "0002_broken_justin_hammer",
+      "breakpoints": true
     }
   ]
 }

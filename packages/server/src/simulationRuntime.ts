@@ -25,14 +25,17 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
       sim.state = {
         id: sim.config.id,
         start: Date.now(),
-        current: getPosition(sim.config.target, sim.config.initialDistance, sim.config.initialAzimuth),
+        current: getPosition(
+          {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+          sim.config.initialDistance, sim.config.initialAzimuth
+        ),
         distance: sim.config.initialDistance,
         azimuth: sim.config.initialAzimuth,
       }
 
     }
 
-    const {target, speed} = sim.config;
+    const {targetLatitude, targetLongitude, speed} = sim.config;
     const stepDistance = speed * deltaMs / 1000;
 
     switch (sim.config.type) {
@@ -40,14 +43,14 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
       case "follow":
         if (sim.state.distance <= stepDistance) {
           // snap to target
-          sim.state.current = {...target};
+          sim.state.current.longitude = targetLongitude;
+          sim.state.current.latitude = targetLatitude;
           sim.state.distance = 0;
         } else {
           sim.state.distance -= stepDistance;
           sim.state.current = getPosition(
-            sim.config.target,
-            sim.state.distance,
-            sim.state.azimuth
+            {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+            sim.state.distance, sim.state.azimuth
           )
         }
         break;
@@ -56,16 +59,16 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
         if (sim.state.distance <= stepDistance) {
           // snap to target
-          sim.state.current = {...target};
+          sim.state.current.longitude = targetLongitude;
+          sim.state.current.latitude = targetLatitude;
           sim.state.distance = 0;
         } else {
           // get the rotation angle from the step distance and radius distance
           const angle = (stepDistance / sim.state.distance) * (180 / Math.PI);
           sim.state.azimuth = (sim.state.azimuth + angle) % 360;
           sim.state.current = getPosition(
-            sim.config.target,
-            sim.state.distance,
-            sim.state.azimuth
+            {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+            sim.state.distance, sim.state.azimuth
           )
         }
         break;
@@ -90,10 +93,14 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     // for follow type: infer initial distance and azimuth from current position, if available
     if (sim.config.type === "follow" && sim.state) {
       if (!updateInput.initialDistance) {
-        sim.config.initialDistance = getDistance(sim.config.target, sim.state.current);
+        sim.config.initialDistance = getDistance(
+          {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+          sim.state.current);
       }
       if (!updateInput.initialAzimuth) {
-        sim.config.initialAzimuth = getAzimuth(sim.config.target, sim.state.current);
+        sim.config.initialAzimuth = getAzimuth(
+          {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+          sim.state.current);
       }
     }
 
@@ -109,9 +116,21 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
 
   function updateCurrent(position: PositionInput) {
     stop();
-    sim.config.initialDistance = getDistance(sim.config.target, position);
-    sim.config.initialAzimuth = getAzimuth(sim.config.target, position);
+    sim.config.initialDistance = getDistance(
+      {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+      position);
+    sim.config.initialAzimuth = getAzimuth(
+      {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
+      position);
     start()
+  }
+
+  function updatePlaying(playing: boolean) {
+    stop();
+    sim.config.playing = playing;
+    if (playing) {
+      start();
+    }
   }
 
 
@@ -138,8 +157,8 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
   }
 
   return {
-    sim, update, updateCurrent,
-    start, stop, simStream
+    sim, update, updateCurrent, updatePlaying,
+    simStream
   };
 
 }

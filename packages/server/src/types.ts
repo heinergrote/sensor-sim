@@ -1,18 +1,8 @@
-import {users} from "./db/schema";
+import {simConfigs, users} from "./db/schema";
 
 export type Position = {
   latitude: number;
   longitude: number;
-}
-
-export type SimConfig = {
-  id: string,
-  target: Position,
-  initialDistance: number,
-  initialAzimuth: number,
-  type: "follow" | "circle",
-  speed: number,
-  playing: boolean,
 }
 
 export type SimState = {
@@ -28,7 +18,9 @@ export type Simulation = {
   state: SimState | null,
 }
 
+export type SimConfig = typeof simConfigs.$inferSelect;
 export type User = typeof users.$inferSelect;
+
 
 export type JwtPayload = {
   sub: number,

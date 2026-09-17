@@ -10,8 +10,6 @@ services:
     env_file: stack.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-sensorsim}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env}@db:5432/${POSTGRES_DB:-sensorsim}
-    volumes:
-      - data:/app/data/storage
     depends_on:
       db:
         condition: service_healthy
@@ -54,5 +52,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  data:
   db:
