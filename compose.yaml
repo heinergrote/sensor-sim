@@ -1,5 +1,5 @@
 x-app-image: &app-image
-  image: ghcr.io/heinergrote/sensor-sim:latest
+  image: ghcr.io/heinergrote/sensor-sim:${SENSOR_SIM_VERSION:-latest}
   build:
     context: .
     dockerfile: Dockerfile
