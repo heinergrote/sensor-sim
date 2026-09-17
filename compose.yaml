@@ -1,0 +1,58 @@
+x-app-image: &app-image
+  image: ghcr.io/heinergrote/sensor-sim:latest
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+services:
+  server:
+    <<: *app-image
+    env_file: stack.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sensorsim}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env}@db:5432/${POSTGRES_DB:-sensorsim}
+    volumes:
+      - data:/app/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        # Start only after migrations have applied cleanly. A bad migration shows up as a failed deploy
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # One-shot: applies pending migrations and seeds the default admin, then exits.
+  # Same image as the server, different entrypoint — drizzle-kit is a devDependency
+  # and is not in the production image, so this runs the compiled migrate script,
+  # which uses drizzle-orm's migrator against /app/drizzle.
+  migrate:
+    <<: *app-image
+    command: [ "node", "dist/migrate.js" ]
+    env_file: stack.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sensorsim}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env}@db:5432/${POSTGRES_DB:-sensorsim}
+    depends_on:
+      db:
+        condition: service_healthy
+    # Must not restart: it is expected to exit 0, after applying migrations and seeding
+    restart: "no"
+
+  db:
+    image: postgres:18-alpine
+    env_file: stack.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sensorsim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env}
+      POSTGRES_DB: ${POSTGRES_DB:-sensorsim}
+    volumes:
+      - db:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sensorsim} -d ${POSTGRES_DB:-sensorsim}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  data:
+  db:

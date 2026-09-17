@@ -1,0 +1,13 @@
+services:
+
+  server:
+    pull_policy: build
+    ports:
+      - "${PORT:-4000}:${PORT:-4000}"
+
+  migrate:
+    pull_policy: build
+
+  db:
+    ports:
+      - "5432:5432"

@@ -1,5 +1,5 @@
 import {SimConfig, Simulation} from "@sensor-sim/server";
-import {SimConfigInput, SimUpdateCurrentInput} from "./schema";
+import {PositionInput, SimConfigInput, SimCreateInput} from "./zodSchema";
 import {createEventStream} from "./util/eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
@@ -18,19 +18,19 @@ export async function createSimulationService() {
     return simulationRuntimes.get(id)?.sim;
   }
 
-  async function create(configInput: SimConfigInput) {
-    if (simulationRuntimes.has(configInput.id)) throw new Error(`Sim ${configInput.id} already exists`);
+  async function create(createInput: SimCreateInput) {
+    if (simulationRuntimes.has(createInput.id)) throw new Error(`Sim ${createInput.id} already exists`);
 
     // use default values, when missing
-    const target = configInput.target ? configInput.target : randomOffset(defaultTarget, 200, 300);
-    const initialDistance = configInput.initialDistance ? configInput.initialDistance : Math.random() * 50 + 60;
-    const initialAzimuth = configInput.initialAzimuth ? configInput.initialAzimuth : Math.random() * 360;
-    const type = configInput.type ? configInput.type : "follow";
-    const speed = configInput.speed ? configInput.speed : 20;
-    const playing = configInput.playing ?? true;
+    const target = createInput.target ? createInput.target : randomOffset(defaultTarget, 200, 300);
+    const initialDistance = createInput.initialDistance ? createInput.initialDistance : Math.random() * 50 + 60;
+    const initialAzimuth = createInput.initialAzimuth ? createInput.initialAzimuth : Math.random() * 360;
+    const type = createInput.type ? createInput.type : "follow";
+    const speed = createInput.speed ? createInput.speed : 20;
+    const playing = createInput.playing ?? true;
 
     const config: SimConfig = {
-      id: configInput.id,
+      id: createInput.id,
       target: target,
       initialDistance: initialDistance,
       initialAzimuth: initialAzimuth,
@@ -48,19 +48,19 @@ export async function createSimulationService() {
     return simRuntime.sim;
   }
 
-  async function update(configInput: SimConfigInput) {
-    const simRuntime = simulationRuntimes.get(configInput.id);
-    if (!simRuntime) throw new Error(`Sim ${configInput.id} not found`);
+  async function update(id: string, configInput: SimConfigInput) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) throw new Error(`Sim ${id} not found`);
     simRuntime.update(configInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     simListStream.emit();
     return simRuntime.sim;
   }
 
-  async function updateCurrent(updateCurrentInput: SimUpdateCurrentInput) {
-    const simRuntime = simulationRuntimes.get(updateCurrentInput.id);
-    if (!simRuntime) throw new Error(`Sim ${updateCurrentInput.id} not found`);
-    simRuntime.updateCurrent(updateCurrentInput);
+  async function updateCurrent(id: string, positionInput: PositionInput) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) throw new Error(`Sim ${id} not found`);
+    simRuntime.updateCurrent(positionInput);
     await storage.setItem(`sims:${simRuntime.sim.config.id}`, simRuntime.sim.config)
     simListStream.emit();
     return simRuntime.sim;
@@ -116,16 +116,24 @@ export async function createSimulationService() {
 
   let lastTick = Date.now();
 
-  setInterval(() => {
+  const tickInterval = setInterval(() => {
     const now = Date.now();
     const deltaMs = now - lastTick;
     lastTick = now;
     simListStream.emit()
   }, 100);
 
+  // stops all timers so the process can exit cleanly on shutdown
+  function shutdown() {
+    clearInterval(tickInterval);
+    for (const simRuntime of simulationRuntimes.values()) {
+      simRuntime.stop();
+    }
+  }
+
   return {
     get, create, update, updateCurrent,
     remove, list, simListStream,
-    startSim, stopSim, getSimStream
+    startSim, stopSim, getSimStream, shutdown
   };
 }

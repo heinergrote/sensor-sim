@@ -1,7 +1,7 @@
 import {Hono} from 'hono'
 import {simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
-import {simConfigInput, simIdInput, simUpdateCurrentInput} from "../schema";
+import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
 
 const app = new Hono()
 
@@ -18,40 +18,61 @@ const app = new Hono()
     return c.json(sim);
   })
 
-  .post('/create', zValidator('json', simConfigInput), async (c) => {
+  .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
-    console.log("createSim", input)
     const result = await simulationService.create(input)
     return c.json(result)
   })
 
-  .post('/update', zValidator('json', simConfigInput), async (c) => {
+  .put('/:id', zValidator('json', simConfigInput), async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
     const input = c.req.valid('json')
-    await simulationService.update(input)
+    await simulationService.update(id, input)
     return c.json({success: true})
   })
 
-  .post('/updateCurrent', zValidator('json', simUpdateCurrentInput), async (c) => {
-    const input = c.req.valid('json')
-    await simulationService.updateCurrent(input)
+  .delete('/:id', async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
+    await simulationService.remove(id)
     return c.json({success: true})
   })
 
-  .post('/delete', zValidator('json', simIdInput), async (c) => {
+  .put('/:id/updateCurrent', zValidator('json', positionInput), async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
     const input = c.req.valid('json')
-    await simulationService.remove(input.id)
+    await simulationService.updateCurrent(id, input)
     return c.json({success: true})
   })
 
-  .post('/start', zValidator('json', simIdInput), async (c) => {
-    const input = c.req.valid('json')
-    const result = await simulationService.startSim(input.id)
-    return c.json(result)
+  .put('/:id/start', async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
+    const result = await simulationService.startSim(id)
+    return c.json({success: true})
   })
 
-  .post('/stop', zValidator('json', simIdInput), async (c) => {
-    const input = c.req.valid('json')
-    await simulationService.stopSim(input.id)
+  .put('/:id/stop', async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
+    await simulationService.stopSim(id)
     return c.json({success: true})
   })
 

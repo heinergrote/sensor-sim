@@ -1,6 +1,6 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {Simulation} from "@sensor-sim/server";
-import {addSimulationsListener, honoClient} from "../../simulationsService";
+import {addSimulationsListener, updateCurrent, updateSim} from "../../service/simulations.service";
 
 //import {FeatureCollection} from "geojson";
 
@@ -49,8 +49,12 @@ type TrackedSim = {
 }
 
 export function createSimulationMap(
-  element: HTMLDivElement
+  element: HTMLDivElement,
+  jwtToken: string | null
 ) {
+
+  // extract origin from mapStyle url
+  const tileServerUrl = new URL(mapStyle).origin;
 
   const map = new MapLibre({
     container: element,
@@ -59,7 +63,16 @@ export function createSimulationMap(
     zoom: 16,
     canvasContextAttributes: {
       preserveDrawingBuffer: true
-    }
+    },
+    transformRequest: jwtToken ?
+      (url, _resourceType) => {
+        // add bearer token to requests to tileServerUrl
+        if (url.startsWith(tileServerUrl)) {
+          return {url, headers: {'Authorization': 'Bearer ' + jwtToken}};
+        }
+        // keep other requests unmodified
+        return {url};
+      } : undefined
   });
 
   map.addControl(new NavigationControl(), 'top-right');
@@ -129,30 +142,19 @@ export function createSimulationMap(
       }
     }
 
-    targetMarker.on('dragend', () => {
+    targetMarker.on('dragend', async () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      honoClient.api.sims.update.$post({
-        json: {
-          id: id,
-          target: {latitude: lngLat.lat, longitude: lngLat.lng}
-        }
-      });
+      await updateSim(id, {target: {latitude: lngLat.lat, longitude: lngLat.lng}})
     });
     targetMarker.on('dragstart', () => {
       trackedSim.draggingTarget = true;
     });
 
-
-    currentMarker.on('dragend', () => {
+    currentMarker.on('dragend', async () => {
       trackedSim.draggingCurrent = false;
       const lngLat = currentMarker.getLngLat()
-      honoClient.api.sims.updateCurrent.$post({
-        json: {
-          id: id,
-          current: {latitude: lngLat.lat, longitude: lngLat.lng}
-        }
-      });
+      await updateCurrent(id, lngLat.lat, lngLat.lng);
     });
     currentMarker.on('dragstart', () => {
       trackedSim.draggingCurrent = true;

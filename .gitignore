@@ -1,6 +1,6 @@
 # Environment
-.env
-.env*.local
+stack.env
+.env*
 
 # dependencies
 node_modules
