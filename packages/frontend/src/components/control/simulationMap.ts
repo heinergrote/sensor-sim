@@ -113,13 +113,13 @@ export function createSimulationMap(
       draggingCurrent: false,
       update: (sim: Simulation) => {
         if (!trackedSim.targetOnMap) {
-          trackedSim.targetMarker.setLngLat([sim.config.target.longitude, sim.config.target.latitude]);
+          trackedSim.targetMarker.setLngLat([sim.config.targetLongitude, sim.config.targetLatitude]);
           trackedSim.targetMarker.addTo(map)
           trackedSim.targetOnMap = true
         }
 
         if (!trackedSim.draggingTarget)
-          trackedSim.targetMarker.setLngLat([sim.config.target.longitude, sim.config.target.latitude]);
+          trackedSim.targetMarker.setLngLat([sim.config.targetLongitude, sim.config.targetLatitude]);
 
         if (sim.state) {
           if (!trackedSim.currentOnMap) {
@@ -145,7 +145,7 @@ export function createSimulationMap(
     targetMarker.on('dragend', async () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      await updateSim(id, {target: {latitude: lngLat.lat, longitude: lngLat.lng}})
+      await updateSim(id, {targetLatitude: lngLat.lat, targetLongitude: lngLat.lng})
     });
     targetMarker.on('dragstart', () => {
       trackedSim.draggingTarget = true;

@@ -64,8 +64,8 @@ export function SimDetails(props: { id: string }) {
               </div>
 
               <div class="flex gap-1 items-center">
-                <TbOutlineWorldLatitude/>{sim().config.target.latitude.toFixed(5)}
-                <TbOutlineWorldLongitude/>{sim().config.target.longitude.toFixed(5)}
+                <TbOutlineWorldLatitude/>{sim().config.targetLatitude.toFixed(5)}
+                <TbOutlineWorldLongitude/>{sim().config.targetLongitude.toFixed(5)}
               </div>
               <div class="flex gap-1 items-center">
                 <TbOutlineRulerMeasure/> {sim().config.initialDistance.toFixed(2)}m

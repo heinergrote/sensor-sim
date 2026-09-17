@@ -1,4 +1,4 @@
-import {boolean, pgTable, serial, text} from "drizzle-orm/pg-core";
+import {boolean, numeric, pgEnum, pgTable, serial, text, varchar} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -7,4 +7,15 @@ export const users = pgTable("users", {
   admin: boolean("admin").notNull().default(false),
 });
 
+export const typeEnum = pgEnum('type', ['follow', 'circle']);
 
+export const simConfigs = pgTable("sim_configs", {
+  id: varchar("id", {length: 64}).primaryKey(),
+  targetLatitude: numeric("target_latitude", {mode: 'number'}).notNull(),
+  targetLongitude: numeric("target_longitude", {mode: 'number'}).notNull(),
+  initialDistance: numeric("initial_distance", {mode: 'number'}).notNull(),
+  initialAzimuth: numeric("initial_azimuth", {mode: 'number'}).notNull(),
+  type: typeEnum("type").notNull().default('follow'),
+  speed: numeric("speed", {mode: 'number'}).notNull(),
+  playing: boolean("playing").notNull().default(false),
+});

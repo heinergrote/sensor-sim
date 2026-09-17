@@ -1,9 +1,5 @@
 import {number, z} from "zod";
 
-export const simIdInput = z.object({
-  id: z.string().min(1).max(64)
-});
-
 export const positionInput = z.object({
   latitude: z.number(),
   longitude: z.number()
@@ -11,7 +7,8 @@ export const positionInput = z.object({
 
 export const simConfigInput = z.object({
   type: z.enum(['follow', 'circle']).optional(),
-  target: positionInput.optional(),
+  targetLatitude: number().optional(),
+  targetLongitude: number().optional(),
   initialDistance: number().optional(),
   initialAzimuth: number().optional(),
   speed: z.number().default(10).optional(),
