@@ -63,16 +63,17 @@ unconditionally with `origin: '*'`. The frontend picks its base URL accordingly
 `packages/server/src/routes/*`, `zodSchema.ts` or `db/schema.ts` immediately changes frontend types** — check both
 sides, and note the Docker build needs both package manifests present for this reason.
 
-**Middleware order in `index.ts` *is* the authorization model.** Hono applies `.use()` only to routes mounted after it,
-so the sequence in `src/index.ts` decides what is public:
+**Each subapp under `src/routes/*` declares its own auth — `index.ts` mount order has no security consequences.**
+Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain, both exported from
+`middleware/auth.ts`:
 
-1. `/api/login` and `/ws/sims` are mounted first → **public**, no token required (the WebSocket stream is
-   unauthenticated).
-2. `.use('/api/*', jwt({secret: JWT_SECRET, alg: "HS256"}))` → `/api/maptiler`, `/api/sims` and `/api/me` need a valid
-   bearer token.
-3. `.use('/api/*', verifyAuth(true))` → `/api/users` additionally needs `admin` in the token payload.
+1. `login.ts` and `simsWebsocket.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
+   `/ws/sims` — the WebSocket stream is unauthenticated).
+2. `maptiler.ts`, `sims.ts` and `me.ts` add `.use('*', authMiddleware)` (`jwt({secret: JWT_SECRET, alg: "HS256"})`) →
+   `/api/maptiler`, `/api/sims` and `/api/me` need a valid bearer token.
+3. `users.ts` additionally adds `.use('*', verifyAuth(true))` → `/api/users` needs `admin` in the token payload.
 
-Moving a `.route()` call across one of those `.use()` lines silently changes its access level.
+`src/index.ts` just mounts each subapp with `.route()`; reordering those calls changes routing, not access level.
 
 **One database, two tables, migration-managed.** Both simulation configs (`sim_configs`) and users (`users`) live in
 the same Postgres DB via Drizzle — there's no separate file-based store any more. `db/dbInit.ts` applies pending

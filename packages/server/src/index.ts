@@ -9,19 +9,12 @@ import loginApp from "./routes/login";
 import maptilerApp from "./routes/maptiler";
 import simsApp from "./routes/sims";
 import usersApp from "./routes/users";
+import meApp from "./routes/me";
 import simsWebsocketApp from "./routes/simsWebsocket";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
-import {jwt} from 'hono/jwt'
 import {db} from "./db";
-import {JwtPayload} from "./types";
-import {verifyAuth} from "./middleware/auth";
-
-const jwtSecret = process.env.JWT_SECRET
-if (!jwtSecret) {
-  throw new Error('JWT_SECRET environment variable is not set')
-}
 
 // Migrations are NOT run here — they are applied by the separate "migrate"
 // entrypoint (src/migrate.ts) before this process starts. See the compose stack's
@@ -32,37 +25,15 @@ const port = Number(process.env.PORT) || 4000;
 
 export const simulationService = await createSimulationService()
 
-const authMiddleware = jwt({secret: jwtSecret, alg: "HS256"})
-
 const app = new Hono()
 
   .use('*', cors({origin: '*',}))
 
-  // before auth, public access
   .route("/api/login", loginApp)
   .route("/ws/sims", simsWebsocketApp)
-
-  // user required below this
-  .use('/api/*', authMiddleware)
-
   .route("/api/maptiler", maptilerApp)
   .route('/api/sims', simsApp)
-
-  .get('/api/me', (c) => {
-    // Retrieve decoded payload attached by the middleware
-    const payload = c.get('jwtPayload') as JwtPayload
-
-    return c.json({
-      id: payload.sub,
-      username: payload.username,
-      exp: payload.exp,
-      admin: payload.admin,
-    })
-  })
-
-  // also admin role needed
-  .use('/api/*', verifyAuth(true))
-
+  .route('/api/me', meApp)
   .route('/api/users', usersApp)
 
 

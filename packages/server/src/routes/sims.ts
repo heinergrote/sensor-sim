@@ -2,8 +2,12 @@ import {Hono} from 'hono'
 import {simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
+import {authMiddleware} from "../middleware/auth";
+import {JwtPayload} from "../types";
 
 const app = new Hono()
+
+  .use('*', authMiddleware)
 
   .get('/', (c) => {
     return c.json([...simulationService.list()]);
@@ -20,9 +24,9 @@ const app = new Hono()
 
   .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
+    const payload = c.get('jwtPayload') as JwtPayload
 
-    // TODO: get ownerId from jwt payload!!!
-    const result = await simulationService.createSim(1, input)
+    const result = await simulationService.createSim(payload.sub, input)
     return c.json(result)
   })
 

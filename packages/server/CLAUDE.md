@@ -5,16 +5,16 @@ Standalone Node.js simulation engine (`@sensor-sim/server`), a single Hono app s
 auth for the whole system. In production this same process serves the built frontend too (see "Static frontend serving"
 below).
 
-The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts` and `src/routes/login.ts`
-throw at import time.
+The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts`, `src/routes/login.ts` and
+`src/middleware/auth.ts` throw at import time.
 
 ## Source layout (`src/`)
 
-- `index.ts` — app bootstrap: creates the simulation service, mounts routes **in authorization order** (see below), sets
-  up CORS, serves the built frontend, starts the combined HTTP+WS server,
-  and handles SIGINT/SIGTERM shutdown (stops tick intervals, terminates sockets, closes the pg client). Exports
-  `simulationService` (module-level singleton, imported by route handlers) and `AppType` (the Hono route tree, used by
-  the frontend's `hc<AppType>` typed client).
+- `index.ts` — app bootstrap: creates the simulation service, mounts routes as a flat list (mount order has no
+  security consequences — see "Auth" below), sets up CORS, serves the built frontend, starts the combined HTTP+WS
+  server, and handles SIGINT/SIGTERM shutdown (stops tick intervals, terminates sockets, closes the pg client).
+  Exports `simulationService` (module-level singleton, imported by route handlers) and `AppType` (the Hono route
+  tree, used by the frontend's `hc<AppType>` typed client).
 - `zodSchema.ts` — Zod schemas/types for all REST inputs: `simConfigInput`, `simCreateInput` (= config + `id`),
   `positionInput`, `userInput`/`userUpdate`, `loginInput`.
 - `types.ts` — domain types: `Position`, `SimConfig`, `SimState`, `Simulation` (`{ config, state }`), `User`
@@ -45,9 +45,11 @@ throw at import time.
   `getUserWithSecretsByName(username)`, used by the login route.
 - `util/passwords.ts` — `hashPassword` / `verifyPassword` using node `scrypt`; stored format is `"<saltHex>:<hashHex>"`,
   compared with `timingSafeEqual`.
-- `middleware/auth.ts` — `verifyAuth(requireAdmin, {checkDb})`: reads `c.get('jwtPayload')`, 401 without one, 403 when
-  admin is required and missing. With `checkDb: true` it re-reads the user from the DB instead of trusting the token
-  claim (for fast revocation) — currently unused.
+- `middleware/auth.ts` — exports `authMiddleware` (the shared `jwt({secret: JWT_SECRET, alg: "HS256"})` instance every
+  authenticated route file uses) and `verifyAuth(requireAdmin, {checkDb})`: reads `c.get('jwtPayload')`, 401 without
+  one, 403 when admin is required and missing. `verifyAuth` assumes `authMiddleware` already ran on the same request
+  — always mount it after `authMiddleware` in a subapp's own `.use()` chain. With `checkDb: true` it re-reads the user
+  from the DB instead of trusting the token claim (for fast revocation) — currently unused.
 - `util/eventStream.ts` — `createEventStream(getSnapshot)`: a tiny pub/sub used for both the sim-list stream and per-sim
   streams; `.collect()` returns an async generator consumed by WebSocket handlers.
 - `util/geoCalc.ts` — geodesic helpers: `getPosition` (from origin + distance + azimuth), `getDistance`, `getAzimuth`,
@@ -55,25 +57,27 @@ throw at import time.
 - `util/randomOffset.ts` — generates a random target near a base point (used for default sim creation).
 - `routes/login.ts` — `POST /api/login`, public.
 - `routes/users.ts` — user CRUD, mounted at `/api/users`, admin-only.
-- `routes/sims.ts` — simulation REST API, mounted at `/api/sims`.
+- `routes/sims.ts` — simulation REST API, mounted at `/api/sims`, authenticated.
+- `routes/me.ts` — `GET /api/me`, mounted at `/api/me`, authenticated.
 - `routes/simsWebsocket.ts` — raw WebSocket API, mounted at `/ws/sims`, public.
-- `routes/maptiler.ts` — MapTiler reverse proxy, mounted at `/api/maptiler`, keeps the MapTiler API key server-side.
+- `routes/maptiler.ts` — MapTiler reverse proxy, mounted at `/api/maptiler`, keeps the MapTiler API key server-side,
+  authenticated.
 
-## Auth — mount order is the policy
+## Auth — each subapp declares its own requirement
 
-Hono applies `.use()` only to routes registered after it, so the order inside `src/index.ts` decides access:
+Each route file that needs auth applies it itself, as the first `.use('*', ...)` in its own chain, instead of relying
+on where it's mounted in `src/index.ts`:
 
 ```
-cors('*')                                   → all routes
-route /api/login, /ws/sims                  → PUBLIC
-use   /api/*  jwt({secret, alg: "HS256"})
-route /api/maptiler, /api/sims, get /api/me → any authenticated user
-use   /api/*  verifyAuth(true)
-route /api/users                            → admin only
+routes/login.ts, routes/simsWebsocket.ts        no .use() at all                              → PUBLIC
+routes/maptiler.ts, routes/sims.ts, routes/me.ts .use('*', authMiddleware)                     → any authenticated user
+routes/users.ts                                  .use('*', authMiddleware).use('*', verifyAuth(true)) → admin only
 ```
 
-Moving a `.route()` across one of those `.use()` lines silently changes its access level — the main thing to watch when
-adding endpoints. Two consequences worth knowing:
+`authMiddleware` (`jwt({secret: JWT_SECRET, alg: "HS256"})`) and `verifyAuth` both live in `middleware/auth.ts`, so
+every subapp imports the same instances rather than re-deriving them. `src/index.ts` mounts all of these as a flat
+list of `.route()` calls — reordering them no longer changes any endpoint's access level, only which prefix a
+handler is reached under. Two consequences worth knowing:
 
 - `/ws/sims` is **unauthenticated**: live simulation data is readable by anyone who can reach the port.
 - `/api/maptiler` is behind the JWT, so map clients must send the token themselves (the frontend does this through
@@ -171,7 +175,8 @@ If found, all unmatched GET requests fall back to `index.html` (SPA routing supp
 
 `GET /api/maptiler/:path` forwards to `https://api.maptiler.com/:path`, injecting `MAPTILER_KEY` server-side, rewriting
 absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to this proxy, and stripping any client-supplied
-`key` query param. Requests need a bearer token like any other `/api/*` route.
+`key` query param. Requests need a bearer token — `maptiler.ts` applies `authMiddleware` itself, like any other
+authenticated route file.
 
 ## Env vars
 

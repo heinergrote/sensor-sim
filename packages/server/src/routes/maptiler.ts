@@ -1,8 +1,12 @@
 import {Hono} from 'hono'
+import {authMiddleware} from '../middleware/auth'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
 
 const app = new Hono()
+
+  .use('*', authMiddleware)
+
   .get('/:path{.+$}', async (c) => {
 
     const key = process.env.MAPTILER_KEY
