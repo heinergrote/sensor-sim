@@ -1,12 +1,14 @@
-import {createEffect, createSignal, For} from "solid-js";
+import {createEffect, createMemo, createSignal, For} from "solid-js";
 import {SimDetails} from "./SimDetails";
-import {createSim, simulations} from "../../service/simulations.service";
+import {addSim, fetchSimulations} from "../../service/simulations.service";
 import {Simulation} from "@sensor-sim/server";
+import {TbOutlineUser} from "solid-icons/tb";
 
 export function SimList() {
 
+  const simulations = createMemo(() => fetchSimulations());
+
   const [newSimId, setNewSimId] = createSignal<string>("")
-  const [newType, setNewType] = createSignal<"follow" | "circle">("follow")
 
   const nextSimId = (sims: Simulation[]) => {
     const highest = sims.reduce((acc, sim) => {
@@ -17,19 +19,14 @@ export function SimList() {
   }
 
   createEffect(
-    () => nextSimId(simulations),
+    () => nextSimId(simulations()),
     (id) => {
       setNewSimId(`sim-${id}`)
     })
 
-  const handleCreateSim = async (e: SubmitEvent) => {
-    e.preventDefault();
-    const res = await createSim(newSimId(), newType())
-  }
-
   return (
     <>
-      <form onSubmit={handleCreateSim}>
+      <form action={addSim} method="post">
         <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">
@@ -41,11 +38,9 @@ export function SimList() {
             </div>
             <div class="flex-1">
               <label class="label">Type</label>
-              <select name="type" class="select select-bordered w-full max-w-xs"
-                      onChange={(e) => setNewType(e.currentTarget.value as "follow" | "circle")}
-              >
-                <option value="follow" selected={newType() === "follow"}>Follow</option>
-                <option value="circle" selected={newType() === "circle"}>Circle</option>
+              <select name="type" class="select select-bordered w-full max-w-xs">
+                <option value="follow">Follow</option>
+                <option value="circle">Circle</option>
               </select>
             </div>
             <div>
@@ -55,16 +50,16 @@ export function SimList() {
         </fieldset>
       </form>
 
-
       <ul class="list bg-base-100 rounded-box bg-base-200 border-base-300 border">
-        <For each={simulations}>
-          {(sim) => (
+        <For each={simulations()} keyed={(sim) => sim.config.id}>
+          {(sim, key) => (
             <li class="list-row">
               <div>
-                {sim.config.id}
+                <div class="text-xl">{sim().config.id}</div>
+                <div class="flex items-center"><TbOutlineUser/> {sim().config.ownerId}</div>
               </div>
               <div>
-                <SimDetails id={sim.config.id}/>
+                <SimDetails id={sim().config.id}/>
               </div>
             </li>
           )}

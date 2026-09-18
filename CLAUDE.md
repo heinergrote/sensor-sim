@@ -59,7 +59,7 @@ unconditionally with `origin: '*'`. The frontend picks its base URL accordingly
 
 **Types cross the package boundary through source, not a build.** `@sensor-sim/server`'s `exports` points at
 `./src/index.ts`, and it re-exports `AppType` (the Hono route tree) plus the domain types (`Simulation`, `User`,
-`JwtPayload`, …). The frontend consumes that with `hc<AppType>(serverUrl)`. Consequence: **editing
+`JWTPayload`, …). The frontend consumes that with `hc<AppType>(serverUrl)`. Consequence: **editing
 `packages/server/src/routes/*`, `zodSchema.ts` or `db/schema.ts` immediately changes frontend types** — check both
 sides, and note the Docker build needs both package manifests present for this reason.
 
@@ -94,8 +94,10 @@ used exclusively for mutations. Nothing polls. (Users are the exception: they ar
 
 - `util/eventStream.ts` is a tiny pub/sub whose `.collect()` yields an async generator, consumed directly by the WS
   handlers.
-- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle (`sim_configs`
-  table, `db/schema.ts`), and re-emits the sim list every 100ms so list snapshots stay fresh even without config changes.
+- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle
+  (`sim_configs`
+  table, `db/schema.ts`), and re-emits the sim list every 100ms so list snapshots stay fresh even without config
+  changes.
 - `simulationRuntime.ts` runs a per-sim 100ms tick advancing `SimState` with geodesic math (`util/geoCalc.ts`, built on
   `@turf/turf`).
 - `/ws/sims` streams `Simulation[]`; `/ws/sims/:id` streams a single `Simulation` per tick.

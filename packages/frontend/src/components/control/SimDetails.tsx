@@ -1,4 +1,4 @@
-import {createMemo, Show} from "solid-js";
+import {createSignal, onSettled, Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerSkipBack,
@@ -10,14 +10,25 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {deleteSim, simulations, startSim, stopSim, updateSpeed, updateType} from "../../service/simulations.service";
+import {deleteSim, share, startSim, stopSim, updateSpeed, updateType} from "../../service/simulations.service";
+import {useAction} from "@solidjs/router";
+import {Simulation} from "@sensor-sim/server";
+import {addSimulationListener} from "../../service/simulation.service";
 
 export function SimDetails(props: { id: string }) {
 
-  const sim = createMemo(() => {
-    return simulations.find(
-      (sim) => sim.config.id === props.id
-    )
+  const [sim, setSim] = createSignal<Simulation | null>(null)
+
+  const updateTypeAction = useAction(updateType)
+  const deleteSimAction = useAction(deleteSim)
+  const startSimAction = useAction(startSim)
+  const stopSimAction = useAction(stopSim)
+  const updateSpeedAction = useAction(updateSpeed)
+  const shareAction = useAction(share)
+
+  onSettled(() => {
+    // subscribe to sim updates and update local signal
+    return addSimulationListener(props.id, setSim)
   })
 
   return (
@@ -32,32 +43,32 @@ export function SimDetails(props: { id: string }) {
                   <input
                     class={`join-item btn ${sim().config.type === "follow" ? "btn-primary" : ""} btn-xs`}
                     type="radio" name="options" value={"follow"}
-                    onClick={() => updateType(sim().config.id, "follow")}
+                    onClick={() => updateTypeAction(sim().config.id, "follow")}
                     checked={sim().config.type === "follow"} aria-label="Follow"/>
                   <input
                     class={`join-item btn ${sim().config.type === "circle" ? "btn-primary" : ""} btn-xs`}
                     type="radio" name="options" value={"circle"}
-                    onClick={() => updateType(sim().config.id, "circle")}
+                    onClick={() => updateTypeAction(sim().config.id, "circle")}
                     checked={sim().config.type === "circle"} aria-label="Circle"/>
                 </div>
                 <div class="join">
                   {sim().state ?
                     <>
-                      <button class="btn btn-xs join-item" onClick={() => startSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => startSimAction(sim().config.id)}>
                         <TbFillPlayerSkipBack/>
                       </button>
-                      <button class="btn btn-xs join-item" onClick={() => stopSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => stopSimAction(sim().config.id)}>
                         <TbFillPlayerStop/>
                       </button>
                     </>
                     :
                     <>
-                      <button class="btn btn-xs join-item" onClick={() => startSim(sim().config.id)}>
+                      <button class="btn btn-xs join-item" onClick={() => startSimAction(sim().config.id)}>
                         <TbFillPlayerPlay/>
                       </button>
                     </>
                   }
-                  <button class="btn btn-xs join-item" onClick={() => deleteSim(sim().config.id)}>
+                  <button class="btn btn-xs join-item" onClick={() => deleteSimAction(sim().config.id)}>
                     <TbFillTrash/>
                   </button>
                 </div>
@@ -74,11 +85,15 @@ export function SimDetails(props: { id: string }) {
               <div class="flex gap-1 items-center">
                 <div class="flex gap-1 items-center"><BsSpeedometer/> {sim().config.speed}m/s</div>
                 <div><input type="range" min="0" max="40" value={sim().config.speed}
-                            onChange={(e) => updateSpeed(sim().config.id, +e.currentTarget.value)}
+                            onChange={(e) => updateSpeedAction(sim().config.id, +e.currentTarget.value)}
                             class="range range-xs w-60"/></div>
               </div>
 
             </div>
+
+            <button class="btn" onClick={() => shareAction(sim().config.id)}>
+              Share
+            </button>
 
 
             <Show when={sim().state}>

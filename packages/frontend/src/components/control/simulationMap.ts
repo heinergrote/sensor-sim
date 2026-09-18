@@ -1,8 +1,8 @@
 import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
 import {Simulation} from "@sensor-sim/server";
-import {addSimulationsListener, updateCurrent, updateSim} from "../../service/simulations.service";
-
-//import {FeatureCollection} from "geojson";
+import {updateCurrent, updateSim} from "../../service/simulations.service";
+import {useAction} from "@solidjs/router";
+import {addSimulationListener} from "../../service/simulation.service";
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
@@ -34,6 +34,7 @@ function createCurrentMarkerElement(): HTMLElement {
 
 export type SimulationMap = {
   map: MapLibre,
+  updateSims: (simIds: string[]) => void,
   dispose: () => void
 }
 
@@ -52,6 +53,10 @@ export function createSimulationMap(
   element: HTMLDivElement,
   jwtToken: string | null
 ) {
+
+  const updateSimAction = useAction(updateSim);
+  const updateCurrentAction = useAction(updateCurrent);
+
 
   // extract origin from mapStyle url
   const tileServerUrl = new URL(mapStyle).origin;
@@ -104,6 +109,11 @@ export function createSimulationMap(
       anchor: 'center',
     })
 
+    const removeListener = addSimulationListener(id,
+      (simData) => trackedSim.update(simData)
+    )
+
+
     const trackedSim = {
       targetMarker,
       currentMarker,
@@ -139,13 +149,14 @@ export function createSimulationMap(
       dispose: () => {
         if (trackedSim.currentOnMap) trackedSim.currentMarker.remove();
         if (trackedSim.targetOnMap) trackedSim.targetMarker.remove();
+        removeListener()
       }
     }
 
     targetMarker.on('dragend', async () => {
       trackedSim.draggingTarget = false;
       const lngLat = targetMarker.getLngLat()
-      await updateSim(id, {targetLatitude: lngLat.lat, targetLongitude: lngLat.lng})
+      await updateSimAction(id, {targetLatitude: lngLat.lat, targetLongitude: lngLat.lng})
     });
     targetMarker.on('dragstart', () => {
       trackedSim.draggingTarget = true;
@@ -154,7 +165,7 @@ export function createSimulationMap(
     currentMarker.on('dragend', async () => {
       trackedSim.draggingCurrent = false;
       const lngLat = currentMarker.getLngLat()
-      await updateCurrent(id, lngLat.lat, lngLat.lng);
+      await updateCurrentAction(id, lngLat.lat, lngLat.lng);
     });
     currentMarker.on('dragstart', () => {
       trackedSim.draggingCurrent = true;
@@ -164,30 +175,25 @@ export function createSimulationMap(
 
   }
 
-  function updateSims(sims: readonly Simulation[]) {
+  function updateSims(simIds: readonly string[]) {
     // add new, remove deleted sims
-    sims.forEach(sim => {
-      const trackedSim = trackedSims.getOrInsertComputed(
-        sim.config.id, createTrackedSim
+    simIds.forEach(id => {
+      trackedSims.getOrInsertComputed(
+        id, createTrackedSim
       )
-      trackedSim.update(sim)
     });
     trackedSims.forEach((trackedSim, trackedId) => {
-      if (!sims.some(sim => sim.config.id === trackedId)) {
+      if (!simIds.some((id) => id === trackedId)) {
         trackedSim.dispose();
         trackedSims.delete(trackedId);
       }
     });
   }
 
-  const removeSimulationsListener = addSimulationsListener((sims) => {
-    updateSims(sims)
-  })
-
   return {
     map,
+    updateSims,
     dispose: () => {
-      removeSimulationsListener()
       updateSims([])
       map.remove()
     }

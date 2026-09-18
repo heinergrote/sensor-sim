@@ -6,14 +6,16 @@ import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
 import {db} from "./db";
 import {simConfigs} from "./db/schema";
 import {eq} from "drizzle-orm";
+import {Status} from "./types";
 
 const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
 
 
 export interface SimulationService {
   list: () => Simulation[];
-  simListStream: EventStream<Simulation[]>;
   shutdown: () => void;
+  status: () => Status;
+  statusStream: EventStream<Status>;
 
   createSim: (ownerId: number, createInput: SimCreateInput) => Promise<Simulation>;
   get: (id: string) => Simulation | undefined;
@@ -27,6 +29,9 @@ export interface SimulationService {
 
 export async function createSimulationService(): Promise<SimulationService> {
 
+  const startedAt = Date.now();
+  let simListUpdatedAt = Date.now();
+
   const simulationRuntimes = new Map<string, SimulationRuntime>();
 
   // load simConfigs, add and start simulations
@@ -38,13 +43,9 @@ export async function createSimulationService(): Promise<SimulationService> {
     simRuntime.update(config)
   })
 
-  const simListStream = createEventStream(() => list());
+  const statusStream = createEventStream(() => status());
 
-  const tickInterval = setInterval(() => {
-    simListStream.emit()
-  }, 100);
-
-  simListStream.emit();
+  statusStream.emit();
 
   function list(): Simulation[] {
     return [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
@@ -52,7 +53,6 @@ export async function createSimulationService(): Promise<SimulationService> {
 
   // stops all timers so the process can exit cleanly on shutdown
   function shutdown() {
-    clearInterval(tickInterval);
     for (const simRuntime of simulationRuntimes.values()) {
       simRuntime.updatePlaying(false);
     }
@@ -93,8 +93,9 @@ export async function createSimulationService(): Promise<SimulationService> {
       .insert(simConfigs)
       .values(config)
     simulationRuntimes.set(config.id, simRuntime);
+    simListUpdatedAt = Date.now();
     simRuntime.update(config)
-    simListStream.emit();
+    statusStream.emit();
     return simRuntime.sim;
   }
 
@@ -112,7 +113,6 @@ export async function createSimulationService(): Promise<SimulationService> {
     if (!simRuntime) throw new Error(`Sim ${id} not found`);
     simRuntime.update(configInput);
     await storeConfig(id)
-    simListStream.emit();
     return simRuntime.sim;
   }
 
@@ -121,7 +121,6 @@ export async function createSimulationService(): Promise<SimulationService> {
     if (!simRuntime) throw new Error(`Sim ${id} not found`);
     simRuntime.updateCurrent(positionInput);
     await storeConfig(id)
-    simListStream.emit();
     return simRuntime.sim;
   }
 
@@ -145,7 +144,8 @@ export async function createSimulationService(): Promise<SimulationService> {
     await db.delete(simConfigs).where(eq(simConfigs.id, id))
     simRuntime.updatePlaying(false);
     simulationRuntimes.delete(id);
-    simListStream.emit();
+    simListUpdatedAt = Date.now();
+    statusStream.emit();
   }
 
   async function storeConfig(id: string) {
@@ -157,8 +157,18 @@ export async function createSimulationService(): Promise<SimulationService> {
       .where(eq(simConfigs.id, id))
   }
 
+  function status() {
+    return {
+      startedAt,
+      simListUpdatedAt,
+      numSims: simulationRuntimes.size,
+    }
+  }
+
+
   return {
-    list, simListStream, shutdown,
+    list, shutdown,
+    status, statusStream,
     createSim: createSim, get, getSimStream,
     update, updateCurrent, startSim, stopSim,
     remove

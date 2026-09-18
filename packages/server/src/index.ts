@@ -5,16 +5,16 @@ import path from "node:path";
 import {createSimulationService} from "./simulations.service";
 import {Hono} from "hono";
 import {cors} from "hono/cors";
-import loginApp from "./routes/login";
-import maptilerApp from "./routes/maptiler";
-import simsApp from "./routes/sims";
-import usersApp from "./routes/users";
-import meApp from "./routes/me";
-import simsWebsocketApp from "./routes/simsWebsocket";
+import {loginApp} from "./routes/login";
+import {maptilerApp} from "./routes/maptiler";
+import {usersApp} from "./routes/users";
+import {meApp} from "./routes/me";
+import {simsWebsocketApp} from "./routes/simsWebsocket";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
 import {db} from "./db";
+import {simsApp} from "./routes/sims";
 
 // Migrations are NOT run here — they are applied by the separate "migrate"
 // entrypoint (src/migrate.ts) before this process starts. See the compose stack's
@@ -25,10 +25,8 @@ const port = Number(process.env.PORT) || 4000;
 
 export const simulationService = await createSimulationService()
 
-const app = new Hono()
-
+export const app = new Hono()
   .use('*', cors({origin: '*',}))
-
   .route("/api/login", loginApp)
   .route("/ws/sims", simsWebsocketApp)
   .route("/api/maptiler", maptilerApp)
@@ -108,8 +106,6 @@ function shutdown(signal: NodeJS.Signals) {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-
-export type AppType = typeof app
 
 export * from "./types";
 

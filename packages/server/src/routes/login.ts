@@ -3,7 +3,7 @@ import {zValidator} from "@hono/zod-validator";
 import {loginInput} from "../zodSchema";
 import {getUserWithSecretsByName} from "../user.service";
 import {verifyPassword} from "../util/passwords";
-import {JwtPayload} from "../types";
+import {JWTPayload} from "../types";
 import {sign} from "hono/jwt";
 
 const jwtSecret = process.env.JWT_SECRET
@@ -11,7 +11,7 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET environment variable is not set')
 }
 
-const app = new Hono()
+export const loginApp = new Hono()
 
   .post('/', zValidator('json', loginInput),
     async (c) => {
@@ -23,7 +23,7 @@ const app = new Hono()
         return c.json({error: "Invalid credentials"}, 401)
       }
 
-      const payload: JwtPayload = {
+      const payload: JWTPayload = {
         sub: user.id,
         username: user.username,
         admin: user.admin,
@@ -34,4 +34,3 @@ const app = new Hono()
       return c.json({token})
     })
 
-export default app

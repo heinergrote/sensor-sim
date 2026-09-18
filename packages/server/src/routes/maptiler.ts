@@ -3,7 +3,7 @@ import {authMiddleware} from '../middleware/auth'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
 
-const app = new Hono()
+export const maptilerApp = new Hono()
 
   .use('*', authMiddleware)
 
@@ -78,6 +78,3 @@ const app = new Hono()
     return c.body(upstreamResponse.body)
 
   })
-
-
-export default app

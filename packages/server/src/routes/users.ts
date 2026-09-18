@@ -11,7 +11,7 @@ const idParamSchema = z.object({
   id: z.coerce.number()
 })
 
-const app = new Hono()
+export const usersApp = new Hono()
 
   .use('*', authMiddleware)
   .use('*', verifyAuth(true))
@@ -64,5 +64,3 @@ const app = new Hono()
       await deleteUserById(id);
       return c.json({message: 'User deleted'});
     })
-
-export default app

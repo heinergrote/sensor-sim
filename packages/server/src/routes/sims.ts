@@ -2,10 +2,10 @@ import {Hono} from 'hono'
 import {simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
-import {authMiddleware} from "../middleware/auth";
-import {JwtPayload} from "../types";
+import {authMiddleware, createShareToken} from "../middleware/auth";
+import {HonoEnv, JWTPayload} from "../types";
 
-const app = new Hono()
+export const simsApp = new Hono<HonoEnv>()
 
   .use('*', authMiddleware)
 
@@ -24,7 +24,7 @@ const app = new Hono()
 
   .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
-    const payload = c.get('jwtPayload') as JwtPayload
+    const payload = c.get('jwtPayload') as JWTPayload
 
     const result = await simulationService.createSim(payload.sub, input)
     return c.json(result)
@@ -68,7 +68,7 @@ const app = new Hono()
     if (!sim) {
       return c.json({error: 'Simulation not found'}, 404);
     }
-    const result = await simulationService.startSim(id)
+    await simulationService.startSim(id)
     return c.json({success: true})
   })
 
@@ -82,4 +82,20 @@ const app = new Hono()
     return c.json({success: true})
   })
 
-export default app
+  .post('/:id/share', async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
+
+    const jwtPayload = c.get('jwtPayload');
+    const userId = jwtPayload.sub;
+
+    const isOwner = sim.config.ownerId === userId;
+    if (!isOwner) return c.json({error: 'Not owner'}, 403);
+
+    const token = createShareToken(id, userId);
+
+    return c.json({token});
+  })

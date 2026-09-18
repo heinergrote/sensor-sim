@@ -18,13 +18,25 @@ export type Simulation = {
   state: SimState | null,
 }
 
+export type Status = {
+  startedAt: number,
+  simListUpdatedAt: number,
+  numSims: number,
+}
+
 export type SimConfig = typeof simConfigs.$inferSelect;
 export type User = typeof users.$inferSelect;
 
 
-export type JwtPayload = {
+export type JWTPayload = {
   sub: number,
   username: string,
   admin: boolean,
   exp: number,
 }
+
+export type HonoEnv = {
+  Variables: {
+    jwtPayload: JWTPayload;
+  };
+};

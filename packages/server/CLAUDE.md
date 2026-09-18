@@ -18,7 +18,7 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
 - `zodSchema.ts` — Zod schemas/types for all REST inputs: `simConfigInput`, `simCreateInput` (= config + `id`),
   `positionInput`, `userInput`/`userUpdate`, `loginInput`.
 - `types.ts` — domain types: `Position`, `SimConfig`, `SimState`, `Simulation` (`{ config, state }`), `User`
-  (`typeof users.$inferSelect`, so it follows the Drizzle schema) and `JwtPayload`.
+  (`typeof users.$inferSelect`, so it follows the Drizzle schema) and `JWTPayload`.
 - `simulations.service.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s to
   Postgres via Drizzle (the `sim_configs` table in `db/schema.ts`), reloads all persisted sims via
   `db.query.simConfigs.findMany()` on startup so simulations survive a restart, and exposes `createSim` / `update` /
