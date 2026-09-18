@@ -20,7 +20,9 @@ const app = new Hono()
 
   .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
-    const result = await simulationService.create(input)
+
+    // TODO: get ownerId from jwt payload!!!
+    const result = await simulationService.createSim(1, input)
     return c.json(result)
   })
 

@@ -10,8 +10,8 @@ throw at import time.
 
 ## Source layout (`src/`)
 
-- `index.ts` — app bootstrap: creates the simulation service, mounts routes
-  **in authorization order** (see below), sets up CORS, serves the built frontend, starts the combined HTTP+WS server,
+- `index.ts` — app bootstrap: creates the simulation service, mounts routes **in authorization order** (see below), sets
+  up CORS, serves the built frontend, starts the combined HTTP+WS server,
   and handles SIGINT/SIGTERM shutdown (stops tick intervals, terminates sockets, closes the pg client). Exports
   `simulationService` (module-level singleton, imported by route handlers) and `AppType` (the Hono route tree, used by
   the frontend's `hc<AppType>` typed client).
@@ -21,7 +21,7 @@ throw at import time.
   (`typeof users.$inferSelect`, so it follows the Drizzle schema) and `JwtPayload`.
 - `simulations.service.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s to
   Postgres via Drizzle (the `sim_configs` table in `db/schema.ts`), reloads all persisted sims via
-  `db.query.simConfigs.findMany()` on startup so simulations survive a restart, and exposes `create` / `update` /
+  `db.query.simConfigs.findMany()` on startup so simulations survive a restart, and exposes `createSim` / `update` /
   `updateCurrent` / `remove` / `startSim` / `stopSim` / `list` / `get` / `getSimStream` / `simListStream` / `shutdown`.
   Also runs a 100ms interval that re-emits the sim list (keeps clients' snapshots fresh even without config changes).
 - `simulationRuntime.ts` — per-simulation engine (`createSimulationRuntime`). Owns the tick loop (`setInterval`, 100ms)
@@ -30,7 +30,7 @@ throw at import time.
   (`EventStream<Simulation>`).
 - `db/index.ts` — the Drizzle client (`drizzle(DATABASE_URL, {schema})`, `node-postgres` driver), exported as `db`.
 - `db/schema.ts` — Drizzle table definitions. Two tables now: `users` (`id` serial PK, `username` text unique,
-  `password` text, `admin` boolean) and `sim_configs` (`id` varchar(64) PK, `target_latitude`/`target_longitude`/
+  `password` text, `admin` boolean) and `sim_configs` (`id` varchar (64) PK, `target_latitude`/`target_longitude`/
   `initial_distance`/`initial_azimuth`/`speed` numeric, `type` — a `typeEnum` pgEnum of `'follow' | 'circle'`
   defaulting to `'follow'` — and `playing` boolean defaulting to `false`).
 - `migrate.ts` — **second build entrypoint** (`dist/migrate.js`), not imported by the server. Calls `dbInit()`, closes
@@ -90,22 +90,22 @@ All inputs are validated with Zod (`src/zodSchema.ts`). The frontend consumes th
 
 ### `/api/login` (public)
 
-| Method | Path | Body                     | Notes                                          |
-|--------|------|--------------------------|------------------------------------------------|
-| POST   | `/`  | `{ username, password }` | `{ token }`, or `401 { error }` on bad creds   |
+| Method | Path | Body                     | Notes                                        |
+|--------|------|--------------------------|----------------------------------------------|
+| POST   | `/`  | `{ username, password }` | `{ token }`, or `401 { error }` on bad creds |
 
 ### `/api/sims` (authenticated)
 
-| Method | Path                 | Body               | Notes                                                        |
-|--------|----------------------|--------------------|---------------------------------------------------------------|
-| GET    | `/`                  | —                  | List all `Simulation[]`                                       |
-| GET    | `/:id`               | —                  | Single `Simulation`, 404 if missing                           |
-| POST   | `/`                  | `simCreateInput`   | `id` required; everything else defaulted. Returns the new sim |
-| PUT    | `/:id`               | `simConfigInput`   | Partial config update (target, type, speed, …)                |
-| DELETE | `/:id`               | —                  | Remove sim + persisted config                                 |
-| PUT    | `/:id/updateCurrent` | `positionInput`    | Teleport current position, recompute config from it           |
-| PUT    | `/:id/start`         | —                  | Resume a stopped sim                                          |
-| PUT    | `/:id/stop`          | —                  | Pause a sim (keeps config, clears state)                      |
+| Method | Path                 | Body             | Notes                                                         |
+|--------|----------------------|------------------|---------------------------------------------------------------|
+| GET    | `/`                  | —                | List all `Simulation[]`                                       |
+| GET    | `/:id`               | —                | Single `Simulation`, 404 if missing                           |
+| POST   | `/`                  | `simCreateInput` | `id` required; everything else defaulted. Returns the new sim |
+| PUT    | `/:id`               | `simConfigInput` | Partial config update (target, type, speed, …)                |
+| DELETE | `/:id`               | —                | Remove sim + persisted config                                 |
+| PUT    | `/:id/updateCurrent` | `positionInput`  | Teleport current position, recompute config from it           |
+| PUT    | `/:id/start`         | —                | Resume a stopped sim                                          |
+| PUT    | `/:id/stop`          | —                | Pause a sim (keeps config, clears state)                      |
 
 Mutating routes answer `{success: true}` and 404 `{error}` for unknown ids. There is no separate `updateTarget`
 endpoint any more — move the target with `PUT /:id`.
@@ -116,13 +116,13 @@ endpoint any more — move the target with `PUT /:id`.
 
 ### `/api/users` (admin only)
 
-| Method | Path   | Body                 | Notes                                                             |
-|--------|--------|----------------------|--------------------------------------------------------------------|
-| GET    | `/`    | —                    | All users, ordered by id, without `password`                       |
-| GET    | `/:id` | —                    | Single user, 404 if missing                                        |
-| POST   | `/`    | `userInput`          | Password is hashed before insert; returns the created user         |
-| PUT    | `/:id` | `userInput.partial()`| Only hashes `password` when present                                |
-| DELETE | `/:id` | —                    | `{message: 'User deleted'}`                                        |
+| Method | Path   | Body                  | Notes                                                      |
+|--------|--------|-----------------------|------------------------------------------------------------|
+| GET    | `/`    | —                     | All users, ordered by id, without `password`               |
+| GET    | `/:id` | —                     | Single user, 404 if missing                                |
+| POST   | `/`    | `userInput`           | Password is hashed before insert; returns the created user |
+| PUT    | `/:id` | `userInput.partial()` | Only hashes `password` when present                        |
+| DELETE | `/:id` | —                     | `{message: 'User deleted'}`                                |
 
 ## WebSocket API (`src/routes/simsWebsocket.ts`, mounted at `/ws/sims`)
 
