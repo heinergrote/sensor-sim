@@ -48,7 +48,6 @@ endpoints; the login request stores its token for the calls below it.
 | `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded (logged as a warning) |
 | `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500   |
 | `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)          |
-| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted (resolved from `cwd`)     |
 | `NODE_ENV`               | —                | Only logged; CORS is currently enabled for all origins           |
 
 `.env` files are loaded via `dotenv/config`.
@@ -109,8 +108,9 @@ the file it writes into `drizzle/`, run `pnpm migrate:dev`, restart.
 type from the schema, so the column change reaches the frontend's types
 straight away.
 
-Only users are in Postgres. Simulation configs stay in files (see below) —
-losing the database costs you the accounts, not the simulations.
+Both users and simulation configs live in Postgres now (`users` and
+`sim_configs` tables) — losing the database costs you both accounts and
+simulations.
 
 ## Simulation model
 
@@ -198,12 +198,11 @@ it on close.
 
 ```
 src/index.ts                app bootstrap; exports `simulationService` (module singleton) and `AppType`
-src/simulations.service.ts  owns Map<id, SimulationRuntime>, persistence, the sim-list stream
+src/simulations.service.ts  owns Map<id, SimulationRuntime>, persistence (Postgres via Drizzle), the sim-list stream
 src/simulationRuntime.ts    one per simulation: tick loop, movement math, per-sim stream
-src/storage.ts              unstorage fs driver; configs under `sims:<id>` in STORAGE_DIR
 src/user.service.ts         Drizzle queries for users, with password columns projected away
 src/migrate.ts              standalone migrate entrypoint (dist/migrate.js); the server never migrates
-src/db/                     index.ts (Drizzle client), schema.ts (tables), dbInit.ts (migrate + seed admin)
+src/db/                     index.ts (Drizzle client), schema.ts (users + sim_configs tables), dbInit.ts (migrate + seed admin)
 src/middleware/auth.ts      verifyAuth(requireAdmin, {checkDb}) — role check on top of hono/jwt
 src/zodSchema.ts            Zod input schemas
 src/types.ts                Position, SimConfig, SimState, Simulation, User, JwtPayload
@@ -226,9 +225,10 @@ Three things worth knowing before changing anything here:
   reach it.** Adding an endpoint in the wrong place makes it public, or makes
   it admin-only, without any other visible change.
 
-Simulation configs are persisted on every mutation and reloaded on startup, so
-simulations survive a restart. They come back in whatever `playing` state they
-were saved in. On `SIGINT`/`SIGTERM` the process stops all tick intervals,
+Simulation configs are persisted to Postgres (the `sim_configs` table, via
+Drizzle) on every mutation and reloaded from there on startup, so simulations
+survive a restart. They come back in whatever `playing` state they were saved
+in. On `SIGINT`/`SIGTERM` the process stops all tick intervals,
 terminates open sockets and closes the Postgres client, so it can exit on its
 own.
 
@@ -267,8 +267,8 @@ context **must** be the repo root — the frontend imports `AppType` from here a
 build time, so both manifests are needed). Releases publish
 `ghcr.io/<owner>/sensor-sim` via `.github/workflows/publish.yml`, tagged with the
 release version (`v1.2.3` → `1.2.3` and `1.2`) plus `latest` and `sha-<short>`.
-`../../compose.yaml` runs it with a named volume mounted at
-`/app/data/storage`.
+`../../compose.yaml` runs it alongside a `db` service — see below for the
+volume that matters now that sim configs live in Postgres too.
 
 Deployment is a Portainer (Business Edition) stack fed by a stack webhook. The
 compose file resolves its image tag from `SENSOR_SIM_VERSION`, and the publish
@@ -288,9 +288,10 @@ Upgrading should be a deliberate bump of the pinned tag; `sha-<short>` tags are
 available when you need to pin a build that has no release.
 
 The container needs `DATABASE_URL` (a Postgres it can reach), `JWT_SECRET` and,
-for the first run, `DEFAULT_ADMIN_PASSWORD`. Mount a volume at whatever
-`STORAGE_DIR` points to — otherwise simulations are lost when the container is
-replaced.
+for the first run, `DEFAULT_ADMIN_PASSWORD`. There's no volume to mount on the
+app container itself any more — both users and simulations persist in that
+same Postgres database, so replacing the container loses nothing as long as
+`DATABASE_URL` points at a durable `db` service (see its volume below).
 
 The compose file ships that Postgres as a `db` service, so the stack is
 self-contained. It brings three services up in a fixed order — `db` (healthy) →

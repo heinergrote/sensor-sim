@@ -74,9 +74,11 @@ so the sequence in `src/index.ts` decides what is public:
 
 Moving a `.route()` call across one of those `.use()` lines silently changes its access level.
 
-**Two stores, on purpose.** Simulation configs are persisted as files through `unstorage` (fs driver, `STORAGE_DIR`);
-users live in Postgres via Drizzle. `db/dbInit.ts` applies pending migrations from `<cwd>/drizzle` and seeds a default
-admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` (skipped with a warning if the password is unset).
+**One database, two tables, migration-managed.** Both simulation configs (`sim_configs`) and users (`users`) live in
+the same Postgres DB via Drizzle — there's no separate file-based store any more. `db/dbInit.ts` applies pending
+migrations from `<cwd>/drizzle` and seeds a default admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`
+(skipped with a warning if the password is unset). Consequence: losing the database now costs you both accounts and
+simulations — there's no separate store to fall back on.
 
 **Migrations are a separate step, not part of app boot.** `src/migrate.ts` is a second tsup entrypoint
 (`dist/migrate.js`) that calls `dbInit()` and exits 0/1; `src/index.ts` never migrates. In the compose stack a one-shot
@@ -91,8 +93,8 @@ used exclusively for mutations. Nothing polls. (Users are the exception: they ar
 
 - `util/eventStream.ts` is a tiny pub/sub whose `.collect()` yields an async generator, consumed directly by the WS
   handlers.
-- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` via `unstorage`, and re-emits the sim
-  list every 100ms so list snapshots stay fresh even without config changes.
+- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle (`sim_configs`
+  table, `db/schema.ts`), and re-emits the sim list every 100ms so list snapshots stay fresh even without config changes.
 - `simulationRuntime.ts` runs a per-sim 100ms tick advancing `SimState` with geodesic math (`util/geoCalc.ts`, built on
   `@turf/turf`).
 - `/ws/sims` streams `Simulation[]`; `/ws/sims/:id` streams a single `Simulation` per tick.
@@ -135,22 +137,21 @@ helpers; `file-routes.d.ts` is generated — don't edit it. Styling is Tailwind 
 
 ## Env vars
 
-Server: `PORT` (4000), `NODE_ENV`, `STORAGE_DIR` (`./data/storage`), `MAPTILER_KEY` (required for the map proxy),
-`DATABASE_URL` (**required**, Postgres), `JWT_SECRET` (**required**), `DEFAULT_ADMIN_USERNAME` (`admin`),
-`DEFAULT_ADMIN_PASSWORD` (seeds the first admin; no seeding without it).
+Server: `PORT` (4000), `NODE_ENV`, `MAPTILER_KEY` (required for the map proxy), `DATABASE_URL` (**required**,
+Postgres), `JWT_SECRET` (**required**), `DEFAULT_ADMIN_USERNAME` (`admin`), `DEFAULT_ADMIN_PASSWORD` (seeds the first
+admin; no seeding without it).
 Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.production`).
 
 ## Release
 
 - Docker: `Dockerfile` must be built with the **repo root as context**. `.github/workflows/publish.yml` publishes
   `ghcr.io/<owner>/sensor-sim` on GitHub releases and on manual dispatch, tagged `<version>` + `<major>.<minor>` (from
-  the release's git tag), `latest` and `sha-<short>`; `compose.yaml` runs it with a volume at
-  `/app/data/storage`, alongside a `postgres:18-alpine` `db` service (volume at `/var/lib/postgresql`, the path 18+
-  images require). `DATABASE_URL` is assembled in `compose.yaml` from the `POSTGRES_*` vars in `stack.env` and points at
-  the
-  `db` service name. Service order is `db` (healthy) → `migrate` (exited 0) → `server`; nothing retries a failed
-  connection, so both gates are load-bearing. Note `depends_on` is ignored by Swarm — this ordering only holds on
-  standalone Docker.
+  the release's git tag), `latest` and `sha-<short>`; `compose.yaml` runs it alongside a `postgres:18-alpine` `db`
+  service (volume at `/var/lib/postgresql`, the path 18+ images require) — that's the only persistent volume in the
+  stack now that sim configs live in the same database as users. `DATABASE_URL` is assembled in `compose.yaml` from
+  the `POSTGRES_*` vars in `stack.env` and points at the `db` service name. Service order is `db` (healthy) →
+  `migrate` (exited 0) → `server`; nothing retries a failed connection, so both gates are load-bearing. Note
+  `depends_on` is ignored by Swarm — this ordering only holds on standalone Docker.
 - Deploys land on a Portainer BE stack: the publish workflow POSTs the released version to a stack webhook
   (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=<version>`, which compose resolves into the image tag. The
   step is release-only, since a manual dispatch produces no semver tag.

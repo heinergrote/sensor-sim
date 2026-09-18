@@ -48,6 +48,5 @@ ENV PORT=4000
 
 # Configure at runtime, e.g.:
 # ENV MAPTILER_KEY=your_key_here
-# ENV STORAGE_DIR=/app/data/storage
 
 CMD ["node", "dist/index.js"]

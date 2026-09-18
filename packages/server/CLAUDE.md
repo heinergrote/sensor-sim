@@ -19,19 +19,20 @@ throw at import time.
   `positionInput`, `userInput`/`userUpdate`, `loginInput`.
 - `types.ts` — domain types: `Position`, `SimConfig`, `SimState`, `Simulation` (`{ config, state }`), `User`
   (`typeof users.$inferSelect`, so it follows the Drizzle schema) and `JwtPayload`.
-- `simulations.service.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s via
-  `storage.ts`, loads persisted sims on startup, and exposes `create` / `update` / `updateCurrent` / `remove` /
-  `startSim` / `stopSim` / `list` / `get` / `getSimStream` / `simListStream` / `shutdown`. Also runs a 100ms interval
-  that re-emits the sim list (keeps clients' snapshots fresh even without config changes).
+- `simulations.service.ts` — top-level orchestrator. Owns the `Map<id, SimulationRuntime>`, persists `SimConfig`s to
+  Postgres via Drizzle (the `sim_configs` table in `db/schema.ts`), reloads all persisted sims via
+  `db.query.simConfigs.findMany()` on startup so simulations survive a restart, and exposes `create` / `update` /
+  `updateCurrent` / `remove` / `startSim` / `stopSim` / `list` / `get` / `getSimStream` / `simListStream` / `shutdown`.
+  Also runs a 100ms interval that re-emits the sim list (keeps clients' snapshots fresh even without config changes).
 - `simulationRuntime.ts` — per-simulation engine (`createSimulationRuntime`). Owns the tick loop (`setInterval`, 100ms)
   that advances `SimState` for `follow` (move toward a target) and `circle` (orbit a center) modes, using
   `util/geoCalc.ts` for geodesic math. Exposes `update`, `updateCurrent`, `start`, `stop`, and a per-sim `simStream`
   (`EventStream<Simulation>`).
-- `storage.ts` — `unstorage` fs-driver wrapper; persists `SimConfig` under `sims:<id>` keys in `STORAGE_DIR` (default
-  `./data/storage`) so simulations survive server restarts. **Sims only** — users live in Postgres.
 - `db/index.ts` — the Drizzle client (`drizzle(DATABASE_URL, {schema})`, `node-postgres` driver), exported as `db`.
-- `db/schema.ts` — Drizzle table definitions. Currently one table: `users` (`id` serial PK, `username` text unique,
-  `password` text, `admin` boolean).
+- `db/schema.ts` — Drizzle table definitions. Two tables now: `users` (`id` serial PK, `username` text unique,
+  `password` text, `admin` boolean) and `sim_configs` (`id` varchar(64) PK, `target_latitude`/`target_longitude`/
+  `initial_distance`/`initial_azimuth`/`speed` numeric, `type` — a `typeEnum` pgEnum of `'follow' | 'circle'`
+  defaulting to `'follow'` — and `playing` boolean defaulting to `false`).
 - `migrate.ts` — **second build entrypoint** (`dist/migrate.js`), not imported by the server. Calls `dbInit()`, closes
   the pg client and exits 0/1. This is the only thing that migrates: `index.ts` does not. `tsup.config.ts` lists it
   alongside `src/index.ts`, and the `build` script must invoke plain `tsup` — a CLI positional (`tsup src/index.ts`)
@@ -176,7 +177,6 @@ absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to this p
 
 - `PORT` — HTTP port (default `4000`)
 - `NODE_ENV` — currently only logged; CORS is enabled for all origins regardless
-- `STORAGE_DIR` — persisted sim config directory (default `./data/storage`)
 - `MAPTILER_KEY` — required for the map proxy to function
 - `DATABASE_URL` — **required**, Postgres connection string for Drizzle
 - `JWT_SECRET` — **required**, HS256 signing secret

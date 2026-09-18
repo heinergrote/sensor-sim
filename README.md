@@ -14,8 +14,8 @@ positions into your own app as if they came from a real GPS.
 
 ## Quick start
 
-You need Node 24+, pnpm, and a Postgres database (users are stored there;
-simulation configs are plain files).
+You need Node 24+, pnpm, and a Postgres database (both users and simulation
+configs are stored there).
 
 Create `packages/server/.env`:
 
@@ -81,24 +81,22 @@ docker run -p 4000:4000 \
   -e JWT_SECRET=... \
   -e DEFAULT_ADMIN_PASSWORD=... \
   -e MAPTILER_KEY=... \
-  -v sensor-sim-data:/app/data/storage \
   ghcr.io/heinergrote/sensor-sim:latest
 ```
 
-Mount a volume at `/app/data/storage` — simulation configs are persisted there
-and reloaded on startup; users live in Postgres.
-`compose.yaml` runs the image with that volume and
-reads its environment from a local `stack.env`.
+Both users and simulation configs persist in that Postgres database — no
+volume is needed on the app container itself, since Postgres (not the app) is
+what needs durable storage now. `compose.yaml` runs the image alongside a `db`
+service and reads its environment from a local `stack.env`.
 
 ## Environment variables
 
 | Variable                 | Default          | Purpose                                       |
 |--------------------------|------------------|-----------------------------------------------|
-| `DATABASE_URL`           | — (required)     | Postgres connection string for the user store |
+| `DATABASE_URL`           | — (required)     | Postgres connection string for the database   |
 | `JWT_SECRET`             | — (required)     | Signing secret for the login tokens           |
 | `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account seeded by the migrate step      |
 | `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded    |
 | `MAPTILER_KEY`           | —                | Required for the `/api/maptiler` tile proxy   |
 | `PORT`                   | `4000`           | HTTP port (REST, WebSockets and static files) |
-| `STORAGE_DIR`            | `./data/storage` | Where simulation configs are persisted        |
 | `VITE_MAP_STYLE`         | server's proxy   | Frontend build-time MapLibre style URL        |
