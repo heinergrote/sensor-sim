@@ -1,4 +1,4 @@
-import {createSignal, onSettled, Show} from "solid-js";
+import {createMemo, createSignal, onSettled, Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerSkipBack,
@@ -9,7 +9,6 @@ import {
   TbOutlineRulerMeasure,
   TbOutlineShare,
   TbOutlineShareOff,
-  TbOutlineUser,
   TbOutlineWorldLatitude,
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
@@ -18,10 +17,15 @@ import {deleteSim, share, startSim, stopSim, unShare, updateSpeed, updateType} f
 import {useAction} from "@solidjs/router";
 import {Simulation} from "@sensor-sim/server";
 import {addSimulationListener} from "../../service/simulation.service";
+import {useAuth} from "../../auth";
 
 export function SimDetails(props: { id: string }) {
 
+  const {user} = useAuth()
+
   const [sim, setSim] = createSignal<Simulation | null>(null)
+
+  const isMySim = createMemo(() => sim() && sim()?.config.ownerId === user()?.id)
 
   const updateTypeAction = useAction(updateType)
   const deleteSimAction = useAction(deleteSim)
@@ -44,23 +48,6 @@ export function SimDetails(props: { id: string }) {
 
             <div class={"flex flex-col gap-1 w-full"}>
 
-              <div class="flex gap-1 items-center">
-                <button class="btn btn-sm" onClick={() => shareAction(sim().config.id)}>
-                  <TbOutlineShare/> Share
-                </button>
-                <Show when={sim().config.shareToken}>
-                  <button class="btn btn-sm" onClick={() => unShareAction(sim().config.id)}>
-                    <TbOutlineShareOff/>
-                  </button>
-                  <div class="truncate" id="shareToken">{sim().config.shareToken}</div>
-                  <button class="btn btn-sm" onClick={() => {
-                    // copy to clipboard
-                    navigator.clipboard.writeText(sim().config.shareToken);
-                  }}>
-                    <TbOutlineClipboard/>
-                  </button>
-                </Show>
-              </div>
 
               <div class="flex gap-2 items-center">
                 <div class="join">
@@ -97,9 +84,6 @@ export function SimDetails(props: { id: string }) {
                   </button>
                 </div>
               </div>
-              <div class="flex gap-1 items-center">
-                <TbOutlineUser/> {sim().config.ownerId}
-              </div>
               <div class="flex gap-2 items-center">
                 <TbOutlineWorldLatitude/>{sim().config.targetLatitude.toFixed(5)}
                 <TbOutlineWorldLongitude/>{sim().config.targetLongitude.toFixed(5)}
@@ -113,6 +97,25 @@ export function SimDetails(props: { id: string }) {
                             class="range range-xs w-60"/></div>
               </div>
 
+              <Show when={isMySim()}>
+                <div class="flex gap-1 items-center">
+                  <button class="btn btn-sm" onClick={() => shareAction(sim().config.id)}>
+                    <TbOutlineShare/> Share
+                  </button>
+                  <Show when={sim().config.shareToken}>
+                    <button class="btn btn-sm" onClick={() => unShareAction(sim().config.id)}>
+                      <TbOutlineShareOff/>
+                    </button>
+                    <div class="truncate" id="shareToken">{sim().config.shareToken}</div>
+                    <button class="btn btn-sm" onClick={() => {
+                      // copy to clipboard
+                      navigator.clipboard.writeText(sim().config.shareToken);
+                    }}>
+                      <TbOutlineClipboard/>
+                    </button>
+                  </Show>
+                </div>
+              </Show>
 
               <Show when={sim().state}>
                 {(state) => <>

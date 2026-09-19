@@ -36,7 +36,6 @@ function removeSimulationListener(simulationId: string, listener: SimulationList
   if (newListeners.length === 0) {
     simulationSockets.get(simulationId)?.close()
     simulationSockets.delete(simulationId)
-    console.log("unsubscribed from " + simulationId)
   }
 
   simulationListeners.set(simulationId, newListeners)

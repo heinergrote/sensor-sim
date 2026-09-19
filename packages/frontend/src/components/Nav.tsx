@@ -2,7 +2,7 @@ import {TbOutlineHome, TbOutlineLogout, TbOutlineMapPinCog, TbOutlineUser, TbOut
 import {useMatch, useNavigate} from "@solidjs/router";
 import {paths} from "../router";
 import {useAuth} from "../auth";
-import {createEffect, Loading, Show} from "solid-js";
+import {Loading, Show} from "solid-js";
 
 export default function Nav() {
 
@@ -12,13 +12,6 @@ export default function Nav() {
 
   const {logout, user} = useAuth()
   const navigate = useNavigate()
-
-  createEffect(() => user(),
-    (user) => {
-      console.log("nav", user)
-    }
-  )
-
 
   return (
     <Loading>
