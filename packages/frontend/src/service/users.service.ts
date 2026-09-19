@@ -23,7 +23,7 @@ export const addUser = action(async (form: FormData) => {
 })
 
 export const deleteUser = action(async (id: string) => {
-  return api.delete(`/users/${id}`);
+  return api.delete(`/users/${id}`).json();
 });
 
 
