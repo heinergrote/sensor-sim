@@ -32,7 +32,8 @@ may do that; other accounts can still drive the simulations.
 - **SolidJS 2.0** — UI framework (client-only; SSR is one boolean away, see below)
 - **@solidjs/router** — filesystem routing plus the `query`/`action` data APIs
 - **MapLibre GL** — interactive map rendering
-- **Hono client** — typed REST calls to `@sensor-sim/server` via `hc<AppType>`
+- **ky** — REST calls to `@sensor-sim/server` (`src/api.ts`); response/body types are imported separately from
+  `@sensor-sim/server`'s source
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons** — styling and icons
 - **oxlint** (with `eslint-plugin-solid`'s v2 config) — linting
 
@@ -71,40 +72,58 @@ rejected token logs out automatically.
 
 The token reaches the server three ways:
 
-- `src/api.ts` sets `Authorization: Bearer …` on every REST call — the
-  header is a callback, so it always reads the current token.
+- `src/api.ts` (a `ky.extend`) sets `Authorization: Bearer …` on every REST
+  call — the header comes from a hook, so it always reads the current token.
 - `simulationMap.ts` attaches the same header via MapLibre's
   `transformRequest`, because the server's `/api/maptiler` proxy is
   authenticated too.
-- Not at all for the WebSocket — `/ws/sims` is a public route on the server.
+- The per-sim and status WebSockets carry it as a `?token=` query param
+  instead — a browser `WebSocket` can't set the header itself. The one
+  WebSocket that carries no token at all is a shared simulation's public link
+  (`/api/shared/:token/ws`), gated by the share token in the path instead.
 
 ## How data flows
 
 There are deliberately two patterns:
 
-**Simulations — push-only.** `src/service/simulations.service.ts` opens **one**
-WebSocket to `/ws/sims` and reconciles every message into Solid stores (`simulations`, `simulationIds`), keyed by
-`config.id`. It also keeps a plain
-non-reactive `latestSimulations` snapshot plus a listener registry for
-consumers that live outside Solid's reactivity. Components never poll and never
-fetch simulation state: **reads come from the stores, writes go over REST**
-(`createSim`, `updateSim`, `updateCurrent`, `startSim`, `stopSim`,
-`deleteSim`, …).
+**Simulations — REST list + per-sim push.** `src/service/simulations.service.ts` exposes `fetchSimulations`, a
+router `query()` over `GET /api/sims` — a plain REST fetch, not a push. Alongside it, one module-level `WebSocket` to
+`/api/status/ws` keeps a small `status` store (`{startedAt, simListUpdatedAt, numSims}`) up to date and calls
+`revalidate("simulations")` whenever `simListUpdatedAt` moves, so the list refetches when someone creates or deletes
+a sim. Live per-sim state (position, distance, azimuth) is separate: `src/service/simulation.service.ts`'s
+`addSimulationListener(id, cb)` lazily opens one `WebSocket` per sim id against `/api/sims/:id/ws`, ref-counted so it
+closes once nothing is listening. Components never poll: **the list comes from the query, live state comes from a
+per-sim listener, writes go over REST** (`createSim`, `updateSim`, `updateCurrent`, `startSim`, `stopSim`,
+`deleteSim`, `share`, `unShare`, …).
 
 **Users — plain REST.** `src/service/users.service.ts` wraps the endpoints in
 `@solidjs/router` `query()` / `action()`, so the router handles caching,
 preloading (`users/[id].tsx` preloads on navigation) and revalidation after a
 form submits.
 
-Both go through `honoClient = hc<AppType>(serverUrl)` from
-`src/api.ts`, where `AppType` is imported from `@sensor-sim/server`.
+Both go through `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})` from
+`src/api.ts` — there's no typed RPC client, just REST calls whose response
+shapes are cast to types imported separately from `@sensor-sim/server`.
 `src/components/control/simulationMap.ts` is imperative MapLibre code
-deliberately outside Solid's reactivity: it subscribes through the listener
-registry and posts config / `updateCurrent` changes when a marker is dragged.
+deliberately outside Solid's reactivity: it subscribes through the same
+per-sim listener registry as `SimDetails.tsx` and posts config /
+`updateCurrent` changes when a marker is dragged.
 
-Because `AppType` is imported from the server's *source*, changing a server
-route, Zod schema or database column changes this package's types immediately —
-no rebuild step in between.
+Because those types are imported from the server's *source*, changing a
+server Zod schema or database column changes this package's data types
+immediately, no rebuild step in between — but a renamed or moved route is no
+longer caught by the compiler, only by calling it.
+
+## Sharing a simulation
+
+Any simulation's owner can share it without giving out a login: **Share** on
+its card (`SimDetails.tsx`) calls the `share` action (`POST
+/api/sims/:id/share`), which returns a token good for 7 days and displays it
+next to a copy-to-clipboard button; **Unshare** (`unShare` → `POST
+/api/sims/:id/unshare`) revokes it immediately. The resulting link isn't
+served by this frontend — it's the server's public `GET
+/api/shared/:token`/`/ws` endpoints, meant for a device or script that
+shouldn't need an account.
 
 ## Project shape
 

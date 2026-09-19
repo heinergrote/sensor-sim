@@ -50,14 +50,24 @@ Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`,
 
 ## Consuming simulated positions
 
-A simulation streams `Simulation` snapshots over `ws://<server>/ws/sims/:id`
-every 100 ms, and the full list over `/ws/sims`. Those WebSocket endpoints are
-open — no token needed — so a device under test can just connect.
+A simulation streams `Simulation` snapshots over `ws://<server>/api/sims/:id/ws`
+every 100 ms while it's playing. That endpoint needs a bearer token, same as
+the rest of `/api/sims` — pass it either as an `Authorization: Bearer <token>`
+header or, since browsers can't set headers on a WebSocket upgrade, as
+`?token=<token>`.
 
-Mutations go over REST at `/api/sims` (`POST /api/sims`, `PUT /api/sims/:id`,
-`PUT /api/sims/:id/start`, …) and **do** need a bearer token: `POST /api/login`
-with `{username, password}` returns one. See
-[packages/server/README.md](packages/server/README.md).
+To expose one simulation without a login — e.g. to a device under test that
+shouldn't hold a full account — an owner can share it: `POST
+/api/sims/:id/share` (authenticated, owner only) returns a `{token,
+expiryDate}` good for 7 days. That token, not the login JWT, unlocks two
+public endpoints: `GET /api/shared/:token` for a one-off snapshot and `GET
+/api/shared/:token/ws` for the live stream. `POST /api/sims/:id/unshare`
+revokes it immediately.
+
+The sim list itself (`GET /api/sims`) and all other mutations (`POST
+/api/sims`, `PUT /api/sims/:id`, `PUT /api/sims/:id/start`, …) are plain REST
+and need a bearer token: `POST /api/login` with `{username, password}` returns
+one. See [packages/server/README.md](packages/server/README.md).
 
 To make an existing web app believe it's moving, use the
 [sensor-mock](https://www.npmjs.com/package/sensor-mock) library instead of

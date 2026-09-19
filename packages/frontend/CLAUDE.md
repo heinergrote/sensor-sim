@@ -17,44 +17,58 @@ production it's built to `dist/client` and served by the server itself from the 
   (`SimControl`), `users/index.tsx` (list + add form), `users/[id].tsx` (detail, `int` match filter + `preload`),
   `[...404].tsx`. `file-routes.d.ts` at the package root is generated — never edit it.
 - `src/auth.ts` — the auth store: one **module-level** signal seeded from `localStorage["jwt_token"]`. `useAuth()`
-  returns `{token, login, logout, user}`; `user` is an async `createMemo` that calls `GET /api/me` and logs out on a
-  non-OK response. Because the signal is module-level, every `useAuth()` caller shares the same state.
-- `src/api.ts` — `honoClient = hc<AppType>(serverUrl, {headers: () => ({Authorization: ...})})`, with
-  `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod. The header callback re-reads the
-  token signal per request, so login/logout takes effect without rebuilding the client.
+  returns `{token, login, logout, user}`; `user` is an async `createMemo` that calls `GET /api/me` (via its own `ky`
+  instance, not `src/api.ts`'s) and logs out on a non-OK response. Because the signal is module-level, every
+  `useAuth()` caller shares the same state.
+- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api", hooks: {beforeRequest: [...]}})`, with
+  `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod. The `beforeRequest` hook re-reads
+  the token signal per request, so login/logout takes effect without rebuilding the client. There is no typed RPC
+  client any more (`hc<AppType>`/`honoClient` are gone) — every service module calls `api.get/post/put/delete(path)`
+  against a plain path string and casts the JSON response to a type imported from `@sensor-sim/server`.
 - `src/components/Nav.tsx` — top nav; Control/Users links and the username + logout button render only when `user()`
   resolves.
-- `src/components/LoginForm.tsx` — posts to `/api/login`, stores the token via `login()`, navigates to Control.
+- `src/components/LoginForm.tsx` — posts to `/login` via `api`, stores the token via `login()`, navigates to Control.
 - `src/components/users/` — `UserList` / `UserAddForm` / `UserDetail`, all typed on `Omit<User, "password">` (`User`
   comes from `@sensor-sim/server`, derived from the Drizzle schema).
-- `src/service/users.service.ts` — user data access as `@solidjs/router` `query()`/`action()`: `fetchUsers`,
-  `fetchUser`, `fetchMe`, `addUser`, `updateUser`, `deleteUser`. **Different pattern from sims:** these are ordinary
-  REST reads with router-managed caching/revalidation, driven by form `action=` submissions.
+- `src/service/users.service.ts` — user data access as `@solidjs/router` `query()`/`action()` around `api`:
+  `fetchUsers`, `fetchUser`, `addUser`, `updateUser`, `deleteUser`. **Different pattern from sims:** these are
+  ordinary REST reads with router-managed caching/revalidation, driven by form `action=` submissions.
 - `src/components/control/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).
 - `src/components/control/SimList.tsx` — create-sim form (id/type) plus a list of sim rows, each rendering a
-  `SimDetails`. Reads live sims from the shared `simulations` store.
-- `src/components/control/SimDetails.tsx` — per-sim control card: shows config (type, target, distance/azimuth/speed)
-  and live state (current position/distance/azimuth); start/stop/delete buttons call the Hono client.
+  `SimDetails`. Reads the sim list from `fetchSimulations()` (a router `query()`, not a store).
+- `src/components/control/SimDetails.tsx` — per-sim control card. Subscribes to that one sim's live state via
+  `addSimulationListener(id, setSim)` from `simulation.service.ts`; shows config (type, target,
+  distance/azimuth/speed, owner) and live state (current position/distance/azimuth); start/stop/delete/share/unshare
+  buttons call the `@solidjs/router` actions from `simulations.service.ts`.
 - `src/components/control/SimMap.tsx` — mounts a MapLibre instance via `createSimulationMap(el, token())` on an element
   ref; disposes it on unmount.
 - `src/components/control/simulationMap.ts` — imperative MapLibre wrapper (outside Solid's reactivity). Tracks one
-  target marker + one current-position marker per sim, updates them from the simulations listener, and posts config /
-  `updateCurrent` changes on marker drag via the Hono client. It also passes the JWT: `transformRequest` attaches
-  `Authorization: Bearer …` to every request whose origin matches the map style's, because the server's
-  `/api/maptiler` proxy sits behind the JWT middleware. The token is read **once**, at map creation.
-- `src/service/simulations.service.ts` — the single source of live sim state for the whole app:
-    - Opens one WebSocket to `${serverUrl}/ws/sims` (a public, token-less route) and keeps two Solid stores in sync on
-      every message: `simulations` (`Simulation[]`, reconciled by `config.id`) and `simulationIds` (`string[]`).
-    - Also maintains a plain (non-reactive) `latestSimulations` snapshot plus a listener registry
-      (`addSimulationsListener`/`removeSimulationsListener`) for non-Solid consumers like `simulationMap.ts`.
-    - Wraps the mutations (`createSim`, `updateSim`, `updateType`, `updateSpeed`, `updateCurrent`, `startSim`,
-      `stopSim`, `deleteSim`) around `honoClient.api.sims`.
-- For simulations: components read reactive state from the Solid stores and never poll REST — live updates flow
-  through the single WebSocket, REST calls are write-only. For users it's the opposite: plain REST reads via router
-  queries.
+  target marker + one current-position marker per sim, subscribes per sim via `addSimulationListener` (same registry
+  `SimDetails.tsx` uses), and posts config / `updateCurrent` changes on marker drag through the `@solidjs/router`
+  actions. It also passes the JWT: `transformRequest` attaches `Authorization: Bearer …` to every request whose
+  origin matches the map style's, because the server's `/api/maptiler` proxy sits behind the JWT middleware. The
+  token is read **once**, at map creation.
+- `src/service/simulation.service.ts` — live per-sim state. `addSimulationListener(id, listener)` lazily opens (and
+  ref-counts) one `WebSocket` per sim id against `${serverUrl}/api/sims/:id/ws?token=...` — the token travels as a
+  query param because a `WebSocket` can't set headers — and closes it once the last listener for that id
+  unsubscribes. There is no Solid store here; it's a plain listener registry, subscribed to directly by
+  `SimDetails.tsx` and `simulationMap.ts`.
+- `src/service/simulations.service.ts` — the sim *list* and mutations:
+    - `fetchSimulations` is a router `query()` over `GET /sims` (cache key `"simulations"`) — a plain REST fetch, not
+      a push.
+    - One module-level `WebSocket` to `${serverUrl}/api/status/ws?token=...` keeps a `status` store
+      (`{startedAt, simListUpdatedAt, numSims}`) in sync, and calls `revalidate("simulations")` whenever
+      `simListUpdatedAt` advances — that's what makes `fetchSimulations()` reflect a sim someone else just created or
+      deleted.
+    - Exposes the mutation actions (`addSim`, `updateSim`, `deleteSim`, `startSim`, `stopSim`, `updateType`,
+      `updateSpeed`, `updateCurrent`, `share`, `unShare`) as `@solidjs/router` `action()`s around `api`.
+- For simulations: the list comes from a router `query()` refreshed on a status signal, and each sim's live state
+  comes from its own per-sim WebSocket via the listener registry — no full-list push socket and no Solid store for
+  sim state any more. For users it's plain REST reads via router queries, unchanged.
 
-Server types are imported from `@sensor-sim/server`'s **source** (`AppType`, `Simulation`, `SimConfig`, `User`), so a
-route, Zod schema or Drizzle column change on the server shows up here with no build step in between.
+Server types (`Simulation`, `SimConfig`, `Status`, `User`, `Profile`) are imported from `@sensor-sim/server`'s
+**source**, so a Zod schema or Drizzle column change on the server shows up here with no build step in between — but
+since there's no typed RPC client any more, a renamed *route* is caught only by calling it, not by `tsc`.
 
 ## Env vars
 
