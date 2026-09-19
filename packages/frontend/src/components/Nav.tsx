@@ -2,7 +2,7 @@ import {TbOutlineHome, TbOutlineLogout, TbOutlineMapPinCog, TbOutlineUser, TbOut
 import {useMatch, useNavigate} from "@solidjs/router";
 import {paths} from "../router";
 import {useAuth} from "../auth";
-import {Loading, Show} from "solid-js";
+import {createEffect, Loading, Show} from "solid-js";
 
 export default function Nav() {
 
@@ -12,6 +12,13 @@ export default function Nav() {
 
   const {logout, user} = useAuth()
   const navigate = useNavigate()
+
+  createEffect(() => user(),
+    (user) => {
+      console.log("nav", user)
+    }
+  )
+
 
   return (
     <Loading>
@@ -24,10 +31,12 @@ export default function Nav() {
             <a class={`btn ${isControl() ? "btn-primary" : ""}`} href={paths.control}>
               <TbOutlineMapPinCog size={24}/> Control
             </a>
+          </Show>
+          <Show when={user()?.admin}>
             <a class={`btn ${isUsers() ? "btn-primary" : ""}`} href={paths.users}>
               <TbOutlineUsers size={24}/> Users</a>
-            <li class={`mx-1 flex-1`}></li>
           </Show>
+          <div class={`mx-1 flex-1`}></div>
 
           <Show when={user()}>
             {user =>

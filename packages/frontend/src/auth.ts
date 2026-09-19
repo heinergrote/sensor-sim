@@ -3,9 +3,10 @@ import {serverUrl} from "./api";
 import {Profile} from "@sensor-sim/server";
 import ky from "ky";
 
-const [token, setToken] = createSignal<string | null>(
-  localStorage.getItem('jwt_token')
-)
+
+export const jwtToken = () => localStorage.getItem('jwt_token')
+
+const [token, setToken] = createSignal<string | null>(jwtToken())
 
 export function useAuth() {
 
@@ -27,11 +28,9 @@ export function useAuth() {
       baseUrl: serverUrl,
       headers: {Authorization: `Bearer ${currentToken}`}
     });
-
     try {
       return await api.get<Profile>("/api/me").json()
     } catch (e) {
-      console.log("Error fetching user", e)
       logout()
       return null
     }
@@ -39,5 +38,5 @@ export function useAuth() {
 
   })
 
-  return {token, login, logout, user}
+  return {login, logout, user}
 }

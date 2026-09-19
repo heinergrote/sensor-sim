@@ -1,13 +1,11 @@
 import {Simulation} from "@sensor-sim/server";
 import {serverUrl} from "../api";
-import {useAuth} from "../auth";
+import {jwtToken} from "../auth";
 
 export type SimulationListener = ((simulation: Simulation) => void)
 
 const simulationListeners = new Map<string, SimulationListener[]>()
 const simulationSockets = new Map<string, WebSocket>()
-
-const {token} = useAuth()
 
 export function addSimulationListener(
   simulationId: string,
@@ -17,9 +15,8 @@ export function addSimulationListener(
   const listenersForId = simulationListeners.get(simulationId) || []
 
   if (!simulationSockets.has(simulationId)) {
-    const wsUrl = `${serverUrl}/api/sims/${simulationId}/ws?token=${token()}`;
+    const wsUrl = `${serverUrl}/api/sims/${simulationId}/ws?token=${jwtToken()}`;
     const simSocket = new WebSocket(wsUrl)
-
     simSocket.onmessage = (event) => {
       const receivedSim = JSON.parse(event.data) as Simulation
       const listeners = simulationListeners.get(simulationId) || []

@@ -1,23 +1,39 @@
 import {SimConfig, Simulation, Status} from "@sensor-sim/server";
-import {createStore, reconcile} from "solid-js";
+import {createEffect, createRoot, createStore, reconcile} from "solid-js";
 import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
-import {useAuth} from "../auth";
+import {jwtToken, useAuth} from "../auth";
 
-const {token} = useAuth()
 
 let lastSimListChangeAt = 0
-const wss = new WebSocket(`${serverUrl}/api/status/ws?token=${token()}`)
-wss.onmessage = (event) => {
-  const newStatus = JSON.parse(event.data) as Status
-  setStatus(reconcile(newStatus))
+let wss: WebSocket | undefined
 
-  // always refetch simulations, when simulation status changes
-  if (newStatus.simListUpdatedAt > lastSimListChangeAt) {
-    lastSimListChangeAt = newStatus.simListUpdatedAt
-    revalidate("simulations")
-  }
-}
+const dispose = createRoot(dispose => {
+  const {user} = useAuth()
+
+  // (re)connect whenever the token changes, so a page loaded before login
+  // (or a login/logout cycle) doesn't leave this socket permanently unauthenticated
+  createEffect(() => user(),
+    (user) => {
+      wss?.close()
+      if (!user) return
+
+      wss = new WebSocket(`${serverUrl}/api/status/ws?token=${jwtToken()}`)
+      wss.onmessage = (event) => {
+        const newStatus = JSON.parse(event.data) as Status
+        setStatus(reconcile(newStatus))
+
+        // always refetch simulations, when simulation status changes
+        if (newStatus.simListUpdatedAt > lastSimListChangeAt) {
+          lastSimListChangeAt = newStatus.simListUpdatedAt
+          revalidate("simulations")
+        }
+      }
+    })
+
+  return dispose;
+});
+
 
 export const [status, setStatus] = createStore<Status>({
   startedAt: 0,
