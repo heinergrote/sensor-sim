@@ -90,8 +90,8 @@ export function createSimulationRuntime(baseConfig: SimConfig) {
     // apply new config
     sim.config = {...sim.config, ...updateInput};
 
-    // for follow type: infer initial distance and azimuth from current position, if available
-    if (sim.config.type === "follow" && sim.state) {
+    // infer initial distance and azimuth from current position, if available
+    if (sim.state) {
       if (!updateInput.initialDistance) {
         sim.config.initialDistance = getDistance(
           {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
