@@ -12,8 +12,7 @@ export const simConfigInput = z.object({
   initialDistance: number().optional(),
   initialAzimuth: number().optional(),
   speed: z.number().default(10).optional(),
-  playing: z.boolean().optional(),
-  shareToken: z.string().optional(),
+  playing: z.boolean().optional()
 });
 
 // adds an id to simConfigInput

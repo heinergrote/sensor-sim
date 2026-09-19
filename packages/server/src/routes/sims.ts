@@ -134,7 +134,7 @@ export const simsApp = new Hono<HonoEnv>()
     const expiryTimestamp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
     const {token, expiryDate} = generateToken(id, userId, expiryTimestamp);
 
-    await simulationService.update(id, {shareToken: token});
+    await simulationService.share(id, token);
 
     return c.json({token, expiryDate});
   })
@@ -145,6 +145,13 @@ export const simsApp = new Hono<HonoEnv>()
     if (!sim) {
       return c.json({error: 'Simulation not found'}, 404);
     }
-    await simulationService.update(id, {shareToken: ""});
+
+    const jwtPayload = c.get('jwtPayload');
+    const userId = jwtPayload.sub;
+    
+    const isOwner = sim.config.ownerId === userId;
+    if (!isOwner) return c.json({error: 'Not owner'}, 403);
+
+    await simulationService.unshare(id);
     return c.json({success: true});
   })

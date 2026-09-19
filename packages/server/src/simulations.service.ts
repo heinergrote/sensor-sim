@@ -24,6 +24,8 @@ export interface SimulationService {
   updateCurrent: (id: string, positionInput: PositionInput) => Promise<Simulation>;
   startSim: (id: string) => Promise<void>;
   stopSim: (id: string) => Promise<void>;
+  share: (id: string, shareToken: string) => Promise<void>;
+  unshare: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -75,7 +77,6 @@ export async function createSimulationService(): Promise<SimulationService> {
     const type = createInput.type ? createInput.type : "follow";
     const speed = createInput.speed ? createInput.speed : 20;
     const playing = createInput.playing ?? true;
-    const shareToken = createInput.shareToken ?? "";
 
     const config: SimConfig = {
       id: createInput.id,
@@ -87,7 +88,7 @@ export async function createSimulationService(): Promise<SimulationService> {
       type: type,
       speed: speed,
       playing: playing,
-      shareToken: shareToken
+      shareToken: ""
     };
 
     const simRuntime = createSimulationRuntime(config);
@@ -140,6 +141,21 @@ export async function createSimulationService(): Promise<SimulationService> {
     await storeConfig(id)
   }
 
+  async function share(id: string, shareToken: string) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) return;
+    simRuntime.sim.config.shareToken = shareToken;
+    await storeConfig(id)
+  }
+
+  async function unshare(id: string) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) return;
+    simRuntime.sim.config.shareToken = "";
+    await storeConfig(id)
+  }
+
+
   async function remove(id: string) {
     const simRuntime = simulationRuntimes.get(id);
     if (!simRuntime) return;
@@ -173,6 +189,7 @@ export async function createSimulationService(): Promise<SimulationService> {
     status, statusStream,
     createSim: createSim, get, getSimStream,
     update, updateCurrent, startSim, stopSim,
+    share, unshare,
     remove
   };
 }
