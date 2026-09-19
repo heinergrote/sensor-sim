@@ -1,0 +1,1 @@
+ALTER TABLE "sim_configs" ADD COLUMN "share_token" varchar(64);

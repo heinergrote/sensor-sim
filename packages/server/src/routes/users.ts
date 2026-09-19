@@ -4,13 +4,17 @@ import {zValidator} from "@hono/zod-validator";
 import {userInput} from "../zodSchema";
 import {z} from "zod";
 import {hashPassword} from "../util/passwords";
+import {jwtMiddleware, requireRole} from "../middleware/auth";
 
 
 const idParamSchema = z.object({
   id: z.coerce.number()
 })
 
-const app = new Hono()
+export const usersApp = new Hono()
+
+  .use('*', jwtMiddleware)
+  .use('*', requireRole(true))
 
   .get('/', async (c) => {
     const users = await getUsers();
@@ -60,5 +64,3 @@ const app = new Hono()
       await deleteUserById(id);
       return c.json({message: 'User deleted'});
     })
-
-export default app

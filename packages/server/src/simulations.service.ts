@@ -1,25 +1,69 @@
 import {SimConfig, Simulation} from "@sensor-sim/server";
 import {PositionInput, SimConfigInput, SimCreateInput} from "./zodSchema";
-import {createEventStream} from "./util/eventStream";
+import {createEventStream, EventStream} from "./util/eventStream";
 import {randomOffset} from "./util/randomOffset";
 import {createSimulationRuntime, SimulationRuntime} from "./simulationRuntime";
 import {db} from "./db";
 import {simConfigs} from "./db/schema";
 import {eq} from "drizzle-orm";
+import {Status} from "./types";
 
 const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
 
-export async function createSimulationService() {
+
+export interface SimulationService {
+  list: () => Simulation[];
+  shutdown: () => void;
+  status: () => Status;
+  statusStream: EventStream<Status>;
+
+  createSim: (ownerId: number, createInput: SimCreateInput) => Promise<Simulation>;
+  get: (id: string) => Simulation | undefined;
+  getSimStream: (id: string) => EventStream<Simulation> | undefined;
+  update: (id: string, updateInput: SimConfigInput) => Promise<Simulation>;
+  updateCurrent: (id: string, positionInput: PositionInput) => Promise<Simulation>;
+  startSim: (id: string) => Promise<void>;
+  stopSim: (id: string) => Promise<void>;
+  share: (id: string, shareToken: string) => Promise<void>;
+  unshare: (id: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}
+
+export async function createSimulationService(): Promise<SimulationService> {
+
+  const startedAt = Date.now();
+  let simListUpdatedAt = Date.now();
 
   const simulationRuntimes = new Map<string, SimulationRuntime>();
 
-  // Returns undefined for unknown ids so callers can answer with a 404
-  // instead of an unhandled throw turning into a 500.
-  function get(id: string) {
-    return simulationRuntimes.get(id)?.sim;
+  // load simConfigs, add and start simulations
+  const loadedConfigs = await db.query.simConfigs.findMany()
+
+  loadedConfigs.forEach(config => {
+    const simRuntime = createSimulationRuntime(config);
+    simulationRuntimes.set(config.id, simRuntime);
+    simRuntime.update(config)
+  })
+
+  const statusStream = createEventStream(() => status());
+
+  statusStream.emit();
+
+  function list(): Simulation[] {
+    return [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
   }
 
-  async function create(createInput: SimCreateInput) {
+  // stops all timers so the process can exit cleanly on shutdown
+  function shutdown() {
+    for (const simRuntime of simulationRuntimes.values()) {
+      simRuntime.updatePlaying(false);
+    }
+  }
+
+  // individual simulation lifecycle
+  // -----------------------------------------------------------
+
+  async function createSim(ownerId: number, createInput: SimCreateInput) {
     if (simulationRuntimes.has(createInput.id)) throw new Error(`Sim ${createInput.id} already exists`);
 
     // use default values, when missing
@@ -36,6 +80,7 @@ export async function createSimulationService() {
 
     const config: SimConfig = {
       id: createInput.id,
+      ownerId: ownerId,
       targetLatitude: target.latitude,
       targetLongitude: target.longitude,
       initialDistance: initialDistance,
@@ -43,6 +88,7 @@ export async function createSimulationService() {
       type: type,
       speed: speed,
       playing: playing,
+      shareToken: ""
     };
 
     const simRuntime = createSimulationRuntime(config);
@@ -50,9 +96,19 @@ export async function createSimulationService() {
       .insert(simConfigs)
       .values(config)
     simulationRuntimes.set(config.id, simRuntime);
+    simListUpdatedAt = Date.now();
     simRuntime.update(config)
-    simListStream.emit();
+    statusStream.emit();
     return simRuntime.sim;
+  }
+
+
+  function get(id: string) {
+    return simulationRuntimes.get(id)?.sim;
+  }
+
+  function getSimStream(id: string) {
+    return simulationRuntimes.get(id)?.simStream;
   }
 
   async function update(id: string, configInput: SimConfigInput) {
@@ -60,7 +116,6 @@ export async function createSimulationService() {
     if (!simRuntime) throw new Error(`Sim ${id} not found`);
     simRuntime.update(configInput);
     await storeConfig(id)
-    simListStream.emit();
     return simRuntime.sim;
   }
 
@@ -69,28 +124,7 @@ export async function createSimulationService() {
     if (!simRuntime) throw new Error(`Sim ${id} not found`);
     simRuntime.updateCurrent(positionInput);
     await storeConfig(id)
-    simListStream.emit();
     return simRuntime.sim;
-  }
-
-
-  async function remove(id: string) {
-    const simRuntime = simulationRuntimes.get(id);
-    if (!simRuntime) return;
-    await db.delete(simConfigs).where(eq(simConfigs.id, id))
-    simRuntime.updatePlaying(false);
-    simulationRuntimes.delete(id);
-    simListStream.emit();
-  }
-
-  function list(): Simulation[] {
-    return [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
-  }
-
-  const simListStream = createEventStream(() => list());
-
-  function getSimStream(id: string) {
-    return simulationRuntimes.get(id)?.simStream;
   }
 
   async function startSim(id: string) {
@@ -107,12 +141,29 @@ export async function createSimulationService() {
     await storeConfig(id)
   }
 
-  // stops all timers so the process can exit cleanly on shutdown
-  function shutdown() {
-    clearInterval(tickInterval);
-    for (const simRuntime of simulationRuntimes.values()) {
-      simRuntime.updatePlaying(false);
-    }
+  async function share(id: string, shareToken: string) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) return;
+    simRuntime.sim.config.shareToken = shareToken;
+    await storeConfig(id)
+  }
+
+  async function unshare(id: string) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) return;
+    simRuntime.sim.config.shareToken = "";
+    await storeConfig(id)
+  }
+
+
+  async function remove(id: string) {
+    const simRuntime = simulationRuntimes.get(id);
+    if (!simRuntime) return;
+    await db.delete(simConfigs).where(eq(simConfigs.id, id))
+    simRuntime.updatePlaying(false);
+    simulationRuntimes.delete(id);
+    simListUpdatedAt = Date.now();
+    statusStream.emit();
   }
 
   async function storeConfig(id: string) {
@@ -124,24 +175,21 @@ export async function createSimulationService() {
       .where(eq(simConfigs.id, id))
   }
 
+  function status() {
+    return {
+      startedAt,
+      simListUpdatedAt,
+      numSims: simulationRuntimes.size,
+    }
+  }
 
-  // load simConfigs, add and start simulations
-  const loadedConfigs = await db.query.simConfigs.findMany()
-
-  loadedConfigs.forEach(config => {
-    const simRuntime = createSimulationRuntime(config);
-    simulationRuntimes.set(config.id, simRuntime);
-    simRuntime.update(config)
-  })
-  simListStream.emit();
-
-  const tickInterval = setInterval(() => {
-    simListStream.emit()
-  }, 100);
 
   return {
-    get, create, update, updateCurrent,
-    remove, list, simListStream,
-    startSim, stopSim, getSimStream, shutdown
+    list, shutdown,
+    status, statusStream,
+    createSim: createSim, get, getSimStream,
+    update, updateCurrent, startSim, stopSim,
+    share, unshare,
+    remove
   };
 }

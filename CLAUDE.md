@@ -57,22 +57,41 @@ fallback to `index.html`. In dev the Vite server on `:3000` talks cross-origin t
 unconditionally with `origin: '*'`. The frontend picks its base URL accordingly
 (`import.meta.env.DEV ? "http://localhost:4000" : window.location.origin`).
 
-**Types cross the package boundary through source, not a build.** `@sensor-sim/server`'s `exports` points at
-`./src/index.ts`, and it re-exports `AppType` (the Hono route tree) plus the domain types (`Simulation`, `User`,
-`JwtPayload`, …). The frontend consumes that with `hc<AppType>(serverUrl)`. Consequence: **editing
-`packages/server/src/routes/*`, `zodSchema.ts` or `db/schema.ts` immediately changes frontend types** — check both
-sides, and note the Docker build needs both package manifests present for this reason.
+**Types cross the package boundary through source, not a build — but no longer through a typed RPC client.**
+`@sensor-sim/server`'s `exports` points at `./src/index.ts`, which re-exports the domain types (`Simulation`,
+`SimConfig`, `Status`, `User`, `Profile`, `JWTPayload`, …). The frontend imports those types directly and calls the
+REST/WS endpoints with a plain `ky` client (`src/api.ts`) — there is no more `hc<AppType>` typed Hono client and no
+`AppType` export at all. Consequence: **editing `packages/server/src/routes/*`, `zodSchema.ts` or `db/schema.ts`
+still immediately changes frontend *data* types**, but a renamed route or path is no longer caught by the
+compiler — only by hitting the endpoint. The Docker build still needs both package manifests present, since the
+frontend package depends on `@sensor-sim/server`'s source for those type exports.
 
-**Middleware order in `index.ts` *is* the authorization model.** Hono applies `.use()` only to routes mounted after it,
-so the sequence in `src/index.ts` decides what is public:
+**Each subapp under `src/routes/*` declares its own auth — `index.ts` mount order has no security consequences.**
+Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain, both exported from
+`middleware/auth.ts`:
 
-1. `/api/login` and `/ws/sims` are mounted first → **public**, no token required (the WebSocket stream is
-   unauthenticated).
-2. `.use('/api/*', jwt({secret: JWT_SECRET, alg: "HS256"}))` → `/api/maptiler`, `/api/sims` and `/api/me` need a valid
-   bearer token.
-3. `.use('/api/*', verifyAuth(true))` → `/api/users` additionally needs `admin` in the token payload.
+1. `login.ts` and `shared.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
+   `/api/shared/:token` and `/api/shared/:token/ws` — the latter gated instead by a per-simulation share token, see
+   "Sharing" below).
+2. `maptiler.ts`, `sims.ts`, `me.ts` and `status.ts` add `.use('*', jwtMiddleware)` (`jwt({secret: JWT_SECRET, alg:
+   "HS256"})`) → `/api/maptiler`, `/api/sims` (including its per-sim `GET /:id/ws`), `/api/me` and `/api/status`
+   (including `/api/status/ws`) need a valid bearer token. `jwtMiddleware` also accepts the token as a `?token=`
+   query param, not just the `Authorization` header — needed because a browser `WebSocket` can't set custom headers
+   on the upgrade request.
+3. `users.ts` additionally adds `.use('*', requireRole(true))` → `/api/users` needs `admin` in the token payload.
 
-Moving a `.route()` call across one of those `.use()` lines silently changes its access level.
+`src/index.ts` just mounts each subapp with `.route()`; reordering those calls changes routing, not access level.
+
+**Simulations have an owner but aren't owner-scoped, except for sharing.** `sim_configs.owner_id` (FK → `users.id`)
+records who created a sim (`POST /api/sims` reads it off the JWT's `sub`), but `GET/PUT/DELETE /api/sims*` don't
+filter or check it — any authenticated user can list, read, update or delete any simulation. Ownership only gates
+`POST /api/sims/:id/share` and `/unshare` (403 if the caller isn't the owner). Sharing itself is a *separate*,
+non-JWT credential: `token.service.ts` mints a compact HMAC-SHA256-signed token (binary: owner id + expiry + sim id,
+base64url-encoded, signed with the same `JWT_SECRET` via `util/appSecret.ts`) that's stored verbatim in
+`sim_configs.share_token` and handed back to the owner. `middleware/simShareMiddleware.ts` verifies a token's
+signature and expiry, then additionally checks it still matches the sim's current `share_token` column (so
+un-sharing or re-sharing invalidates old links immediately, without waiting for expiry) before exposing `GET
+/api/shared/:token` and `/api/shared/:token/ws` — both fully public, no bearer token needed.
 
 **One database, two tables, migration-managed.** Both simulation configs (`sim_configs`) and users (`users`) live in
 the same Postgres DB via Drizzle — there's no separate file-based store any more. `db/dbInit.ts` applies pending
@@ -87,27 +106,38 @@ a failed deploy rather than a server crash-looping against a half-known schema. 
 both entrypoints (and the build script must call plain `tsup` — a CLI positional would override that list), and a fresh
 database needs `migrate:dev` before `pnpm dev`.
 
-**Push-only sim state, write-only sim REST.** All live simulation state reaches clients via WebSocket; `/api/sims` is
-used exclusively for mutations. Nothing polls. (Users are the exception: they are plain REST reads/writes through
-`@solidjs/router` `query`/`action`.)
+**Sim list over REST + a lightweight status ping; per-sim live state over its own WebSocket.** There is no longer a
+single socket that pushes the whole `Simulation[]` list. Instead:
 
 - `util/eventStream.ts` is a tiny pub/sub whose `.collect()` yields an async generator, consumed directly by the WS
   handlers.
-- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle (`sim_configs`
-  table, `db/schema.ts`), and re-emits the sim list every 100ms so list snapshots stay fresh even without config changes.
+- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle
+  (`sim_configs` table, `db/schema.ts`), and exposes a `Status` (`{startedAt, simListUpdatedAt, numSims}`) plus a
+  `statusStream` that re-emits whenever a sim is created or removed — a cheap "does the list need a refetch" signal,
+  not the list itself.
 - `simulationRuntime.ts` runs a per-sim 100ms tick advancing `SimState` with geodesic math (`util/geoCalc.ts`, built on
-  `@turf/turf`).
-- `/ws/sims` streams `Simulation[]`; `/ws/sims/:id` streams a single `Simulation` per tick.
-- Frontend `src/service/simulations.service.ts` is the single source of live sim state: one WebSocket, kept in Solid
-  stores via `reconcile` (keyed on `config.id`), plus a non-reactive `latestSimulations` snapshot and a listener
-  registry for non-Solid consumers.
+  `@turf/turf`), and owns that sim's own `simStream`.
+- `GET /api/sims` is a plain, cacheable REST list (no push); `GET /api/sims/:id/ws` and `GET
+  /api/shared/:token/ws` each stream a single `Simulation` per tick for one sim (authenticated vs. share-token
+  gated, respectively); `GET /api/status/ws` streams `Status` whenever the list changes shape.
+- Frontend `src/service/simulations.service.ts` fetches the list via `@solidjs/router` `query()` (`fetchSimulations`,
+  cache key `"simulations"`) and keeps one `/api/status/ws` connection open; on a `Status` message whose
+  `simListUpdatedAt` advanced, it calls `revalidate("simulations")` to refetch the list. It also exposes the
+  mutation actions (`addSim`, `updateSim`, `startSim`, `stopSim`, `share`, `unShare`, …) around the `ky` client.
+- Frontend `src/service/simulation.service.ts` is the source of *live* per-sim state: `addSimulationListener(id,
+  cb)` lazily opens (and ref-counts) one WebSocket per sim id against `/api/sims/:id/ws`, closing it once the last
+  listener unsubscribes. `SimDetails.tsx` and `simulationMap.ts` both subscribe through it rather than opening their
+  own sockets.
 - `src/components/control/simulationMap.ts` is imperative MapLibre code living *outside* Solid's reactivity — it
-  subscribes via that listener registry and writes back through the Hono client on marker drag.
+  subscribes via that per-sim listener registry and writes back through the `ky`-based service on marker drag.
 
 **The JWT travels three ways on the client.** `src/auth.ts` holds one module-level signal backed by
-`localStorage["jwt_token"]`. `src/honoClient.ts` injects it as an `Authorization: Bearer` header on every REST call, and
-`simulationMap.ts` adds the same header via MapLibre's `transformRequest` for tile/style requests — necessary because
-`/api/maptiler` sits behind the JWT middleware. The WebSocket sends no token (it is a public route).
+`localStorage["jwt_token"]`. `src/api.ts` (`ky.extend`) injects it as an `Authorization: Bearer` header on every REST
+call, and `simulationMap.ts` adds the same header via MapLibre's `transformRequest` for tile/style requests —
+necessary because `/api/maptiler` sits behind the JWT middleware. The per-sim and status WebSockets carry it too, but
+as a `?token=` query param (`jwtMiddleware` reads either) since a browser `WebSocket` can't set the header itself.
+The one WebSocket that sends no token at all is the public share link, `/api/shared/:token/ws` — it's gated by the
+share token in the path instead.
 
 **MapTiler keys stay server-side.** `/api/maptiler/:path` proxies `api.maptiler.com`, injects `MAPTILER_KEY`, strips any
 client-supplied `key`, and rewrites absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to the proxy.

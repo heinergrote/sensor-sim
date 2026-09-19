@@ -1,8 +1,12 @@
 import {Hono} from 'hono'
+import {jwtMiddleware} from '../middleware/auth'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
 
-const app = new Hono()
+export const maptilerApp = new Hono()
+
+  .use('*', jwtMiddleware)
+
   .get('/:path{.+$}', async (c) => {
 
     const key = process.env.MAPTILER_KEY
@@ -74,6 +78,3 @@ const app = new Hono()
     return c.body(upstreamResponse.body)
 
   })
-
-
-export default app

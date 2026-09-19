@@ -1,117 +1,102 @@
-import {SimConfig, Simulation} from "@sensor-sim/server";
-import {createStore, reconcile} from "solid-js";
-import {honoClient} from "../honoClient";
+import {SimConfig, Simulation, Status} from "@sensor-sim/server";
+import {createEffect, createRoot, createStore, reconcile} from "solid-js";
+import {api, serverUrl} from "../api";
+import {action, query, revalidate} from "@solidjs/router";
+import {jwtToken, useAuth} from "../auth";
 
-export type SimulationsListener = (simulations: readonly Simulation[]) => void
 
-const socket = honoClient.ws.sims.$ws()
-socket.onmessage = (event) => {
-  const newSims = JSON.parse(event.data) as Simulation[]
-  const newSimIds = newSims.map(sim => sim.config.id)
+let lastSimListChangeAt = 0
+let wss: WebSocket | undefined
 
-  latestSimulations = newSims
+const dispose = createRoot(dispose => {
+  const {user} = useAuth()
 
-  setSimulations(reconcile(newSims, (sim) => {
-    return sim?.config?.id
-  }))
+  // (re)connect whenever the token changes, so a page loaded before login
+  // (or a login/logout cycle) doesn't leave this socket permanently unauthenticated
+  createEffect(() => user(),
+    (user) => {
+      wss?.close()
+      if (!user) return
 
-  setSimulationIds(reconcile(newSimIds, null))
-  notifySimulationsListeners(newSims)
-}
+      wss = new WebSocket(`${serverUrl}/api/status/ws?token=${jwtToken()}`)
+      wss.onmessage = (event) => {
+        const newStatus = JSON.parse(event.data) as Status
+        setStatus(reconcile(newStatus))
 
-export const [simulationIds, setSimulationIds] = createStore<string[]>([])
-export const [simulations, setSimulations] = createStore<Simulation[]>([])
+        // always refetch simulations, when simulation status changes
+        if (newStatus.simListUpdatedAt > lastSimListChangeAt) {
+          lastSimListChangeAt = newStatus.simListUpdatedAt
+          revalidate("simulations")
+        }
+      }
+    })
 
-export let latestSimulations: readonly Simulation[] = []
+  return dispose;
+});
 
-const simulationsListeners = new Set<SimulationsListener>()
 
-export function addSimulationsListener(listener: SimulationsListener): () => void {
-  simulationsListeners.add(listener)
-  return () => removeSimulationsListener(listener)
-}
+export const [status, setStatus] = createStore<Status>({
+  startedAt: 0,
+  simListUpdatedAt: 0,
+  numSims: 0
+})
 
-export function removeSimulationsListener(listener: SimulationsListener) {
-  simulationsListeners.delete(listener)
-}
+export const fetchSimulations = query(async () => {
+  return api.get<Simulation[]>(`/sims`).json()
+}, "simulations");
 
-export function getSimulation(id: string) {
-  return latestSimulations.find((sim) => sim.config.id === id)
-}
+export const addSim = action(async (form: FormData) => {
+  return api.post<Simulation>(`/sims`, {
+    json: {
+      id: form.get("simId") as string,
+      type: form.get("type") as "follow" | "circle",
+    }
+  }).json()
+})
 
-export function getSimulations() {
-  return latestSimulations
-}
-
-function notifySimulationsListeners(nextSimulations: readonly Simulation[]) {
-  for (const listener of simulationsListeners) {
-    listener(nextSimulations)
-  }
-}
-
-export async function createSim(id: string, type: "follow" | "circle") {
-  const res = await honoClient.api.sims.$post({
-    json: {id, type}
-  })
-  if (!res.ok) throw new Error("Failed to create simulation")
-  return res.json()
-}
-
-export async function updateSim(id: string, config: Partial<SimConfig>) {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+export const updateSim = action(async (id: string, config: Partial<SimConfig>) => {
+  return api.put<Simulation>(`/sims/${id}`, {
     json: config
-  })
-  if (!res.ok) throw new Error("Failed to create simulation")
-  return res.json()
-}
+  }).json()
+})
 
-export async function deleteSim(id: string) {
-  const res = await honoClient.api.sims[":id"].$delete({param: {id}})
-  if (!res.ok) throw new Error("Failed to delete simulation")
-  return res.json()
-}
+export const deleteSim = action(async (id: string) => {
+  return api.delete<Simulation>(`/sims/${id}`).json()
+})
 
-export async function startSim(id: string) {
-  const res = await honoClient.api.sims[":id"].start.$put({param: {id}})
-  if (!res.ok) throw new Error("Failed to stop simulation")
-  return res.json()
-}
+export const startSim = action(async (id: string) => {
+  return api.put(`/sims/${id}/start`).json()
+})
 
-export async function stopSim(id: string) {
-  const res = await honoClient.api.sims[":id"].stop.$put({param: {id}})
-  if (!res.ok) throw new Error("Failed to stop simulation")
-  return res.json()
-}
+export const stopSim = action(async (id: string) => {
+  return api.put(`/sims/${id}/stop`).json()
+})
 
-
-export async function updateType(id: string, type: "follow" | "circle") {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+export const updateType = action(async (id: string, type: "follow" | "circle") => {
+  return api.put(`/sims/${id}`, {
     json: {type}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation type")
-  return res.json()
-}
+  }).json()
+})
 
-export async function updateSpeed(id: string, speed: number) {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+export const updateSpeed = action(async (id: string, speed: number) => {
+  return api.put(`/sims/${id}`, {
     json: {speed}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation speed")
-  return res.json()
-}
+  }).json()
+})
 
-export async function updateCurrent(id: string, latitude: number, longitude: number) {
-  const res = await honoClient.api.sims[":id"].updateCurrent.$put({
-    param: {id},
+export const updateCurrent = action(async (id: string, latitude: number, longitude: number) => {
+  return api.put(`/sims/${id}/updateCurrent`, {
     json: {latitude, longitude}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation current position")
-  return res.json()
-}
+  }).json()
+})
 
 
+export const share = action(async (id: string) => {
+  return api.post<{ token: string, expiryDate: Date }>(`/sims/${id}/share`).json()
+})
+
+export const unShare = action(async (id: string) => {
+  return api.post<{ success: boolean }>(`/sims/${id}/unshare`).json()
+})
 
 

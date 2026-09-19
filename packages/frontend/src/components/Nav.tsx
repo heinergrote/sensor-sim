@@ -24,10 +24,12 @@ export default function Nav() {
             <a class={`btn ${isControl() ? "btn-primary" : ""}`} href={paths.control}>
               <TbOutlineMapPinCog size={24}/> Control
             </a>
+          </Show>
+          <Show when={user()?.admin}>
             <a class={`btn ${isUsers() ? "btn-primary" : ""}`} href={paths.users}>
               <TbOutlineUsers size={24}/> Users</a>
-            <li class={`mx-1 flex-1`}></li>
           </Show>
+          <div class={`mx-1 flex-1`}></div>
 
           <Show when={user()}>
             {user =>
