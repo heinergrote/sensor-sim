@@ -2,7 +2,7 @@ import {Hono} from 'hono'
 import {Simulation, simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
-import {jwtMiddleware} from "../middleware/auth";
+import {jwtMiddleware, wsJwtMiddleware} from "../middleware/auth";
 import {HonoEnv, JWTPayload} from "../types";
 import {generateToken} from "../token.service";
 import {EventStream} from "../util/eventStream";
@@ -11,6 +11,7 @@ import {upgradeWebSocket} from "@hono/node-server";
 
 export const simsApp = new Hono<HonoEnv>()
 
+  .use('/:id/ws', wsJwtMiddleware)
   .use('*', jwtMiddleware)
 
   .get('/', (c) => {

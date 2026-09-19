@@ -1,10 +1,11 @@
 import {Hono} from "hono";
 import {upgradeWebSocket} from "@hono/node-server";
 import {simulationService} from "../index";
-import {jwtMiddleware} from "../middleware/auth";
+import {jwtMiddleware, wsJwtMiddleware} from "../middleware/auth";
 
 export const statusApp = new Hono()
 
+  .use('/ws', wsJwtMiddleware)
   .use(jwtMiddleware)
 
   .get('/',
