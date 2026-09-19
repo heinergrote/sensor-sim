@@ -51,13 +51,13 @@ server-side.
 
 Routing is filesystem-based over `src/routes`:
 
-| Route        | Module                | What it does                                            |
-|--------------|-----------------------|----------------------------------------------------------|
-| `/`          | `index.tsx`           | Login form, or "logged in as …" once authenticated       |
-| `/control`   | `control.tsx`         | The simulation workspace: sim list + live map            |
-| `/users`     | `users/index.tsx`     | User list with an inline add form (admin only)           |
-| `/users/:id` | `users/[id].tsx`      | Edit or delete one user                                  |
-| anything else| `[...404].tsx`        | Not found                                                |
+| Route         | Module            | What it does                                       |
+|---------------|-------------------|----------------------------------------------------|
+| `/`           | `index.tsx`       | Login form, or "logged in as …" once authenticated |
+| `/control`    | `control.tsx`     | The simulation workspace: sim list + live map      |
+| `/users`      | `users/index.tsx` | User list with an inline add form (admin only)     |
+| `/users/:id`  | `users/[id].tsx`  | Edit or delete one user                            |
+| anything else | `[...404].tsx`    | Not found                                          |
 
 `src/router.ts` exports typed `paths` helpers (`paths()`, `paths.control()`,
 `paths.users(id)`) — use those rather than hand-written URLs.
@@ -71,7 +71,7 @@ rejected token logs out automatically.
 
 The token reaches the server three ways:
 
-- `src/honoClient.ts` sets `Authorization: Bearer …` on every REST call — the
+- `src/api.ts` sets `Authorization: Bearer …` on every REST call — the
   header is a callback, so it always reads the current token.
 - `simulationMap.ts` attaches the same header via MapLibre's
   `transformRequest`, because the server's `/api/maptiler` proxy is
@@ -83,8 +83,8 @@ The token reaches the server three ways:
 There are deliberately two patterns:
 
 **Simulations — push-only.** `src/service/simulations.service.ts` opens **one**
-WebSocket to `/ws/sims` and reconciles every message into Solid stores
-(`simulations`, `simulationIds`), keyed by `config.id`. It also keeps a plain
+WebSocket to `/ws/sims` and reconciles every message into Solid stores (`simulations`, `simulationIds`), keyed by
+`config.id`. It also keeps a plain
 non-reactive `latestSimulations` snapshot plus a listener registry for
 consumers that live outside Solid's reactivity. Components never poll and never
 fetch simulation state: **reads come from the stores, writes go over REST**
@@ -97,7 +97,7 @@ preloading (`users/[id].tsx` preloads on navigation) and revalidation after a
 form submits.
 
 Both go through `honoClient = hc<AppType>(serverUrl)` from
-`src/honoClient.ts`, where `AppType` is imported from `@sensor-sim/server`.
+`src/api.ts`, where `AppType` is imported from `@sensor-sim/server`.
 `src/components/control/simulationMap.ts` is imperative MapLibre code
 deliberately outside Solid's reactivity: it subscribes through the listener
 registry and posts config / `updateCurrent` changes when a marker is dragged.

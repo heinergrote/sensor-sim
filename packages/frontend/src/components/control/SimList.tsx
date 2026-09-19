@@ -2,7 +2,6 @@ import {createEffect, createMemo, createSignal, For} from "solid-js";
 import {SimDetails} from "./SimDetails";
 import {addSim, fetchSimulations} from "../../service/simulations.service";
 import {Simulation} from "@sensor-sim/server";
-import {TbOutlineUser} from "solid-icons/tb";
 
 export function SimList() {
 
@@ -50,22 +49,21 @@ export function SimList() {
         </fieldset>
       </form>
 
-      <ul class="list bg-base-100 rounded-box bg-base-200 border-base-300 border">
-        <For each={simulations()} keyed={(sim) => sim.config.id}>
-          {(sim, key) => (
-            <li class="list-row">
-              <div>
-                <div class="text-xl">{sim().config.id}</div>
-                <div class="flex items-center"><TbOutlineUser/> {sim().config.ownerId}</div>
-              </div>
-              <div>
+      <For each={simulations()} keyed={(sim) => sim.config.id}>
+        {(sim, key) => (
+
+          <div class="card w-full bg-base-200 card-md shadow-sm mb-2">
+            <div class="card-body">
+              <h2 class="card-title">{sim().config.id}</h2>
+              <div class="flex items-center"></div>
+              <div class={"flex-1"}>
                 <SimDetails id={sim().config.id}/>
               </div>
-            </li>
-          )}
-        </For>
-      </ul>
+            </div>
+          </div>
 
+        )}
+      </For>
 
     </>
   );

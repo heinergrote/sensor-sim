@@ -1,13 +1,17 @@
 import {Hono} from 'hono'
-import {simulationService} from "../index";
+import {Simulation, simulationService} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
-import {authMiddleware, createShareToken} from "../middleware/auth";
+import {jwtMiddleware} from "../middleware/auth";
 import {HonoEnv, JWTPayload} from "../types";
+import {generateToken} from "../token.service";
+import {EventStream} from "../util/eventStream";
+import {upgradeWebSocket} from "@hono/node-server";
+
 
 export const simsApp = new Hono<HonoEnv>()
 
-  .use('*', authMiddleware)
+  .use('*', jwtMiddleware)
 
   .get('/', (c) => {
     return c.json([...simulationService.list()]);
@@ -21,6 +25,38 @@ export const simsApp = new Hono<HonoEnv>()
     }
     return c.json(sim);
   })
+
+  .get('/:id/ws',
+
+    async (c, next) => {
+      const simId = c.req.param('id') || ""
+      const sim = simulationService.get(simId);
+      const simStream = simulationService.getSimStream(simId);
+
+      if (!sim || !simStream) {
+        return c.text('sim not found: ' + simId, 404);
+      }
+      c.set('sim', sim)
+      c.set('simStream', simStream)
+      await next()
+    },
+
+    upgradeWebSocket(async (c) => {
+      const simStream = c.get('simStream') as EventStream<Simulation>;
+      const simStreamGenerator = simStream.collect();
+
+      return {
+        onOpen: async (_event, ws) => {
+          for await (const data of simStreamGenerator) {
+            ws.send(JSON.stringify(data));
+          }
+        },
+        onClose: async () => {
+          await simStreamGenerator.return(undefined)
+        },
+      }
+    })
+  )
 
   .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
@@ -95,7 +131,20 @@ export const simsApp = new Hono<HonoEnv>()
     const isOwner = sim.config.ownerId === userId;
     if (!isOwner) return c.json({error: 'Not owner'}, 403);
 
-    const token = createShareToken(id, userId);
+    const expiryTimestamp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
+    const {token, expiryDate} = generateToken(id, userId, expiryTimestamp);
 
-    return c.json({token});
+    await simulationService.update(id, {shareToken: token});
+
+    return c.json({token, expiryDate});
+  })
+
+  .post('/:id/unshare', async (c) => {
+    const id = c.req.param('id');
+    const sim = simulationService.get(id);
+    if (!sim) {
+      return c.json({error: 'Simulation not found'}, 404);
+    }
+    await simulationService.update(id, {shareToken: ""});
+    return c.json({success: true});
   })

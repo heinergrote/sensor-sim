@@ -9,12 +9,13 @@ import {loginApp} from "./routes/login";
 import {maptilerApp} from "./routes/maptiler";
 import {usersApp} from "./routes/users";
 import {meApp} from "./routes/me";
-import {simsWebsocketApp} from "./routes/simsWebsocket";
+import {sharedApp} from "./routes/shared";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
 import {db} from "./db";
 import {simsApp} from "./routes/sims";
+import {statusApp} from "./routes/status";
 
 // Migrations are NOT run here — they are applied by the separate "migrate"
 // entrypoint (src/migrate.ts) before this process starts. See the compose stack's
@@ -25,10 +26,11 @@ const port = Number(process.env.PORT) || 4000;
 
 export const simulationService = await createSimulationService()
 
-export const app = new Hono()
+const app = new Hono()
   .use('*', cors({origin: '*',}))
   .route("/api/login", loginApp)
-  .route("/ws/sims", simsWebsocketApp)
+  .route("/api/status", statusApp)
+  .route("/api/shared", sharedApp)
   .route("/api/maptiler", maptilerApp)
   .route('/api/sims', simsApp)
   .route('/api/me', meApp)
@@ -76,7 +78,6 @@ const server = serve(
     console.log(`Server running on port ${info.port}`)
   }
 );
-
 
 // Without this, nothing stops the sim tick intervals or the WS/DB connections, so on SIGTERM/SIGINT
 // (sent by tsx watch on every restart, or by ctrl-c) the process can't exit on its own and the port

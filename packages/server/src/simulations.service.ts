@@ -75,6 +75,7 @@ export async function createSimulationService(): Promise<SimulationService> {
     const type = createInput.type ? createInput.type : "follow";
     const speed = createInput.speed ? createInput.speed : 20;
     const playing = createInput.playing ?? true;
+    const shareToken = createInput.shareToken ?? "";
 
     const config: SimConfig = {
       id: createInput.id,
@@ -86,6 +87,7 @@ export async function createSimulationService(): Promise<SimulationService> {
       type: type,
       speed: speed,
       playing: playing,
+      shareToken: shareToken
     };
 
     const simRuntime = createSimulationRuntime(config);

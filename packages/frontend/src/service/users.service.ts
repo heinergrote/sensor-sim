@@ -1,56 +1,39 @@
-import {honoClient} from "../honoClient";
+import {api} from "../api";
 import {action, query} from "@solidjs/router";
+import {User} from "@sensor-sim/server";
+
+export type UserWithoutPassword = Omit<User, "password">;
 
 export const fetchUsers = query(async () => {
-  const response = await honoClient.api.users.$get();
-  if (!response.ok) throw new Error(`Could not load users`);
-  return response.json();
+  return api.get<UserWithoutPassword[]>(`/users`).json();
 }, "users");
 
 export const fetchUser = query(async (id: string) => {
-  const response = await honoClient.api.users[":id"].$get({param: {id}});
-  if (!response.ok) throw new Error(`Could not load user`);
-  return response.json();
+  return api.get<UserWithoutPassword>(`/users/${id}`).json();
 }, "user");
 
-
 export const addUser = action(async (form: FormData) => {
-  const response = await honoClient.api.users.$post({
+  return api.post("/users", {
     json: {
       username: form.get("username") as string,
       password: form.get("password") as string,
       admin: form.get("admin") === "on",
     }
-  });
-  if (!response.ok) throw new Error(`Could not add user`);
-  return response.json();
-
-
+  }).json();
 })
 
-
 export const deleteUser = action(async (id: string) => {
-  const response = await honoClient.api.users[":id"].$delete({param: {id}});
-  if (!response.ok) throw new Error(`Could not delete user`);
-  return response.json();
+  return api.delete(`/users/${id}`);
 });
 
+
 export const updateUser = action(async (id: number, form: FormData) => {
-  const response = await honoClient.api.users[":id"].$put({
-    param: {id: String(id)},
+  return api.put(`/users/${id}`, {
     json: {
       username: form.get("username") as string || undefined,
       password: form.get("password") as string || undefined,
       admin: form.get("admin") === "on",
     }
-  });
-  if (!response.ok) throw new Error(`Could not update user`);
-  return response.json();
+  }).json();
 })
 
-
-export const fetchMe = query(async () => {
-  const response = await honoClient.api.me.$get();
-  if (!response.ok) throw new Error(`Could not load user`);
-  return response.json();
-}, "user");

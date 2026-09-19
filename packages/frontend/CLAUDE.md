@@ -19,7 +19,7 @@ production it's built to `dist/client` and served by the server itself from the 
 - `src/auth.ts` — the auth store: one **module-level** signal seeded from `localStorage["jwt_token"]`. `useAuth()`
   returns `{token, login, logout, user}`; `user` is an async `createMemo` that calls `GET /api/me` and logs out on a
   non-OK response. Because the signal is module-level, every `useAuth()` caller shares the same state.
-- `src/honoClient.ts` — `honoClient = hc<AppType>(serverUrl, {headers: () => ({Authorization: ...})})`, with
+- `src/api.ts` — `honoClient = hc<AppType>(serverUrl, {headers: () => ({Authorization: ...})})`, with
   `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod. The header callback re-reads the
   token signal per request, so login/logout takes effect without rebuilding the client.
 - `src/components/Nav.tsx` — top nav; Control/Users links and the username + logout button render only when `user()`

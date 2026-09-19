@@ -4,7 +4,7 @@ import {zValidator} from "@hono/zod-validator";
 import {userInput} from "../zodSchema";
 import {z} from "zod";
 import {hashPassword} from "../util/passwords";
-import {authMiddleware, verifyAuth} from "../middleware/auth";
+import {jwtMiddleware, requireRole} from "../middleware/auth";
 
 
 const idParamSchema = z.object({
@@ -13,8 +13,8 @@ const idParamSchema = z.object({
 
 export const usersApp = new Hono()
 
-  .use('*', authMiddleware)
-  .use('*', verifyAuth(true))
+  .use('*', jwtMiddleware)
+  .use('*', requireRole(true))
 
   .get('/', async (c) => {
     const users = await getUsers();

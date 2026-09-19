@@ -1,12 +1,14 @@
-import {SimConfig, Status} from "@sensor-sim/server";
+import {SimConfig, Simulation, Status} from "@sensor-sim/server";
 import {createStore, reconcile} from "solid-js";
-import {honoClient} from "../honoClient";
+import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
+import {useAuth} from "../auth";
 
+const {token} = useAuth()
 
-const statusSocket = honoClient.ws.sims.status.$ws()
 let lastSimListChangeAt = 0
-statusSocket.onmessage = (event) => {
+const wss = new WebSocket(`${serverUrl}/api/status/ws?token=${token()}`)
+wss.onmessage = (event) => {
   const newStatus = JSON.parse(event.data) as Status
   setStatus(reconcile(newStatus))
 
@@ -24,84 +26,61 @@ export const [status, setStatus] = createStore<Status>({
 })
 
 export const fetchSimulations = query(async () => {
-  const response = await honoClient.api.sims.$get();
-  if (!response.ok) throw new Error(`Could not load simulations`);
-  return response.json();
+  return api.get<Simulation[]>(`/sims`).json()
 }, "simulations");
 
 export const addSim = action(async (form: FormData) => {
-  const response = await honoClient.api.sims.$post({
+  return api.post<Simulation>(`/sims`, {
     json: {
       id: form.get("simId") as string,
       type: form.get("type") as "follow" | "circle",
     }
-  });
-  if (!response.ok) throw new Error(`Could not add simulation`);
-  return response.json();
+  }).json()
 })
 
 export const updateSim = action(async (id: string, config: Partial<SimConfig>) => {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+  return api.put<Simulation>(`/sims/${id}`, {
     json: config
-  })
-  if (!res.ok) throw new Error("Failed to create simulation")
-  return res.json()
+  }).json()
 })
 
 export const deleteSim = action(async (id: string) => {
-  const res = await honoClient.api.sims[":id"].$delete({param: {id}})
-  if (!res.ok) throw new Error("Failed to delete simulation")
-  return res.json()
+  return api.delete<Simulation>(`/sims/${id}`).json()
 })
 
 export const startSim = action(async (id: string) => {
-  const res = await honoClient.api.sims[":id"].start.$put({param: {id}})
-  if (!res.ok) throw new Error("Failed to start simulation")
-  return res.json()
+  return api.put(`/sims/${id}/start`).json()
 })
 
 export const stopSim = action(async (id: string) => {
-  const res = await honoClient.api.sims[":id"].stop.$put({param: {id}})
-  if (!res.ok) throw new Error("Failed to stop simulation")
-  return res.json()
+  return api.put(`/sims/${id}/stop`).json()
 })
 
 export const updateType = action(async (id: string, type: "follow" | "circle") => {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+  return api.put(`/sims/${id}`, {
     json: {type}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation type")
-  return res.json()
+  }).json()
 })
 
 export const updateSpeed = action(async (id: string, speed: number) => {
-  const res = await honoClient.api.sims[":id"].$put({
-    param: {id},
+  return api.put(`/sims/${id}`, {
     json: {speed}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation speed")
-  return res.json()
+  }).json()
 })
 
 export const updateCurrent = action(async (id: string, latitude: number, longitude: number) => {
-  const res = await honoClient.api.sims[":id"].updateCurrent.$put({
-    param: {id},
+  return api.put(`/sims/${id}/updateCurrent`, {
     json: {latitude, longitude}
-  })
-  if (!res.ok) throw new Error("Failed to update simulation current position")
-  return res.json()
+  }).json()
 })
 
 
 export const share = action(async (id: string) => {
-  const res = await honoClient.api.sims[":id"].share.$post({
-    param: {id}
-  })
-  if (!res.ok) throw new Error("Failed to create share token")
-  return res.json()
+  return api.post<{ token: string, expiryDate: Date }>(`/sims/${id}/share`).json()
 })
 
+export const unShare = action(async (id: string) => {
+  return api.post<{ success: boolean }>(`/sims/${id}/unshare`).json()
+})
 
 

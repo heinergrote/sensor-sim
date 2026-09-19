@@ -1,20 +1,22 @@
 import {Hono} from 'hono'
-import {authMiddleware} from '../middleware/auth'
-import {JWTPayload} from '../types'
+import {jwtMiddleware} from '../middleware/auth'
+import {JWTPayload, Profile} from '../types'
 
 export const meApp = new Hono()
 
-  .use('*', authMiddleware)
+  .use('*', jwtMiddleware)
 
   .get('/', (c) => {
     // Retrieve decoded payload attached by the middleware
     const payload = c.get('jwtPayload') as JWTPayload
 
-    return c.json({
+    const profile: Profile = {
       id: payload.sub,
       username: payload.username,
       exp: payload.exp,
       admin: payload.admin,
-    })
+    }
+
+    return c.json(profile)
   })
 

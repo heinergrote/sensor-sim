@@ -13,6 +13,7 @@ export const typeEnum = pgEnum('type', ['follow', 'circle']);
 export const simConfigs = pgTable("sim_configs", {
   id: varchar("id", {length: 64}).primaryKey(),
   ownerId: integer("owner_id").notNull().references(() => users.id),
+  shareToken: text("share_token").notNull().default(""),
   targetLatitude: numeric("target_latitude", {mode: 'number'}).notNull(),
   targetLongitude: numeric("target_longitude", {mode: 'number'}).notNull(),
   initialDistance: numeric("initial_distance", {mode: 'number'}).notNull(),

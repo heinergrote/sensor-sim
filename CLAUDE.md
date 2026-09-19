@@ -67,7 +67,7 @@ sides, and note the Docker build needs both package manifests present for this r
 Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain, both exported from
 `middleware/auth.ts`:
 
-1. `login.ts` and `simsWebsocket.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
+1. `login.ts` and `shared.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
    `/ws/sims` — the WebSocket stream is unauthenticated).
 2. `maptiler.ts`, `sims.ts` and `me.ts` add `.use('*', authMiddleware)` (`jwt({secret: JWT_SECRET, alg: "HS256"})`) →
    `/api/maptiler`, `/api/sims` and `/api/me` need a valid bearer token.

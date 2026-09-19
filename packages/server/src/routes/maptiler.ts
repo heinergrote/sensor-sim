@@ -1,11 +1,11 @@
 import {Hono} from 'hono'
-import {authMiddleware} from '../middleware/auth'
+import {jwtMiddleware} from '../middleware/auth'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
 
 export const maptilerApp = new Hono()
 
-  .use('*', authMiddleware)
+  .use('*', jwtMiddleware)
 
   .get('/:path{.+$}', async (c) => {
 

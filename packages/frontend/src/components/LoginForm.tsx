@@ -1,6 +1,6 @@
 import {createSignal} from "solid-js";
 import {useAuth} from "../auth";
-import {honoClient} from "../honoClient";
+import {api} from "../api";
 import {paths} from "../router";
 import {useNavigate} from "@solidjs/router";
 
@@ -15,23 +15,23 @@ export default function LoginForm() {
     e.preventDefault()
     setError('')
 
-    const response = await honoClient.api.login.$post({
-      json: {
-        username: username(),
-        password: password()
-      }
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      login(data.token)
+    try {
+      const response = await api.post<{ token: string }>(`/login`, {
+        json: {
+          username: username(),
+          password: password()
+        }
+      }).json()
+      console.log("Login response", response)
+      login(response.token)
       navigate(paths.control())
-    } else {
+
+    } catch (e) {
       setError('Login failed')
       logout()
     }
-  }
 
+  }
 
   return (
     <form method="post" onSubmit={handleSubmit} class="flex flex-col w-80 gap-4">

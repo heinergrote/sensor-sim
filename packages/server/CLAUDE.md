@@ -45,10 +45,10 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   `getUserWithSecretsByName(username)`, used by the login route.
 - `util/passwords.ts` — `hashPassword` / `verifyPassword` using node `scrypt`; stored format is `"<saltHex>:<hashHex>"`,
   compared with `timingSafeEqual`.
-- `middleware/auth.ts` — exports `authMiddleware` (the shared `jwt({secret: JWT_SECRET, alg: "HS256"})` instance every
+- `middleware/auth.ts` — exports `jwtMiddleware` (the shared `jwt({secret: JWT_SECRET, alg: "HS256"})` instance every
   authenticated route file uses) and `verifyAuth(requireAdmin, {checkDb})`: reads `c.get('jwtPayload')`, 401 without
-  one, 403 when admin is required and missing. `verifyAuth` assumes `authMiddleware` already ran on the same request
-  — always mount it after `authMiddleware` in a subapp's own `.use()` chain. With `checkDb: true` it re-reads the user
+  one, 403 when admin is required and missing. `requireRole` assumes `jwtMiddleware` already ran on the same request
+  — always mount it after `jwtMiddleware` in a subapp's own `.use()` chain. With `checkDb: true` it re-reads the user
   from the DB instead of trusting the token claim (for fast revocation) — currently unused.
 - `util/eventStream.ts` — `createEventStream(getSnapshot)`: a tiny pub/sub used for both the sim-list stream and per-sim
   streams; `.collect()` returns an async generator consumed by WebSocket handlers.
@@ -74,7 +74,7 @@ routes/maptiler.ts, routes/sims.ts, routes/me.ts .use('*', authMiddleware)      
 routes/users.ts                                  .use('*', authMiddleware).use('*', verifyAuth(true)) → admin only
 ```
 
-`authMiddleware` (`jwt({secret: JWT_SECRET, alg: "HS256"})`) and `verifyAuth` both live in `middleware/auth.ts`, so
+`jwtMiddleware` (`jwt({secret: JWT_SECRET, alg: "HS256"})`) and `requireRole` both live in `middleware/auth.ts`, so
 every subapp imports the same instances rather than re-deriving them. `src/index.ts` mounts all of these as a flat
 list of `.route()` calls — reordering them no longer changes any endpoint's access level, only which prefix a
 handler is reached under. Two consequences worth knowing:
@@ -128,7 +128,7 @@ endpoint any more — move the target with `PUT /:id`.
 | PUT    | `/:id` | `userInput.partial()` | Only hashes `password` when present                        |
 | DELETE | `/:id` | —                     | `{message: 'User deleted'}`                                |
 
-## WebSocket API (`src/routes/simsWebsocket.ts`, mounted at `/ws/sims`)
+## WebSocket API (`src/routes/shared.ts`, mounted at `/ws/sims`)
 
 | Path           | Payload        | Update trigger                                          |
 |----------------|----------------|---------------------------------------------------------|
@@ -175,7 +175,7 @@ If found, all unmatched GET requests fall back to `index.html` (SPA routing supp
 
 `GET /api/maptiler/:path` forwards to `https://api.maptiler.com/:path`, injecting `MAPTILER_KEY` server-side, rewriting
 absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to this proxy, and stripping any client-supplied
-`key` query param. Requests need a bearer token — `maptiler.ts` applies `authMiddleware` itself, like any other
+`key` query param. Requests need a bearer token — `maptiler.ts` applies `jwtMiddleware` itself, like any other
 authenticated route file.
 
 ## Env vars

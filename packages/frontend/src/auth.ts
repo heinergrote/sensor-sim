@@ -1,5 +1,7 @@
 import {createMemo, createSignal} from 'solid-js'
-import {honoClient} from "./honoClient";
+import {serverUrl} from "./api";
+import {Profile} from "@sensor-sim/server";
+import ky from "ky";
 
 const [token, setToken] = createSignal<string | null>(
   localStorage.getItem('jwt_token')
@@ -21,15 +23,19 @@ export function useAuth() {
     const currentToken = token()
     if (!currentToken) return null
 
-    const res = await honoClient.api.me.$get()
+    const api = ky.create({
+      baseUrl: serverUrl,
+      headers: {Authorization: `Bearer ${currentToken}`}
+    });
 
-    if (res.ok) {
-      const data: { id: number; username: string } = await res.json()
-      return data
-    } else {
+    try {
+      return await api.get<Profile>("/api/me").json()
+    } catch (e) {
+      console.log("Error fetching user", e)
       logout()
       return null
     }
+
 
   })
 
