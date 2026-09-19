@@ -8,7 +8,7 @@ export const statusApp = new Hono()
   .use(jwtMiddleware)
 
   .get('/',
-    (c) => c.json(simulationService.status)
+    (c) => c.json(simulationService.status())
   )
 
   .get('/ws',
