@@ -86,15 +86,17 @@ The token reaches the server three ways:
 
 There are deliberately two patterns:
 
-**Simulations — REST list + per-sim push.** `src/service/simulations.service.ts` exposes `fetchSimulations`, a
-router `query()` over `GET /api/sims` — a plain REST fetch, not a push. Alongside it, one module-level `WebSocket` to
-`/api/status/ws` keeps a small `status` store (`{startedAt, simListUpdatedAt, numSims}`) up to date and calls
-`revalidate("simulations")` whenever `simListUpdatedAt` moves, so the list refetches when someone creates or deletes
-a sim. Live per-sim state (position, distance, azimuth) is separate: `src/service/simulation.service.ts`'s
-`addSimulationListener(id, cb)` lazily opens one `WebSocket` per sim id against `/api/sims/:id/ws`, ref-counted so it
-closes once nothing is listening. Components never poll: **the list comes from the query, live state comes from a
-per-sim listener, writes go over REST** (`createSim`, `updateSim`, `updateCurrent`, `startSim`, `stopSim`,
-`deleteSim`, `share`, `unShare`, …).
+**Simulations — REST list, REST per-sim config, map-only live push.** `src/service/simulations.service.ts` exposes
+`fetchSimulations`, a router `query()` over `GET /api/sims` — a plain REST fetch, not a push — and
+`fetchSimulation(id)`, the same but for one sim's config (used by `SimDetails.tsx`; it doesn't auto-revalidate).
+Alongside it, one module-level `WebSocket` to `/api/status/ws` keeps a small `status` store
+(`{startedAt, simListUpdatedAt, numSims}`) up to date and calls `revalidate("simulations")` whenever
+`simListUpdatedAt` moves, so the list refetches when someone creates or deletes a sim. Live per-sim position is
+separate and now only consumed by the map: `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)`
+lazily opens one `WebSocket` per sim id against `/api/sims/:id/ws`, ref-counted so it closes once nothing is
+listening. Components never poll: **lists/config come from queries, the map's live state comes from a per-sim
+listener, writes go over REST** (`createSim`, `updateSim`, `updateCurrent`, `startSim`, `stopSim`, `deleteSim`,
+`share`, `unShare`, …).
 
 **Users — plain REST.** `src/service/users.service.ts` wraps the endpoints in
 `@solidjs/router` `query()` / `action()`, so the router handles caching,

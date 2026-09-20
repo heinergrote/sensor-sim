@@ -67,26 +67,32 @@ compiler — only by hitting the endpoint. The Docker build still needs both pac
 frontend package depends on `@sensor-sim/server`'s source for those type exports.
 
 **Each subapp under `src/routes/*` declares its own auth — `index.ts` mount order has no security consequences.**
-Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain, both exported from
-`middleware/auth.ts`:
+Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain:
 
 1. `login.ts` and `shared.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
    `/api/shared/:token` and `/api/shared/:token/ws` — the latter gated instead by a per-simulation share token, see
    "Sharing" below).
-2. `maptiler.ts`, `sims.ts`, `me.ts` and `status.ts` add `.use('*', jwtMiddleware)` (`jwt({secret: JWT_SECRET, alg:
-   "HS256"})`) → `/api/maptiler`, `/api/sims` (including its per-sim `GET /:id/ws`), `/api/me` and `/api/status`
-   (including `/api/status/ws`) need a valid bearer token. `jwtMiddleware` also accepts the token as a `?token=`
-   query param, not just the `Authorization` header — needed because a browser `WebSocket` can't set custom headers
-   on the upgrade request.
-3. `users.ts` additionally adds `.use('*', requireRole(true))` → `/api/users` needs `admin` in the token payload.
+2. `maptiler.ts`, `sims.ts`, `me.ts` and `status.ts` add `.use('*', jwtMiddleware)` (from `middleware/jwtAuth.ts`) →
+   `/api/maptiler`, `/api/sims`, `/api/me` and `/api/status` (each including its `/ws` route) need a valid bearer
+   token. `jwtMiddleware` wraps `hono/jwt`'s check, then decodes the payload into `c.set('user', {id, username,
+   admin})` — every downstream handler reads `c.get('user')`, not the raw JWT payload. It also accepts the token as
+   a `?token=` query param, not just the `Authorization` header — needed because a browser `WebSocket` can't set
+   custom headers on the upgrade request.
+3. `users.ts` additionally adds `.use('*', requireRole(true))` (from `middleware/requireRole.ts`) → `/api/users`
+   needs `admin` on the JWT-derived user.
+4. `sims.ts` additionally adds `.use('/:id/*', withOwnSimMiddleware())` (from `middleware/withOwnSim.ts`), after
+   `jwtMiddleware` → every `/api/sims/:id*` route 404s on an unknown id and 403s if the caller isn't the sim's
+   owner, and stashes the loaded `sim`/`simStream` in context so handlers don't re-fetch them.
 
 `src/index.ts` just mounts each subapp with `.route()`; reordering those calls changes routing, not access level.
 
-**Simulations have an owner but aren't owner-scoped, except for sharing.** `sim_configs.owner_id` (FK → `users.id`)
-records who created a sim (`POST /api/sims` reads it off the JWT's `sub`), but `GET/PUT/DELETE /api/sims*` don't
-filter or check it — any authenticated user can list, read, update or delete any simulation. Ownership only gates
-`POST /api/sims/:id/share` and `/unshare` (403 if the caller isn't the owner). Sharing itself is a *separate*,
-non-JWT credential: `token.service.ts` mints a compact HMAC-SHA256-signed token (binary: owner id + expiry + sim id,
+**Simulations are owner-scoped, aside from the public share link.** `sim_configs.owner_id` (FK → `users.id`)
+records who created a sim (`POST /api/sims` reads it off the JWT's `sub`). `GET /api/sims` filters the list to the
+caller's own sims (`simulationService.list(ownerId)`), and `withOwnSimMiddleware` gates every other
+`/api/sims/:id*` route — read, update, delete, start/stop, updateCurrent, share/unshare, and the per-sim WebSocket —
+404ing on an unknown id and 403ing if the caller isn't the owner. One user can no longer see or touch another
+user's simulation except through a share link. Sharing itself is a *separate*, non-JWT credential: `token.service.ts`
+mints a compact HMAC-SHA256-signed token (binary: owner id + expiry + sim id,
 base64url-encoded, signed with the same `JWT_SECRET` via `util/appSecret.ts`) that's stored verbatim in
 `sim_configs.share_token` and handed back to the owner. `middleware/simShareMiddleware.ts` verifies a token's
 signature and expiry, then additionally checks it still matches the sim's current `share_token` column (so
@@ -114,20 +120,23 @@ single socket that pushes the whole `Simulation[]` list. Instead:
 - `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle
   (`sim_configs` table, `db/schema.ts`), and exposes a `Status` (`{startedAt, simListUpdatedAt, numSims}`) plus a
   `statusStream` that re-emits whenever a sim is created or removed — a cheap "does the list need a refetch" signal,
-  not the list itself.
+  not the list itself. `list(ownerId)` filters to that owner's sims (see "Simulations are owner-scoped" above).
 - `simulationRuntime.ts` runs a per-sim 100ms tick advancing `SimState` with geodesic math (`util/geoCalc.ts`, built on
   `@turf/turf`), and owns that sim's own `simStream`.
-- `GET /api/sims` is a plain, cacheable REST list (no push); `GET /api/sims/:id/ws` and `GET
-  /api/shared/:token/ws` each stream a single `Simulation` per tick for one sim (authenticated vs. share-token
-  gated, respectively); `GET /api/status/ws` streams `Status` whenever the list changes shape.
+- `GET /api/sims` is a plain, cacheable, owner-filtered REST list (no push); `GET /api/sims/:id/ws` and `GET
+  /api/shared/:token/ws` each stream a single `Simulation` per tick for one sim (owner-checked bearer token vs.
+  share-token gated, respectively); `GET /api/status/ws` streams `Status` whenever the list changes shape.
 - Frontend `src/service/simulations.service.ts` fetches the list via `@solidjs/router` `query()` (`fetchSimulations`,
   cache key `"simulations"`) and keeps one `/api/status/ws` connection open; on a `Status` message whose
-  `simListUpdatedAt` advanced, it calls `revalidate("simulations")` to refetch the list. It also exposes the
-  mutation actions (`addSim`, `updateSim`, `startSim`, `stopSim`, `share`, `unShare`, …) around the `ky` client.
+  `simListUpdatedAt` advanced, it calls `revalidate("simulations")` to refetch the list. It also exposes
+  `fetchSimulation(id)` (a one-shot REST query, cache key `"simulation"`, no auto-revalidation) and the mutation
+  actions (`addSim`, `updateSim`, `startSim`, `stopSim`, `share`, `unShare`, …) around the `ky` client.
+- `SimDetails.tsx` now reads a sim's config through `fetchSimulation(id)` rather than a live socket — it shows
+  config (target, distance/azimuth, speed, share token) but no longer renders live position, since that query
+  never revalidates on its own.
 - Frontend `src/service/simulation.service.ts` is the source of *live* per-sim state: `addSimulationListener(id,
   cb)` lazily opens (and ref-counts) one WebSocket per sim id against `/api/sims/:id/ws`, closing it once the last
-  listener unsubscribes. `SimDetails.tsx` and `simulationMap.ts` both subscribe through it rather than opening their
-  own sockets.
+  listener unsubscribes. Only `simulationMap.ts` subscribes through it now (`SimDetails.tsx` no longer does).
 - `src/components/control/simulationMap.ts` is imperative MapLibre code living *outside* Solid's reactivity — it
   subscribes via that per-sim listener registry and writes back through the `ky`-based service on marker drag.
 

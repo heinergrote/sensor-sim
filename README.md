@@ -54,7 +54,9 @@ A simulation streams `Simulation` snapshots over `ws://<server>/api/sims/:id/ws`
 every 100 ms while it's playing. That endpoint needs a bearer token, same as
 the rest of `/api/sims` — pass it either as an `Authorization: Bearer <token>`
 header or, since browsers can't set headers on a WebSocket upgrade, as
-`?token=<token>`.
+`?token=<token>` — and the token's user must own that simulation, or the
+connection is refused. Use sharing (below) to expose a sim to a caller that
+isn't its owner.
 
 To expose one simulation without a login — e.g. to a device under test that
 shouldn't hold a full account — an owner can share it: `POST
@@ -67,7 +69,9 @@ revokes it immediately.
 The sim list itself (`GET /api/sims`) and all other mutations (`POST
 /api/sims`, `PUT /api/sims/:id`, `PUT /api/sims/:id/start`, …) are plain REST
 and need a bearer token: `POST /api/login` with `{username, password}` returns
-one. See [packages/server/README.md](packages/server/README.md).
+one. `GET /api/sims` only lists the caller's own simulations, and every
+`/api/sims/:id*` call needs the caller to own that sim (`403` otherwise) — see
+[packages/server/README.md](packages/server/README.md).
 
 To make an existing web app believe it's moving, use the
 [sensor-mock](https://www.npmjs.com/package/sensor-mock) library instead of

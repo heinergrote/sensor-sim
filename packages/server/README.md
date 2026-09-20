@@ -66,14 +66,19 @@ Access is decided by each route file itself, not by mount order in `src/index.ts
 | Scope              | Routes                                                              |
 |--------------------|----------------------------------------------------------------------|
 | public             | `POST /api/login`, `GET /api/shared/:token`, `GET /api/shared/:token/ws`, static files |
-| any logged-in user | `/api/me`, `/api/sims` (incl. `GET /:id/ws`), `/api/status` (incl. `/ws`), `/api/maptiler` |
+| any logged-in user | `/api/me`, `GET /api/sims`, `POST /api/sims`, `/api/status` (incl. `/ws`), `/api/maptiler` |
+| sim owner only     | `/api/sims/:id*` — read, update, delete, start/stop, updateCurrent, `GET /:id/ws`, share/unshare |
 | admin only         | `/api/users`                                                        |
 
-Two consequences worth spelling out:
+Three consequences worth spelling out:
 
+- **Simulations are owner-scoped.** Every `/api/sims/:id*` route runs `withOwnSimMiddleware`, which 404s on an
+  unknown id and 403s if the caller isn't `sim_configs.owner_id` — including the per-sim WebSocket. `GET /api/sims`
+  (the list) is filtered to the caller's own sims the same way. Sharing (below) is the deliberate exception that
+  lets someone without an account reach one specific simulation.
 - **Per-sim live position needs a token — unless it's shared.** `GET
-  /api/sims/:id/ws` requires the same bearer token as the rest of `/api/sims`.
-  A simulation's owner can instead call `POST /api/sims/:id/share` to mint a
+  /api/sims/:id/ws` requires the same bearer token as the rest of `/api/sims`,
+  plus ownership. A simulation's owner can instead call `POST /api/sims/:id/share` to mint a
   separate, unauthenticated share token (see "Sharing simulations" below) and
   hand out `GET /api/shared/:token/ws` to a device under test that has no
   account at all.
@@ -95,7 +100,8 @@ from the database on each request.
 A simulation's owner (`sim_configs.owner_id`, set from the JWT's `sub` at
 creation) can expose it to someone without an account:
 
-- `POST /api/sims/:id/share` (owner only, 403 otherwise) mints a share token
+- `POST /api/sims/:id/share` (owner only, 403 otherwise — enforced by
+  `withOwnSimMiddleware` before the handler even runs) mints a share token
   good for 7 days and stores it verbatim in `sim_configs.share_token`, returning
   `{token, expiryDate}`.
 - `POST /api/sims/:id/unshare` clears it, immediately invalidating any link
@@ -115,9 +121,9 @@ setting `sim`/`simStream` in context for the `shared.ts` route handlers —
 that last check is what makes `unshare` effective immediately rather than only
 at expiry.
 
-Ownership otherwise isn't an access-control boundary: `GET/PUT/DELETE
-/api/sims*` don't check `owner_id` at all, so any authenticated user can see,
-edit or delete any simulation, not just their own.
+Ownership is enforced on every other `/api/sims/:id*` route too (see "Users & auth" above) — sharing is the
+deliberate exception that lets someone *without* an account reach one specific simulation, not a workaround for a
+missing check.
 
 ## Database & migrations
 
@@ -181,15 +187,16 @@ All inputs are validated with Zod (`src/zodSchema.ts`). Everything except
 
 ### `/api/me`
 
-`GET /api/me` → `{ id, username, admin, exp }`, read straight from the token —
-no database round-trip, so it reflects the claims as they were at login.
+`GET /api/me` → `{ id, username, admin }` (the `Profile` shape, no `exp`),
+read from the JWT-derived `user` context — no database round-trip, so it
+reflects the claims as they were at login.
 
 ### `/api/sims`
 
 | Method | Path                 | Body                      | Result                                                                                                                                                                |
 |--------|----------------------|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | `/`                  | —                         | `Simulation[]`                                                                                                                                                        |
-| GET    | `/:id`               | —                         | A single `Simulation`, or `404 { error }` if unknown                                                                                                                  |
+| GET    | `/`                  | —                         | The caller's own `Simulation[]`                                                                                                                                       |
+| GET    | `/:id`               | —                         | A single `Simulation`; `404 { error }` if unknown, `403 { error }` if not the owner                                                                                   |
 | POST   | `/`                  | `simCreateInput`          | The created `Simulation`; only `id` is required, everything else gets a default (random target near Braunschweig, random distance/azimuth, `follow`, 20 m/s, playing) |
 | PUT    | `/:id`               | `simConfigInput`          | Updates any subset of the config. Moving the `target` of a `follow` sim recomputes distance/azimuth from the current position so motion continues smoothly            |
 | DELETE | `/:id`               | —                         | Removes the simulation and its persisted config                                                                                                                       |
@@ -197,12 +204,12 @@ no database round-trip, so it reflects the claims as they were at login.
 | PUT    | `/:id/start`         | —                         | Resumes a stopped simulation (fresh state from config)                                                                                                                |
 | PUT    | `/:id/stop`          | —                         | Pauses it — config is kept and persisted, `state` becomes `null`                                                                                                      |
 | GET    | `/:id/ws`            | — (WebSocket upgrade)     | Streams that `Simulation` on every tick; see WebSocket API below                                                                                                      |
-| POST   | `/:id/share`         | —                         | Owner only (403 otherwise). Mints a 7-day share token, returns `{ token, expiryDate }`                                                                                |
+| POST   | `/:id/share`         | —                         | Mints a 7-day share token, returns `{ token, expiryDate }`                                                                                                            |
 | POST   | `/:id/unshare`       | —                         | Clears the share token, invalidating any link immediately                                                                                                             |
 
-The mutating routes answer `{ success: true }`, and `404 { error }` for an
-unknown id. Note `config` now also carries `ownerId` (the creating user's id)
-and `shareToken` (empty string when not shared).
+Every `/:id*` route (including `GET /:id` and `GET /:id/ws`) 404s for an unknown id and 403s if the caller isn't
+the sim's owner; mutating routes then answer `{ success: true }`. Note `config` also carries `ownerId` (the
+creating user's id) and `shareToken` (empty string when not shared).
 
 ### `/api/status`
 
@@ -233,7 +240,7 @@ login route.
 
 | Path                    | Payload      | Auth                                       | Emitted when                                          |
 |-------------------------|--------------|---------------------------------------------|--------------------------------------------------------|
-| `/api/sims/:id/ws`      | `Simulation` | bearer token (header or `?token=`)          | Every tick of that simulation while it is playing       |
+| `/api/sims/:id/ws`      | `Simulation` | bearer token (header or `?token=`), owner only | Every tick of that simulation while it is playing       |
 | `/api/shared/:token/ws` | `Simulation` | valid, unexpired share token in the path    | Same, for a shared simulation — no bearer token needed  |
 | `/api/status/ws`        | `Status`     | bearer token (header or `?token=`)          | Any simulation created or removed                       |
 
@@ -241,9 +248,9 @@ All three are **push-only**: a client receives a snapshot as soon as it
 connects (once authenticated/authorized) and then keeps receiving them. There
 is no full-list broadcast any more — `GET /api/sims` is a plain REST fetch,
 and `/api/status/ws` only tells clients *when* to refetch it, not what
-changed. Connecting to an unknown sim id, or with an invalid, expired or
-mismatched share token, returns an error status before the upgrade (`404` for
-an unknown id; `400`/`403` for a bad share token).
+changed. Connecting to an unknown sim id returns `404`, connecting to one you
+don't own returns `403`, and an invalid, expired or mismatched share token
+returns `400`/`403`, all before the upgrade.
 
 Under the hood, `util/eventStream.ts` is a small pub/sub whose `.collect()`
 returns an async generator; each socket iterates its own generator and releases
@@ -252,18 +259,20 @@ it on close.
 ## Architecture
 
 ```
-src/index.ts                  app bootstrap; exports `simulationService` (module singleton) and `HonoEnv`
+src/index.ts                  app bootstrap; exports `simulationService` (module singleton) and re-exports types.ts
 src/simulations.service.ts    owns Map<id, SimulationRuntime>, persistence (Postgres via Drizzle), status/statusStream
 src/simulationRuntime.ts      one per simulation: tick loop, movement math, per-sim stream
 src/user.service.ts           Drizzle queries for users, with password columns projected away
 src/token.service.ts          generate/verify the HMAC-signed share tokens used by simulation sharing
 src/migrate.ts                standalone migrate entrypoint (dist/migrate.js); the server never migrates
 src/db/                       index.ts (Drizzle client), schema.ts (users + sim_configs tables), dbInit.ts (migrate + seed admin)
-src/middleware/auth.ts        jwtMiddleware, requireRole(requireAdmin, {checkDb}) — role check on top of hono/jwt
+src/middleware/jwtAuth.ts     jwtMiddleware, wsJwtMiddleware — hono/jwt check, sets c.set('user', {id, username, admin})
+src/middleware/requireRole.ts requireRole(requireAdmin, {checkDb}) — admin check on top of jwtMiddleware
+src/middleware/withOwnSim.ts  withOwnSimMiddleware() — loads + owner-checks a sim for /api/sims/:id* routes
 src/middleware/simShareMiddleware.ts  verifies a share token and loads the matching sim into context
 src/zodSchema.ts              Zod input schemas
-src/types.ts                  Position, SimConfig, SimState, Simulation, Status, User, Profile, JWTPayload, HonoEnv
-src/routes/                   login, users, sims (REST + per-sim WS + share/unshare), shared (public share endpoints),
+src/types.ts                  Position, SimConfig, SimState, Simulation, Status, User, Profile, JWTPayload, HonoGlobalVars, HonoSimVars
+src/routes/                   login, users, sims (REST + per-sim WS + share/unshare, owner-scoped), shared (public share endpoints),
                                status (REST + WS), me, maptiler (proxy)
 src/util/                     eventStream, geoCalc, passwords, randomOffset, appSecret
 ```
@@ -281,10 +290,10 @@ Three things worth knowing before changing anything here:
   `routes/*` are load-order sensitive.
 - **Each subapp decides its own access level, not `index.ts`.** Every route file
   under `src/routes/*` applies whatever `.use('*', jwtMiddleware)` /
-  `.use('*', requireRole(true))` it needs as the first thing in its own chain
-  (`login.ts` and `shared.ts` apply neither → public). Reordering the
-  `.route()` calls in `index.ts` changes routing, not who can reach an
-  endpoint — unlike before this reorg, where mount order *was* the auth model.
+  `.use('*', requireRole(true))` / `.use('/:id/*', withOwnSimMiddleware())` it
+  needs as the first thing in its own chain (`login.ts` and `shared.ts` apply
+  neither → public). Reordering the `.route()` calls in `index.ts` changes
+  routing, not who can reach an endpoint.
 
 Simulation configs are persisted to Postgres (the `sim_configs` table, via
 Drizzle) on every mutation and reloaded from there on startup, so simulations
