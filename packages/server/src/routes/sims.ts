@@ -1,49 +1,35 @@
 import {Hono} from 'hono'
-import {Simulation, simulationService} from "../index";
+import {HonoSimVars, simulationService, User} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {positionInput, simConfigInput, simCreateInput} from "../zodSchema";
-import {jwtMiddleware, wsJwtMiddleware} from "../middleware/auth";
-import {HonoEnv, JWTPayload} from "../types";
+import {jwtMiddleware, wsJwtMiddleware} from "../middleware/jwtAuth";
 import {generateToken} from "../token.service";
-import {EventStream} from "../util/eventStream";
 import {upgradeWebSocket} from "@hono/node-server";
+import {withOwnSimMiddleware} from "../middleware/withOwnSim";
 
 
-export const simsApp = new Hono<HonoEnv>()
+export const simsApp = new Hono<{
+  Variables: HonoSimVars;
+}>()
 
   .use('/:id/ws', wsJwtMiddleware)
   .use('*', jwtMiddleware)
+  .use('/:id/*', withOwnSimMiddleware())
 
   .get('/', (c) => {
-    return c.json([...simulationService.list()]);
+    const user = c.get('user') as User
+    return c.json([...simulationService.list(user.id)]);
   })
 
   .get('/:id', (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
+    const sim = c.get('sim')
     return c.json(sim);
   })
 
   .get('/:id/ws',
 
-    async (c, next) => {
-      const simId = c.req.param('id') || ""
-      const sim = simulationService.get(simId);
-      const simStream = simulationService.getSimStream(simId);
-
-      if (!sim || !simStream) {
-        return c.text('sim not found: ' + simId, 404);
-      }
-      c.set('sim', sim)
-      c.set('simStream', simStream)
-      await next()
-    },
-
     upgradeWebSocket(async (c) => {
-      const simStream = c.get('simStream') as EventStream<Simulation>;
+      const simStream = c.get('simStream');
       const simStreamGenerator = simStream.collect();
 
       return {
@@ -61,98 +47,55 @@ export const simsApp = new Hono<HonoEnv>()
 
   .post('/', zValidator('json', simCreateInput), async (c) => {
     const input = c.req.valid('json')
-    const payload = c.get('jwtPayload') as JWTPayload
+    const user = c.get('user') as User
 
-    const result = await simulationService.createSim(payload.sub, input)
+    const result = await simulationService.createSim(user.id, input)
     return c.json(result)
   })
 
   .put('/:id', zValidator('json', simConfigInput), async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
     const input = c.req.valid('json')
-    await simulationService.update(id, input)
+    const sim = c.get('sim')
+    await simulationService.update(sim.config.id, input)
     return c.json({success: true})
   })
 
   .delete('/:id', async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-    await simulationService.remove(id)
+    const sim = c.get('sim')
+    await simulationService.remove(sim.config.id)
     return c.json({success: true})
   })
 
   .put('/:id/updateCurrent', zValidator('json', positionInput), async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
+    const sim = c.get('sim')
     const input = c.req.valid('json')
-    await simulationService.updateCurrent(id, input)
+    await simulationService.updateCurrent(sim.config.id, input)
     return c.json({success: true})
   })
 
   .put('/:id/start', async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-    await simulationService.startSim(id)
+    const sim = c.get('sim')
+    await simulationService.startSim(sim.config.id)
     return c.json({success: true})
   })
 
   .put('/:id/stop', async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-    await simulationService.stopSim(id)
+    const sim = c.get('sim')
+    await simulationService.stopSim(sim.config.id)
     return c.json({success: true})
   })
 
   .post('/:id/share', async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-
-    const jwtPayload = c.get('jwtPayload');
-    const userId = jwtPayload.sub;
-
-    const isOwner = sim.config.ownerId === userId;
-    if (!isOwner) return c.json({error: 'Not owner'}, 403);
-
+    const sim = c.get('sim')
+    const user = c.get('user')
     const expiryTimestamp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
-    const {token, expiryDate} = generateToken(id, userId, expiryTimestamp);
-
-    await simulationService.share(id, token);
-
+    const {token, expiryDate} = generateToken(sim.config.id, user.id, expiryTimestamp);
+    await simulationService.share(sim.config.id, token);
     return c.json({token, expiryDate});
   })
 
   .post('/:id/unshare', async (c) => {
-    const id = c.req.param('id');
-    const sim = simulationService.get(id);
-    if (!sim) {
-      return c.json({error: 'Simulation not found'}, 404);
-    }
-
-    const jwtPayload = c.get('jwtPayload');
-    const userId = jwtPayload.sub;
-    
-    const isOwner = sim.config.ownerId === userId;
-    if (!isOwner) return c.json({error: 'Not owner'}, 403);
-
-    await simulationService.unshare(id);
+    const sim = c.get('sim')
+    await simulationService.unshare(sim.config.id);
     return c.json({success: true});
   })

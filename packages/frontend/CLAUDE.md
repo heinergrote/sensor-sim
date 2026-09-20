@@ -36,10 +36,11 @@ production it's built to `dist/client` and served by the server itself from the 
 - `src/components/control/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).
 - `src/components/control/SimList.tsx` — create-sim form (id/type) plus a list of sim rows, each rendering a
   `SimDetails`. Reads the sim list from `fetchSimulations()` (a router `query()`, not a store).
-- `src/components/control/SimDetails.tsx` — per-sim control card. Subscribes to that one sim's live state via
-  `addSimulationListener(id, setSim)` from `simulation.service.ts`; shows config (type, target,
-  distance/azimuth/speed, owner) and live state (current position/distance/azimuth); start/stop/delete/share/unshare
-  buttons call the `@solidjs/router` actions from `simulations.service.ts`.
+- `src/components/control/SimDetails.tsx` — per-sim control card. Reads that one sim's config via
+  `fetchSimulation(id)` (a router `query()`, not a live socket) from `simulations.service.ts`; shows config (type,
+  target, distance/azimuth, speed) and the share token; no longer shows live position, since that query doesn't
+  auto-revalidate. start/stop/delete/share/unshare buttons call the `@solidjs/router` actions, also from
+  `simulations.service.ts`.
 - `src/components/control/SimMap.tsx` — mounts a MapLibre instance via `createSimulationMap(el, token())` on an element
   ref; disposes it on unmount.
 - `src/components/control/simulationMap.ts` — imperative MapLibre wrapper (outside Solid's reactivity). Tracks one
@@ -51,20 +52,23 @@ production it's built to `dist/client` and served by the server itself from the 
 - `src/service/simulation.service.ts` — live per-sim state. `addSimulationListener(id, listener)` lazily opens (and
   ref-counts) one `WebSocket` per sim id against `${serverUrl}/api/sims/:id/ws?token=...` — the token travels as a
   query param because a `WebSocket` can't set headers — and closes it once the last listener for that id
-  unsubscribes. There is no Solid store here; it's a plain listener registry, subscribed to directly by
-  `SimDetails.tsx` and `simulationMap.ts`.
-- `src/service/simulations.service.ts` — the sim *list* and mutations:
+  unsubscribes. There is no Solid store here; it's a plain listener registry, now subscribed to only by
+  `simulationMap.ts` (`SimDetails.tsx` switched to the `fetchSimulation` REST query instead).
+- `src/service/simulations.service.ts` — the sim *list*, a single-sim fetch, and mutations:
     - `fetchSimulations` is a router `query()` over `GET /sims` (cache key `"simulations"`) — a plain REST fetch, not
       a push.
+    - `fetchSimulation(id)` is a router `query()` over `GET /sims/:id` (cache key `"simulation"`) — a one-shot
+      config snapshot for `SimDetails.tsx`; nothing revalidates it automatically.
     - One module-level `WebSocket` to `${serverUrl}/api/status/ws?token=...` keeps a `status` store
       (`{startedAt, simListUpdatedAt, numSims}`) in sync, and calls `revalidate("simulations")` whenever
       `simListUpdatedAt` advances — that's what makes `fetchSimulations()` reflect a sim someone else just created or
-      deleted.
+      deleted (this does not revalidate `fetchSimulation`).
     - Exposes the mutation actions (`addSim`, `updateSim`, `deleteSim`, `startSim`, `stopSim`, `updateType`,
       `updateSpeed`, `updateCurrent`, `share`, `unShare`) as `@solidjs/router` `action()`s around `api`.
-- For simulations: the list comes from a router `query()` refreshed on a status signal, and each sim's live state
-  comes from its own per-sim WebSocket via the listener registry — no full-list push socket and no Solid store for
-  sim state any more. For users it's plain REST reads via router queries, unchanged.
+- For simulations: the list and a sim's config come from router `query()`s (list refreshed on the status signal, a
+  single sim not auto-refreshed); only `simulationMap.ts`'s markers still track *live* position, via the per-sim
+  WebSocket listener registry — no full-list push socket and no Solid store for sim state any more. For users it's
+  plain REST reads via router queries, unchanged.
 
 Server types (`Simulation`, `SimConfig`, `Status`, `User`, `Profile`) are imported from `@sensor-sim/server`'s
 **source**, so a Zod schema or Drizzle column change on the server shows up here with no build step in between — but

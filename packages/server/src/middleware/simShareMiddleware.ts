@@ -1,9 +1,8 @@
 import {createMiddleware} from "hono/factory";
 import {verifyAndDecode} from "../token.service";
-import {HonoEnv, simulationService} from "../index";
+import {HonoSimVars, simulationService} from "../index";
 
-
-export const simShareMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
+export const simShareMiddleware = createMiddleware<{ Variables: HonoSimVars }>(async (c, next) => {
 
   const token = c.req.param('token');
   if (!token) {
@@ -25,7 +24,7 @@ export const simShareMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   if (sim.config.shareToken !== token) {
     return c.json({error: 'Simulation is not shared under this token'}, 403);
   }
-  
+
   if (sim.config.ownerId !== ownerId) {
     return c.json({error: 'You do not have permission to access this simulation.'}, 403);
   }

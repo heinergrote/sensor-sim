@@ -3,8 +3,8 @@ import {zValidator} from "@hono/zod-validator";
 import {loginInput} from "../zodSchema";
 import {getUserWithSecretsByName} from "../user.service";
 import {verifyPassword} from "../util/passwords";
-import {JWTPayload} from "../types";
 import {sign} from "hono/jwt";
+import {JWTPayload} from "../types";
 
 const jwtSecret = process.env.JWT_SECRET
 if (!jwtSecret) {
@@ -23,12 +23,12 @@ export const loginApp = new Hono()
         return c.json({error: "Invalid credentials"}, 401)
       }
 
-      const payload: JWTPayload = {
+      const payload = {
         sub: user.id,
         username: user.username,
         admin: user.admin,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-      }
+      } as JWTPayload
 
       const token = await sign(payload, jwtSecret, "HS256")
       return c.json({token})

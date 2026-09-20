@@ -1,10 +1,10 @@
 import {Hono} from "hono";
-import {HonoEnv, Simulation} from "../index";
+import {Simulation} from "../index";
 import {simShareMiddleware} from "../middleware/simShareMiddleware";
 import {upgradeWebSocket} from "@hono/node-server";
 import {EventStream} from "../util/eventStream";
 
-export const sharedApp = new Hono<HonoEnv>()
+export const sharedApp = new Hono()
 
   .use("/:token/*", simShareMiddleware)
 

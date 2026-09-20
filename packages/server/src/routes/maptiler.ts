@@ -1,5 +1,5 @@
 import {Hono} from 'hono'
-import {jwtMiddleware} from '../middleware/auth'
+import {jwtMiddleware} from '../middleware/jwtAuth'
 
 const MAPTILER_BASE = "https://api.maptiler.com";
 

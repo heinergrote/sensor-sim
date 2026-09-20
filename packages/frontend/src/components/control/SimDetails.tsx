@@ -1,4 +1,4 @@
-import {createMemo, createSignal, onSettled, Show} from "solid-js";
+import {createMemo, Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerSkipBack,
@@ -13,19 +13,21 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {deleteSim, share, startSim, stopSim, unShare, updateSpeed, updateType} from "../../service/simulations.service";
+import {
+  deleteSim,
+  fetchSimulation,
+  share,
+  startSim,
+  stopSim,
+  unShare,
+  updateSpeed,
+  updateType
+} from "../../service/simulations.service";
 import {useAction} from "@solidjs/router";
-import {Simulation} from "@sensor-sim/server";
-import {addSimulationListener} from "../../service/simulation.service";
-import {useAuth} from "../../auth";
 
 export function SimDetails(props: { id: string }) {
 
-  const {user} = useAuth()
-
-  const [sim, setSim] = createSignal<Simulation | null>(null)
-
-  const isMySim = createMemo(() => sim() && sim()?.config.ownerId === user()?.id)
+  const simulation = createMemo(() => fetchSimulation(props.id));
 
   const updateTypeAction = useAction(updateType)
   const deleteSimAction = useAction(deleteSim)
@@ -35,14 +37,9 @@ export function SimDetails(props: { id: string }) {
   const shareAction = useAction(share)
   const unShareAction = useAction(unShare)
 
-  onSettled(() => {
-    // subscribe to sim updates and update local signal
-    return addSimulationListener(props.id, setSim)
-  })
-
   return (
     <>
-      <Show fallback={<div>Connecting...</div>} when={sim()}>
+      <Show fallback={<div>Connecting...</div>} when={simulation()}>
         {(sim) =>
           <>
 
@@ -97,38 +94,24 @@ export function SimDetails(props: { id: string }) {
                             class="range range-xs w-60"/></div>
               </div>
 
-              <Show when={isMySim()}>
-                <div class="flex gap-1 items-center">
-                  <button class="btn btn-sm" onClick={() => shareAction(sim().config.id)}>
-                    <TbOutlineShare/> Share
+              <div class="flex gap-1 items-center">
+                <button class="btn btn-sm" onClick={() => shareAction(sim().config.id)}>
+                  <TbOutlineShare/> Share
+                </button>
+                <Show when={sim().config.shareToken}>
+                  <button class="btn btn-sm" onClick={() => unShareAction(sim().config.id)}>
+                    <TbOutlineShareOff/>
                   </button>
-                  <Show when={sim().config.shareToken}>
-                    <button class="btn btn-sm" onClick={() => unShareAction(sim().config.id)}>
-                      <TbOutlineShareOff/>
-                    </button>
-                    <div class="truncate" id="shareToken">{sim().config.shareToken}</div>
-                    <button class="btn btn-sm" onClick={() => {
-                      // copy to clipboard
-                      navigator.clipboard.writeText(sim().config.shareToken);
-                    }}>
-                      <TbOutlineClipboard/>
-                    </button>
-                  </Show>
-                </div>
-              </Show>
+                  <div class="truncate" id="shareToken">{sim().config.shareToken}</div>
+                  <button class="btn btn-sm" onClick={() => {
+                    // copy to clipboard
+                    navigator.clipboard.writeText(sim().config.shareToken);
+                  }}>
+                    <TbOutlineClipboard/>
+                  </button>
+                </Show>
+              </div>
 
-              <Show when={sim().state}>
-                {(state) => <>
-                  <div class="divider m-0"></div>
-                  <div class="flex gap-1 items-center">
-                    <TbOutlineWorldLatitude/>{state().current.latitude.toFixed(5)}
-                    <TbOutlineWorldLongitude/>{state().current.longitude.toFixed(5)}
-                    <TbOutlineRulerMeasure/> {state().distance.toFixed(2)}m
-                    <TbOutlineAngle/> {state().azimuth.toFixed(2)}°
-                  </div>
-
-                </>}
-              </Show>
             </div>
 
 

@@ -12,7 +12,7 @@ const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
 
 
 export interface SimulationService {
-  list: () => Simulation[];
+  list: (ownerId: number) => Simulation[];
   shutdown: () => void;
   status: () => Status;
   statusStream: EventStream<Status>;
@@ -49,8 +49,9 @@ export async function createSimulationService(): Promise<SimulationService> {
 
   statusStream.emit();
 
-  function list(): Simulation[] {
-    return [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
+  function list(ownerId: number): Simulation[] {
+    const allSims = [...simulationRuntimes.values()].map(simRuntime => simRuntime.sim)
+    return allSims.filter(sim => sim.config.ownerId === ownerId)
   }
 
   // stops all timers so the process can exit cleanly on shutdown
@@ -191,5 +192,5 @@ export async function createSimulationService(): Promise<SimulationService> {
     update, updateCurrent, startSim, stopSim,
     share, unshare,
     remove
-  };
+  } as SimulationService;
 }

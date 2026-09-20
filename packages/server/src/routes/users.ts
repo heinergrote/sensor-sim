@@ -4,7 +4,8 @@ import {zValidator} from "@hono/zod-validator";
 import {userInput} from "../zodSchema";
 import {z} from "zod";
 import {hashPassword} from "../util/passwords";
-import {jwtMiddleware, requireRole} from "../middleware/auth";
+import {jwtMiddleware} from "../middleware/jwtAuth";
+import {requireRole} from "../middleware/requireRole";
 
 
 const idParamSchema = z.object({
