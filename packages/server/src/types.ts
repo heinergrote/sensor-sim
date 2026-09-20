@@ -28,6 +28,11 @@ export type Status = {
 export type SimConfig = typeof simConfigs.$inferSelect;
 export type User = typeof users.$inferSelect;
 
+export type Profile = {
+  id: number,
+  username: string,
+  admin: boolean,
+}
 
 export type JWTPayload = {
   sub: number,
@@ -36,18 +41,12 @@ export type JWTPayload = {
   exp: number,
 }
 
-export type Profile = {
-  id: number,
-  username: string,
-  exp: number,
-  admin: boolean,
-}
-
-
-export type HonoEnv = {
-  Variables: {
-    jwtPayload: JWTPayload;
-    sim: Simulation,
-    simStream: EventStream<Simulation>
-  };
+export type HonoGlobalVars = {
+  user: Omit<User, "password">;
 };
+
+export type HonoSimVars = HonoGlobalVars & {
+  sim: Simulation,
+  simStream: EventStream<Simulation>
+};
+

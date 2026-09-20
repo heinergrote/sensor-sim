@@ -6,7 +6,7 @@ auth for the whole system. In production this same process serves the built fron
 below).
 
 The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts`, `src/routes/login.ts` and
-`src/middleware/auth.ts` throw at import time.
+`src/middleware/jwtAuth.ts` throw at import time.
 
 ## Source layout (`src/`)
 
@@ -25,7 +25,7 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   Postgres via Drizzle (the `sim_configs` table in `db/schema.ts`), reloads all persisted sims via
   `db.query.simConfigs.findMany()` on startup so simulations survive a restart, and exposes `createSim(ownerId,
   input)` / `update` / `updateCurrent` / `remove` / `startSim` / `stopSim` / `list` / `get` / `getSimStream` /
-  `status` / `statusStream` / `shutdown`. There is no more sim-*list* stream — `status`/`statusStream` expose only a
+  `status` / `statusStream` / `shutdown`. There is no more sim- *list* stream — `status`/`statusStream` expose only a
   cheap `{startedAt, simListUpdatedAt, numSims}` snapshot that changes on create/remove, for clients to know when to
   refetch the REST list.
 - `simulationRuntime.ts` — per-simulation engine (`createSimulationRuntime`). Owns the tick loop (`setInterval`, 100ms)
@@ -55,7 +55,8 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   `getUserWithSecretsByName(username)`, used by the login route.
 - `util/passwords.ts` — `hashPassword` / `verifyPassword` using node `scrypt`; stored format is `"<saltHex>:<hashHex>"`,
   compared with `timingSafeEqual`.
-- `util/appSecret.ts` — `appSecret()`: reads and validates `JWT_SECRET`, throwing if unset. Shared by `middleware/auth.ts`
+- `util/appSecret.ts` — `appSecret()`: reads and validates `JWT_SECRET`, throwing if unset. Shared by
+  `middleware/auth.ts`
   (login/route JWTs) and `token.service.ts` (share tokens) so both use the same secret without duplicating the check.
 - `middleware/auth.ts` — exports `jwtMiddleware` (wraps `jwt({secret: appSecret(), alg: "HS256"})`, and additionally
   copies a `?token=` query param into the `Authorization` header first — needed because a `WebSocket` upgrade can't
@@ -125,8 +126,8 @@ gates two endpoints on `routes/sims.ts`:
   a previously issued token hasn't expired yet.
 
 `routes/shared.ts` then serves `GET /:token` (a snapshot) and `GET /:token/ws` (the live per-tick stream) with no
-JWT at all — `simShareMiddleware` is the only gate, checking the token's HMAC signature and expiry
-(`token.service.ts`) plus that it still equals the sim's *current* `share_token` and that the decoded owner id still
+JWT at all — `simShareMiddleware` is the only gate, checking the token's HMAC signature and expiry (`token.service.ts`)
+plus that it still equals the sim's *current* `share_token` and that the decoded owner id still
 matches `ownerId`.
 
 ## REST API
@@ -143,29 +144,29 @@ change here still changes what the frontend expects — just without a compiler 
 
 ### `/api/sims` (authenticated)
 
-| Method | Path                 | Body             | Notes                                                         |
-|--------|----------------------|------------------|---------------------------------------------------------------|
-| GET    | `/`                  | —                | List all `Simulation[]`                                       |
-| GET    | `/:id`               | —                | Single `Simulation`, 404 if missing                           |
+| Method | Path                 | Body             | Notes                                                                                       |
+|--------|----------------------|------------------|---------------------------------------------------------------------------------------------|
+| GET    | `/`                  | —                | List all `Simulation[]`                                                                     |
+| GET    | `/:id`               | —                | Single `Simulation`, 404 if missing                                                         |
 | POST   | `/`                  | `simCreateInput` | `id` required; everything else defaulted. `ownerId` set from the token. Returns the new sim |
-| PUT    | `/:id`               | `simConfigInput` | Partial config update (target, type, speed, `shareToken`, …)  |
-| DELETE | `/:id`               | —                | Remove sim + persisted config                                 |
-| PUT    | `/:id/updateCurrent` | `positionInput`  | Teleport current position, recompute config from it           |
-| PUT    | `/:id/start`         | —                | Resume a stopped sim                                          |
-| PUT    | `/:id/stop`          | —                | Pause a sim (keeps config, clears state)                      |
-| GET    | `/:id/ws`            | — (WS upgrade)   | Streams that `Simulation` per tick; see WebSocket API below   |
-| POST   | `/:id/share`         | —                | Owner only. Mints a 7-day share token, returns `{token, expiryDate}` |
-| POST   | `/:id/unshare`       | —                | Clears the share token                                        |
+| PUT    | `/:id`               | `simConfigInput` | Partial config update (target, type, speed, `shareToken`, …)                                |
+| DELETE | `/:id`               | —                | Remove sim + persisted config                                                               |
+| PUT    | `/:id/updateCurrent` | `positionInput`  | Teleport current position, recompute config from it                                         |
+| PUT    | `/:id/start`         | —                | Resume a stopped sim                                                                        |
+| PUT    | `/:id/stop`          | —                | Pause a sim (keeps config, clears state)                                                    |
+| GET    | `/:id/ws`            | — (WS upgrade)   | Streams that `Simulation` per tick; see WebSocket API below                                 |
+| POST   | `/:id/share`         | —                | Owner only. Mints a 7-day share token, returns `{token, expiryDate}`                        |
+| POST   | `/:id/unshare`       | —                | Clears the share token                                                                      |
 
 Mutating routes answer `{success: true}` and 404 `{error}` for unknown ids. There is no separate `updateTarget`
 endpoint any more — move the target with `PUT /:id`.
 
 ### `/api/status` (authenticated)
 
-| Method | Path  | Body | Notes                                                                 |
-|--------|-------|------|-------------------------------------------------------------------------|
-| GET    | `/`   | —    | `Status` — `{startedAt, simListUpdatedAt, numSims}`                      |
-| GET    | `/ws` | —    | Streams `Status` on every create/remove; see WebSocket API below         |
+| Method | Path  | Body | Notes                                                            |
+|--------|-------|------|------------------------------------------------------------------|
+| GET    | `/`   | —    | `Status` — `{startedAt, simListUpdatedAt, numSims}`              |
+| GET    | `/ws` | —    | Streams `Status` on every create/remove; see WebSocket API below |
 
 Not sim data itself — a cheap signal telling a client (that holds its own REST-fetched sim list) when to refetch it.
 
@@ -185,11 +186,11 @@ Not sim data itself — a cheap signal telling a client (that holds its own REST
 
 ## WebSocket API
 
-| Path                    | Mounted in       | Payload        | Auth                                | Update trigger                          |
-|-------------------------|------------------|----------------|---------------------------------------|-------------------------------------------|
-| `/api/sims/:id/ws`      | `routes/sims.ts` | `Simulation`   | bearer token (header or `?token=`)    | Every position tick while that sim plays  |
-| `/api/shared/:token/ws` | `routes/shared.ts` | `Simulation` | valid, unexpired, still-current share token | Same, for a shared sim                |
-| `/api/status/ws`        | `routes/status.ts` | `Status`     | bearer token (header or `?token=`)    | Any simulation created or removed         |
+| Path                    | Mounted in         | Payload      | Auth                                        | Update trigger                           |
+|-------------------------|--------------------|--------------|---------------------------------------------|------------------------------------------|
+| `/api/sims/:id/ws`      | `routes/sims.ts`   | `Simulation` | bearer token (header or `?token=`)          | Every position tick while that sim plays |
+| `/api/shared/:token/ws` | `routes/shared.ts` | `Simulation` | valid, unexpired, still-current share token | Same, for a shared sim                   |
+| `/api/status/ws`        | `routes/status.ts` | `Status`     | bearer token (header or `?token=`)          | Any simulation created or removed        |
 
 There is no more list-broadcast socket (the old `/ws/sims`, `Simulation[]`) — `GET /api/sims` is a plain REST fetch
 now, and `/api/status/ws` only signals *that* the list changed, not what changed, so a client refetches on demand.

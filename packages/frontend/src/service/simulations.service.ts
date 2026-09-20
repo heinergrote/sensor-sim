@@ -45,6 +45,12 @@ export const fetchSimulations = query(async () => {
   return api.get<Simulation[]>(`/sims`).json()
 }, "simulations");
 
+
+export const fetchSimulation = query(async (id: string) => {
+  return api.get<Simulation>(`/sims/${id}`).json()
+}, "simulation");
+
+
 export const addSim = action(async (form: FormData) => {
   return api.post<Simulation>(`/sims`, {
     json: {

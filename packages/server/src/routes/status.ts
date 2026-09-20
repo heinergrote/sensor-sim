@@ -1,7 +1,7 @@
 import {Hono} from "hono";
 import {upgradeWebSocket} from "@hono/node-server";
 import {simulationService} from "../index";
-import {jwtMiddleware, wsJwtMiddleware} from "../middleware/auth";
+import {jwtMiddleware, wsJwtMiddleware} from "../middleware/jwtAuth";
 
 export const statusApp = new Hono()
 
