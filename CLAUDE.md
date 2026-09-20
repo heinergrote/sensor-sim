@@ -28,151 +28,70 @@ pnpm dev:frontend                            # frontend only (vite)
 pnpm build                                   # = server build (which builds the frontend first)
 pnpm typecheck                               # tsc --noEmit in both packages
 
-pnpm --filter @sensor-sim/server typecheck   # tsc --noEmit
-pnpm --filter @sensor-sim/server build       # builds frontend → typechecks → tsup → copies frontend into dist/public
-pnpm --filter @sensor-sim/server start       # node dist/index.js
 pnpm --filter @sensor-sim/server migrate:dev # tsx src/migrate.ts — migrations + admin seed (run before dev)
-pnpm --filter @sensor-sim/server migrate     # node dist/migrate.js — same, from a build (used in the image)
 pnpm --filter @sensor-sim/server db:generate # drizzle-kit: SQL migration from src/db/schema.ts → drizzle/
-pnpm --filter @sensor-sim/server db:studio   # drizzle-kit studio
-
-pnpm --filter @sensor-sim/frontend typecheck # tsc --noEmit
-pnpm --filter @sensor-sim/frontend lint      # oxlint src
 pnpm --filter @sensor-sim/frontend test      # vitest (jsdom + @solidjs/testing-library)
+pnpm --filter @sensor-sim/frontend lint      # oxlint src
 ```
 
-A single frontend test: `pnpm --filter @sensor-sim/frontend test -- run src/components/Foo.test.tsx`, or
-`-t "<test name>"`. Note there are currently no test files; `vitest` is configured and ready.
+See `packages/server/CLAUDE.md` and `packages/frontend/CLAUDE.md` for the full per-package script list (build,
+start, db:studio, db:push, a single-test invocation, …).
 
 The server needs a reachable Postgres (`DATABASE_URL`) and a `JWT_SECRET` to start at all — `src/db/index.ts` and
 `src/routes/login.ts` throw on import if they are missing. It does **not** create or migrate the schema: run
-`migrate:dev` first against a fresh database, or the first query fails. Note `db:migrate` (drizzle-kit) applies the
-schema but skips the admin seed, so it leaves you unable to log in.
+`migrate:dev` first against a fresh database, or the first query fails. `db:migrate` (drizzle-kit) applies the schema
+but skips the admin seed, so it leaves you unable to log in.
 
 ## Architecture
 
 **One origin in production, two in dev.** The server is the only deployable process: `packages/server/src/index.ts`
 mounts the API and also serves the built frontend (`dist/public`, else `../../frontend/dist/client`) with an SPA
-fallback to `index.html`. In dev the Vite server on `:3000` talks cross-origin to `:4000`; CORS is currently enabled
-unconditionally with `origin: '*'`. The frontend picks its base URL accordingly
-(`import.meta.env.DEV ? "http://localhost:4000" : window.location.origin`).
+fallback. In dev the Vite server on `:3000` talks cross-origin to `:4000`; CORS is currently enabled unconditionally
+with `origin: '*'`.
 
 **Types cross the package boundary through source, not a build — but no longer through a typed RPC client.**
-`@sensor-sim/server`'s `exports` points at `./src/index.ts`, which re-exports the domain types (`Simulation`,
-`SimConfig`, `Status`, `User`, `Profile`, `JWTPayload`, …). The frontend imports those types directly and calls the
-REST/WS endpoints with a plain `ky` client (`src/api.ts`) — there is no more `hc<AppType>` typed Hono client and no
-`AppType` export at all. Consequence: **editing `packages/server/src/routes/*`, `zodSchema.ts` or `db/schema.ts`
-still immediately changes frontend *data* types**, but a renamed route or path is no longer caught by the
-compiler — only by hitting the endpoint. The Docker build still needs both package manifests present, since the
-frontend package depends on `@sensor-sim/server`'s source for those type exports.
+`@sensor-sim/server`'s `exports` points at `./src/index.ts`, re-exporting domain types (`Simulation`, `SimConfig`,
+`Status`, `User`, `Profile`, `JWTPayload`, …). The frontend imports those directly and calls REST/WS endpoints with a
+plain `ky` client — a Zod schema or DB column change still changes frontend *data* types immediately, but a renamed
+route is no longer caught by the compiler, only by hitting the endpoint.
 
-**Each subapp under `src/routes/*` declares its own auth — `index.ts` mount order has no security consequences.**
-Every route file applies whatever it needs as the first `.use('*', ...)` in its own chain:
+**Each subapp under `src/routes/*` declares its own auth — mount order in `index.ts` has no security consequences.**
+`login.ts`/`shared.ts` are public; `maptiler.ts`/`sims.ts`/`me.ts`/`status.ts` require `jwtMiddleware` (bearer token,
+header or `?token=`); `users.ts` additionally requires `requireRole(true)` (admin). `sims.ts` further scopes every
+`/:id*` route to the sim's owner via `withOwnSimMiddleware` (404 unknown id, 403 non-owner) — **simulations are
+owner-scoped**, `GET /api/sims` lists only the caller's own, and a share link (`POST /:id/share`, a separate
+non-JWT HMAC token) is the only way to expose one to someone else. Full breakdown, including the middleware split
+(`jwtAuth.ts` / `requireRole.ts` / `withOwnSim.ts` / `simShareMiddleware.ts`) and the sharing token format, is in
+`packages/server/CLAUDE.md`.
 
-1. `login.ts` and `shared.ts` add no auth `.use()` at all → **public**, no token required (`/api/login`,
-   `/api/shared/:token` and `/api/shared/:token/ws` — the latter gated instead by a per-simulation share token, see
-   "Sharing" below).
-2. `maptiler.ts`, `sims.ts`, `me.ts` and `status.ts` add `.use('*', jwtMiddleware)` (from `middleware/jwtAuth.ts`) →
-   `/api/maptiler`, `/api/sims`, `/api/me` and `/api/status` (each including its `/ws` route) need a valid bearer
-   token. `jwtMiddleware` wraps `hono/jwt`'s check, then decodes the payload into `c.set('user', {id, username,
-   admin})` — every downstream handler reads `c.get('user')`, not the raw JWT payload. It also accepts the token as
-   a `?token=` query param, not just the `Authorization` header — needed because a browser `WebSocket` can't set
-   custom headers on the upgrade request.
-3. `users.ts` additionally adds `.use('*', requireRole(true))` (from `middleware/requireRole.ts`) → `/api/users`
-   needs `admin` on the JWT-derived user.
-4. `sims.ts` additionally adds `.use('/:id/*', withOwnSimMiddleware())` (from `middleware/withOwnSim.ts`), after
-   `jwtMiddleware` → every `/api/sims/:id*` route 404s on an unknown id and 403s if the caller isn't the sim's
-   owner, and stashes the loaded `sim`/`simStream` in context so handlers don't re-fetch them.
+**One database, two tables, migration-managed.** Both `sim_configs` and `users` live in the same Postgres DB via
+Drizzle — losing the database costs you both. `src/migrate.ts` is a separate tsup entrypoint that applies pending
+migrations and seeds the admin; `src/index.ts` never migrates. In the compose stack this runs as a one-shot service
+the server waits on, so a failed migration is a failed deploy, not a crash loop.
 
-`src/index.ts` just mounts each subapp with `.route()`; reordering those calls changes routing, not access level.
+**Sim list over REST + a status ping; per-sim live state over its own WebSocket — except `SimDetails.tsx`.** There is
+no full-list push socket: `GET /api/sims` is a plain owner-filtered REST list, refetched via `@solidjs/router`
+`query()` (`fetchSimulations`) whenever `/api/status/ws` signals `simListUpdatedAt` changed. Live per-sim position
+comes from `GET /api/sims/:id/ws`, consumed via `addSimulationListener` in `simulation.service.ts` — but only
+`simulationMap.ts` subscribes to that now. `SimDetails.tsx` instead reads a sim's config through a one-shot
+`fetchSimulation(id)` query, so it no longer shows live position. See `packages/frontend/CLAUDE.md` for the full data
+flow.
 
-**Simulations are owner-scoped, aside from the public share link.** `sim_configs.owner_id` (FK → `users.id`)
-records who created a sim (`POST /api/sims` reads it off the JWT's `sub`). `GET /api/sims` filters the list to the
-caller's own sims (`simulationService.list(ownerId)`), and `withOwnSimMiddleware` gates every other
-`/api/sims/:id*` route — read, update, delete, start/stop, updateCurrent, share/unshare, and the per-sim WebSocket —
-404ing on an unknown id and 403ing if the caller isn't the owner. One user can no longer see or touch another
-user's simulation except through a share link. Sharing itself is a *separate*, non-JWT credential: `token.service.ts`
-mints a compact HMAC-SHA256-signed token (binary: owner id + expiry + sim id,
-base64url-encoded, signed with the same `JWT_SECRET` via `util/appSecret.ts`) that's stored verbatim in
-`sim_configs.share_token` and handed back to the owner. `middleware/simShareMiddleware.ts` verifies a token's
-signature and expiry, then additionally checks it still matches the sim's current `share_token` column (so
-un-sharing or re-sharing invalidates old links immediately, without waiting for expiry) before exposing `GET
-/api/shared/:token` and `/api/shared/:token/ws` — both fully public, no bearer token needed.
+**The JWT travels three ways on the client.** `src/api.ts` sets it as an `Authorization: Bearer` header on REST
+calls; `simulationMap.ts` does the same via MapLibre's `transformRequest` (needed since `/api/maptiler` is
+authenticated); the per-sim/status WebSockets carry it as `?token=` since a browser `WebSocket` can't set headers.
+The public share-link WebSocket sends no token at all.
 
-**One database, two tables, migration-managed.** Both simulation configs (`sim_configs`) and users (`users`) live in
-the same Postgres DB via Drizzle — there's no separate file-based store any more. `db/dbInit.ts` applies pending
-migrations from `<cwd>/drizzle` and seeds a default admin from `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`
-(skipped with a warning if the password is unset). Consequence: losing the database now costs you both accounts and
-simulations — there's no separate store to fall back on.
-
-**Migrations are a separate step, not part of app boot.** `src/migrate.ts` is a second tsup entrypoint
-(`dist/migrate.js`) that calls `dbInit()` and exits 0/1; `src/index.ts` never migrates. In the compose stack a one-shot
-`migrate` service runs it and the server waits on `condition: service_completed_successfully`, so a failed migration is
-a failed deploy rather than a server crash-looping against a half-known schema. Consequences: `tsup.config.ts` lists
-both entrypoints (and the build script must call plain `tsup` — a CLI positional would override that list), and a fresh
-database needs `migrate:dev` before `pnpm dev`.
-
-**Sim list over REST + a lightweight status ping; per-sim live state over its own WebSocket.** There is no longer a
-single socket that pushes the whole `Simulation[]` list. Instead:
-
-- `util/eventStream.ts` is a tiny pub/sub whose `.collect()` yields an async generator, consumed directly by the WS
-  handlers.
-- `simulations.service.ts` owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres via Drizzle
-  (`sim_configs` table, `db/schema.ts`), and exposes a `Status` (`{startedAt, simListUpdatedAt, numSims}`) plus a
-  `statusStream` that re-emits whenever a sim is created or removed — a cheap "does the list need a refetch" signal,
-  not the list itself. `list(ownerId)` filters to that owner's sims (see "Simulations are owner-scoped" above).
-- `simulationRuntime.ts` runs a per-sim 100ms tick advancing `SimState` with geodesic math (`util/geoCalc.ts`, built on
-  `@turf/turf`), and owns that sim's own `simStream`.
-- `GET /api/sims` is a plain, cacheable, owner-filtered REST list (no push); `GET /api/sims/:id/ws` and `GET
-  /api/shared/:token/ws` each stream a single `Simulation` per tick for one sim (owner-checked bearer token vs.
-  share-token gated, respectively); `GET /api/status/ws` streams `Status` whenever the list changes shape.
-- Frontend `src/service/simulations.service.ts` fetches the list via `@solidjs/router` `query()` (`fetchSimulations`,
-  cache key `"simulations"`) and keeps one `/api/status/ws` connection open; on a `Status` message whose
-  `simListUpdatedAt` advanced, it calls `revalidate("simulations")` to refetch the list. It also exposes
-  `fetchSimulation(id)` (a one-shot REST query, cache key `"simulation"`, no auto-revalidation) and the mutation
-  actions (`addSim`, `updateSim`, `startSim`, `stopSim`, `share`, `unShare`, …) around the `ky` client.
-- `SimDetails.tsx` now reads a sim's config through `fetchSimulation(id)` rather than a live socket — it shows
-  config (target, distance/azimuth, speed, share token) but no longer renders live position, since that query
-  never revalidates on its own.
-- Frontend `src/service/simulation.service.ts` is the source of *live* per-sim state: `addSimulationListener(id,
-  cb)` lazily opens (and ref-counts) one WebSocket per sim id against `/api/sims/:id/ws`, closing it once the last
-  listener unsubscribes. Only `simulationMap.ts` subscribes through it now (`SimDetails.tsx` no longer does).
-- `src/components/control/simulationMap.ts` is imperative MapLibre code living *outside* Solid's reactivity — it
-  subscribes via that per-sim listener registry and writes back through the `ky`-based service on marker drag.
-
-**The JWT travels three ways on the client.** `src/auth.ts` holds one module-level signal backed by
-`localStorage["jwt_token"]`. `src/api.ts` (`ky.extend`) injects it as an `Authorization: Bearer` header on every REST
-call, and `simulationMap.ts` adds the same header via MapLibre's `transformRequest` for tile/style requests —
-necessary because `/api/maptiler` sits behind the JWT middleware. The per-sim and status WebSockets carry it too, but
-as a `?token=` query param (`jwtMiddleware` reads either) since a browser `WebSocket` can't set the header itself.
-The one WebSocket that sends no token at all is the public share link, `/api/shared/:token/ws` — it's gated by the
-share token in the path instead.
-
-**MapTiler keys stay server-side.** `/api/maptiler/:path` proxies `api.maptiler.com`, injects `MAPTILER_KEY`, strips any
-client-supplied `key`, and rewrites absolute MapTiler URLs in JSON responses (style.json, tiles.json) back to the proxy.
+**MapTiler keys stay server-side.** `/api/maptiler/:path` proxies `api.maptiler.com`, injects `MAPTILER_KEY`, strips
+any client-supplied `key`, and rewrites absolute MapTiler URLs in JSON responses back to the proxy.
 
 ## Frontend: SolidJS 2.x, not React
 
-Components run **once** — there is no re-render. Reactivity is fine-grained through signals; effects and memos have
-Solid-specific semantics. Do not port React patterns.
+See `packages/frontend/CLAUDE.md`
 
-Two versioned agent skills ship inside `node_modules` and match the installed versions — read them on demand:
-
-- `node_modules/solid-js/skills/reactivity-diagnostics/SKILL.md` — maps each dev-mode diagnostic code
-  (`REACTIVE_WRITE_IN_OWNED_SCOPE`, `STRICT_READ_UNTRACKED`, …) to its prescribed fix. Read it whenever such a code
-  appears in test output or the console.
-- `node_modules/@solidjs/diagnostics/skills/agent-loops/SKILL.md` — how to capture reactive evidence (which scopes
-  re-ran and why, wasted recomputes) and assert budgets.
-
-When debugging reactivity, capture evidence rather than guessing: `captureArtifact()` + the
-`@solidjs/diagnostics/vitest` matchers in tests, or the `/__solid/diagnostics` dev-server endpoint (needs
-`diagnostics: true` in `vite.config.ts`, currently `false`). Name your signals/memos/effects — attribution reports
-scopes by name.
-
-Routing is filesystem-based (`filesystem-routing` + `@solidjs/router`) over `src/routes` (`index`, `control`, `users/`,
-`users/[id]`, `[...404]`), with no `index.html` and no mount file: `@solidjs/vite-plugin`'s turnkey mode (`start: true`)
-generates entries around `src/App.tsx` and `src/Document.tsx`. `src/router.ts` exports the `Router` plus typed `paths`
-helpers; `file-routes.d.ts` is generated — don't edit it. Styling is Tailwind 4 + DaisyUI.
+Routing is filesystem-based (`@solidjs/router`) over `src/routes`, with no `index.html`/mount file
+(`@solidjs/vite-plugin` turnkey mode generates entries around `src/App.tsx`/`src/Document.tsx`). `file-routes.d.ts`
+is generated — don't edit it. Styling is Tailwind 4 + DaisyUI.
 
 ## Env vars
 
@@ -183,21 +102,11 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 
 ## Release
 
-- Docker: `Dockerfile` must be built with the **repo root as context**. `.github/workflows/publish.yml` publishes
-  `ghcr.io/<owner>/sensor-sim` on GitHub releases and on manual dispatch, tagged `<version>` + `<major>.<minor>` (from
-  the release's git tag), `latest` and `sha-<short>`; `compose.yaml` runs it alongside a `postgres:18-alpine` `db`
-  service (volume at `/var/lib/postgresql`, the path 18+ images require) — that's the only persistent volume in the
-  stack now that sim configs live in the same database as users. `DATABASE_URL` is assembled in `compose.yaml` from
-  the `POSTGRES_*` vars in `stack.env` and points at the `db` service name. Service order is `db` (healthy) →
-  `migrate` (exited 0) → `server`; nothing retries a failed connection, so both gates are load-bearing. Note
-  `depends_on` is ignored by Swarm — this ordering only holds on standalone Docker.
-- Deploys land on a Portainer BE stack: the publish workflow POSTs the released version to a stack webhook
-  (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=<version>`, which compose resolves into the image tag. The
-  step is release-only, since a manual dispatch produces no semver tag.
-- `compose.yaml` **pins an explicit version tag** rather than tracking `latest`, because migrations are forward-only:
-  with a floating tag any restart that re-pulls can migrate the database as a side effect, and rolling the image back
-  does not roll the schema back (the migrator skips files older than the last applied one, so the old image runs
-  *silently* against the newer schema). The webhook supplies that version per deploy.
-- The container needs `DATABASE_URL` pointing at a reachable Postgres plus `JWT_SECRET`. `package.json#files` is
-  `["dist", "drizzle"]` so `pnpm deploy --prod` carries the migrations into the image at `/app/drizzle`, where the
-  migrate entrypoint reads them — a new migration only has to be committed, never copied separately.
+Docker: `Dockerfile` must be built with the **repo root as context** (the frontend needs the server's source for its
+type exports at build time). `.github/workflows/publish.yml` publishes `ghcr.io/<owner>/sensor-sim` on GitHub
+releases, tagged with the release version plus `latest`/`sha-<short>`, and pings a Portainer stack webhook to deploy.
+`compose.yaml` runs `db` (Postgres) → `migrate` (one-shot, must exit 0) → `server`, in that order — `depends_on` is
+ignored under Swarm, so this ordering only holds on standalone Docker. The compose file **pins an explicit version
+tag** rather than `latest`, because migrations are forward-only and a rollback would otherwise run an old image
+silently against a newer schema. Full deployment detail (volumes, env assembly, the `migrate` service) is in
+`packages/server/README.md`.
