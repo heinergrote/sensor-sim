@@ -50,3 +50,6 @@ export type HonoSimVars = HonoGlobalVars & {
   simStream: EventStream<Simulation>
 };
 
+export type HonoSimConfigsVars = HonoGlobalVars & {
+  simConfig: SimConfig,
+};

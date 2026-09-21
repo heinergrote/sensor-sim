@@ -33,3 +33,6 @@ export const objectsRelations = relations(simConfigs, ({one}) => ({
     references: [users.id],
   }),
 }));
+
+export type SimConfigRow = typeof simConfigs.$inferSelect;
+export type NewSimConfig = typeof simConfigs.$inferInsert;

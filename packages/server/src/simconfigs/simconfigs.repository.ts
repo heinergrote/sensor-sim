@@ -1,0 +1,44 @@
+import {db} from "../db";
+import {NewSimConfig, simConfigs} from "../db/schema";
+import {eq} from "drizzle-orm";
+
+export type PatchSimConfig = Partial<Omit<NewSimConfig, "id" | "ownerId">>;
+
+export async function getSimConfigs() {
+  return await db
+    .select()
+    .from(simConfigs)
+    .orderBy(simConfigs.id);
+}
+
+export async function getSimConfigsOfUser(ownerId: number) {
+  return await db
+    .select()
+    .from(simConfigs)
+    .where(eq(simConfigs.ownerId, ownerId))
+    .orderBy(simConfigs.id);
+}
+
+
+export async function getSimConfigById(id: string) {
+  const [row] = await db
+    .select()
+    .from(simConfigs)
+    .where(eq(simConfigs.id, id))
+    .limit(1);
+  return row;
+}
+
+export async function insertSimConfig(ownerId: number, simConfig: NewSimConfig) {
+  const [row] = await db.insert(simConfigs).values({...simConfig, ownerId}).returning();
+  return row;
+}
+
+export async function updateSimConfig(id: string, simConfig: PatchSimConfig) {
+  const [row] = await db.update(simConfigs).set(simConfig).where(eq(simConfigs.id, id)).returning();
+  return row;
+}
+
+export async function deleteSimConfig(id: string) {
+  return await db.delete(simConfigs).where(eq(simConfigs.id, id)).returning();
+}
