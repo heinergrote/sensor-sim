@@ -1,13 +1,13 @@
 name: Publish Docker Image
 
 on:
-  release:
-    types: [ created ]
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 env:
   REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
+  IMAGE: ${{ github.repository_owner }}/sensor-sim
 
 jobs:
   publish:
@@ -31,35 +31,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for image
-        id: meta-server
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sensor-sim
-          # semver tags come from the release's git tag (v1.2.3 → 1.2.3, 1.2), giving
-          # deployments something immutable to pin to. They are skipped on
-          # workflow_dispatch from a branch, which still gets latest + sha- only.
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-            type=sha,prefix=sha-,format=short
-
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: ${{ steps.meta-server.outputs.tags }}
-          labels: ${{ steps.meta-server.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # Portainer stack webhook. The stack's compose pins ghcr.io/<owner>/sensor-sim:${SENSOR_SIM_VERSION},
-      # so the version (the github sha) travels as query parameter and the deployed tag stays explicit.
+      # so the tag that triggered this build (e.g. v1.2.3) travels as-is as the deployed version.
       - name: Trigger Portainer redeploy
         run: |
-          SHA_TAG=$(echo "${{ steps.meta-server.outputs.tags }}" | grep -m1 -oP '(?<=:sha-).*')
-          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=sha-${SHA_TAG}"
+          echo "Redeploying Portainer stack with SENSOR_SIM_VERSION=${{ github.ref_name }}"
           curl --fail-with-body --silent --show-error \
-            --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}?SENSOR_SIM_VERSION=sha-${SHA_TAG}"
+            --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}?SENSOR_SIM_VERSION=${{ github.ref_name }}"
