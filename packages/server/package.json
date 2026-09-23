@@ -1,6 +1,5 @@
 {
   "name": "@sensor-sim/server",
-  "version": "0.0.5",
   "type": "module",
   "exports": "./src/index.ts",
   "types": "./src/index.ts",
