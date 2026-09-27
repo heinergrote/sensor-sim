@@ -1,8 +1,8 @@
 import {createMiddleware} from "hono/factory";
 import {verifyAndDecode} from "../token.service";
-import {HonoSimVars, simulationService} from "../index";
+import {HonoSimRunnerVars, simulationEngine} from "../index";
 
-export const simShareMiddleware = createMiddleware<{ Variables: HonoSimVars }>(async (c, next) => {
+export const simShareMiddleware = createMiddleware<{ Variables: HonoSimRunnerVars }>(async (c, next) => {
 
   const token = c.req.param('token');
   if (!token) {
@@ -16,23 +16,20 @@ export const simShareMiddleware = createMiddleware<{ Variables: HonoSimVars }>(a
 
   const {resourceId, ownerId, expiryTimestamp, expiryDate} = decoded;
 
-  const sim = simulationService.get(resourceId);
-  if (!sim) {
+  const simRunner = simulationEngine.get(resourceId);
+  if (!simRunner) {
     return c.json({error: 'Simulation not found'}, 404);
   }
 
-  if (sim.config.shareToken !== token) {
+  if (simRunner.config.shareToken !== token) {
     return c.json({error: 'Simulation is not shared under this token'}, 403);
   }
 
-  if (sim.config.ownerId !== ownerId) {
+  if (simRunner.config.ownerId !== ownerId) {
     return c.json({error: 'You do not have permission to access this simulation.'}, 403);
   }
 
-  const simStream = simulationService.getSimStream(sim.config.id);
-
-  c.set('sim', sim)
-  if (simStream) c.set('simStream', simStream)
+  c.set('simRunner', simRunner)
 
   await next()
 

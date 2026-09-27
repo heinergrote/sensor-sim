@@ -2,12 +2,11 @@ import "dotenv/config";
 import {existsSync} from "node:fs";
 import {readFile} from "node:fs/promises";
 import path from "node:path";
-import {createSimulationService} from "./simulations.service";
 import {Hono} from "hono";
 import {cors} from "hono/cors";
 import {loginApp} from "./routes/login";
 import {maptilerApp} from "./routes/maptiler";
-import {usersApp} from "./routes/users";
+import {usersApp} from "./users/users.routes";
 import {meApp} from "./routes/me";
 import {sharedApp} from "./routes/shared";
 import {WebSocketServer} from "ws";
@@ -15,16 +14,15 @@ import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
 import {db} from "./db";
 import {simsApp} from "./routes/sims";
-import {statusApp} from "./routes/status";
+import {statusApp} from "./status/status.routes";
+import {simConfigsApp} from "./simconfigs/simconfigs.route";
+import {createSimulationEngine} from "./simengine/simulationEngine";
 
-// Migrations are NOT run here — they are applied by the separate "migrate"
-// entrypoint (src/migrate.ts) before this process starts. See the compose stack's
-// one-shot migrate service, or run "pnpm db:migrate" locally.
 console.log("Starting server -", process.env.NODE_ENV);
 
 const port = Number(process.env.PORT) || 4000;
 
-export const simulationService = await createSimulationService()
+export const simulationEngine = await createSimulationEngine()
 
 const app = new Hono()
   .use('*', cors({origin: '*',}))
@@ -33,6 +31,7 @@ const app = new Hono()
   .route("/api/shared", sharedApp)
   .route("/api/maptiler", maptilerApp)
   .route('/api/sims', simsApp)
+  .route('/api/configs', simConfigsApp)
   .route('/api/me', meApp)
   .route('/api/users', usersApp)
 
@@ -89,7 +88,7 @@ function shutdown(signal: NodeJS.Signals) {
   shuttingDown = true;
   console.log(`Received ${signal}, shutting down...`);
 
-  simulationService.shutdown();
+  simulationEngine.shutdown();
 
   for (const client of wsServer.clients) {
     client.terminate();

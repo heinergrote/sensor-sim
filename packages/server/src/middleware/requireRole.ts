@@ -1,4 +1,4 @@
-import {getUserById} from "../user.service";
+import {getUserById} from "../users/user.repository";
 import {createMiddleware} from "hono/factory";
 import {HonoGlobalVars} from "../types";
 

@@ -1,14 +1,14 @@
-// Service — maps between them, and `satisfies` catches drift at compile time
-import {CreateSimConfigBody, UpdateSimConfigBody} from "./simConfigsZodSchema";
 import {NewSimConfig, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
+import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "../types";
 
 
 const defaults = {
+  label: null,
   targetLatitude: 52.264683,
   targetLongitude: 10.523783,
   type: "follow",
-  initialDistance: 0,
+  initialDistance: 50,
   initialAzimuth: 0,
   speed: 10,
   playing: false
@@ -29,12 +29,12 @@ function stripUndefined<T extends object>(obj: T): Defined<T> {
 /** Compile error if A has keys that B doesn't (spreads skip excess-property checks). */
 type NoExtraKeys<A, B> = [Exclude<keyof A, keyof B>] extends [never] ? true : never;
 
-true satisfies NoExtraKeys<UpdateSimConfigBody, PatchSimConfig>;
+true satisfies NoExtraKeys<UpdateSimConfigDto, PatchSimConfig>;
 
 
 // --- DTO -> row ---
 
-export function toInsert(dto: CreateSimConfigBody, ownerId: number) {
+export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
   return {
     ...defaults,
     ...dto,
@@ -48,18 +48,16 @@ export function toInsert(dto: CreateSimConfigBody, ownerId: number) {
 //  return { ...dto, createdAt: now, updatedAt: now } satisfies NewUser;
 //}
 
-
-export function toUpdate(dto: UpdateSimConfigBody) {
+export function toUpdate(dto: UpdateSimConfigDto) {
   return {
     ...stripUndefined(dto),
   } satisfies PatchSimConfig;
 }
 
-
-// Response — never return UserRow directly
-export function toDto(row: SimConfigRow) {
+export function toDto(row: SimConfigRow): SimConfigDto {
   return {
     id: row.id,
+    label: row.label,
     ownerId: row.ownerId,
     type: row.type,
     shareToken: row.shareToken,

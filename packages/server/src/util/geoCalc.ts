@@ -1,6 +1,10 @@
-import type {Position} from "@sensor-sim/server";
 import * as turf from "@turf/turf";
 import {point} from "@turf/turf";
+
+type Position = {
+  longitude: number;
+  latitude: number;
+}
 
 export function getPosition(origin: Position, distance: number, azimuth: number): Position {
   const position = turf.destination(point([origin.longitude, origin.latitude]), distance, azimuth, {units: "meters"});

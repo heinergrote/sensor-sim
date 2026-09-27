@@ -1,32 +1,30 @@
-import {simConfigs, users} from "./db/schema";
-import {EventStream} from "./util/eventStream";
-
-export type Position = {
-  latitude: number;
-  longitude: number;
-}
+import {
+  createSimConfigSchema,
+  positionSchema,
+  simConfigResponseSchema,
+  updateSimConfigSchema
+} from "./simconfigs/simconfigs.schemas";
+import {z} from "zod";
+import {createUserSchema, updateUserSchema, userResponseSchema} from "./users/users.schemas";
+import {SimulationRunner} from "./simengine/simulationRunner";
 
 export type SimState = {
-  id: string,
+  id: number,
   start: number,
-  current: Position,
+  current: PositionDto,
   distance: number,
   azimuth: number,
 }
 
-export type Simulation = {
-  config: SimConfig,
-  state: SimState | null,
-}
 
-export type Status = {
-  startedAt: number,
-  simListUpdatedAt: number,
-  numSims: number,
+export type StatusMessage = {
+  type: "configUpdate",
+  updatedAt: number
+} | {
+  type: "ping"
 }
+export type StatusMessageTypes = StatusMessage['type'];
 
-export type SimConfig = typeof simConfigs.$inferSelect;
-export type User = typeof users.$inferSelect;
 
 export type Profile = {
   id: number,
@@ -42,14 +40,27 @@ export type JWTPayload = {
 }
 
 export type HonoGlobalVars = {
-  user: Omit<User, "password">;
+  user: UserDto;
 };
 
-export type HonoSimVars = HonoGlobalVars & {
-  sim: Simulation,
-  simStream: EventStream<Simulation>
+export type HonoSimRunnerVars = HonoGlobalVars & {
+  simRunner: SimulationRunner,
 };
 
 export type HonoSimConfigsVars = HonoGlobalVars & {
-  simConfig: SimConfig,
+  simConfig: SimConfigDto,
 };
+
+
+export type CreateUserDto = z.infer<typeof createUserSchema>;
+export type UpdateUserDto = z.infer<typeof updateUserSchema>;
+export type UserDto = z.infer<typeof userResponseSchema>;
+
+
+export type CreateSimConfigDto = z.infer<typeof createSimConfigSchema>;
+export type UpdateSimConfigDto = z.infer<typeof updateSimConfigSchema>;
+export type SimConfigDto = z.infer<typeof simConfigResponseSchema>;
+
+export type PositionDto = z.infer<typeof positionSchema>;
+
+

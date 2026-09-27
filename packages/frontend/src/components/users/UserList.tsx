@@ -1,11 +1,10 @@
-import {User} from "@sensor-sim/server";
+import {UserDto} from "@sensor-sim/server";
 import {createMemo, For} from "solid-js";
 import {paths} from "../../router";
 
-type UserWithoutPassword = Omit<User, "password">;
 
 export function UserItem(
-  props: { user: UserWithoutPassword }
+  props: { user: UserDto }
 ) {
 
   return (
@@ -33,7 +32,7 @@ export function UserItem(
 }
 
 
-export function UserList(props: { users: UserWithoutPassword[] }) {
+export function UserList(props: { users: UserDto[] }) {
 
   const users = createMemo(() => props.users);
 

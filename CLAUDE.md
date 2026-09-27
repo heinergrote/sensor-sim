@@ -56,8 +56,10 @@ plain `ky` client — a Zod schema or DB column change still changes frontend *d
 route is no longer caught by the compiler, only by hitting the endpoint.
 
 **Each subapp under `src/routes/*` declares its own auth — mount order in `index.ts` has no security consequences.**
-`login.ts`/`shared.ts` are public; `maptiler.ts`/`sims.ts`/`me.ts`/`status.ts` require `jwtMiddleware` (bearer token,
-header or `?token=`); `users.ts` additionally requires `requireRole(true)` (admin). `sims.ts` further scopes every
+`login.ts`/`shared.ts` are public; `maptiler.ts`/`sims.ts`/`me.ts`/`status.routes.ts` require `jwtMiddleware` (bearer
+token,
+header or `?token=`); `users.routes.ts` additionally requires `requireRole(true)` (admin). `sims.ts` further scopes
+every
 `/:id*` route to the sim's owner via `withOwnSimMiddleware` (404 unknown id, 403 non-owner) — **simulations are
 owner-scoped**, `GET /api/sims` lists only the caller's own, and a share link (`POST /:id/share`, a separate
 non-JWT HMAC token) is the only way to expose one to someone else. Full breakdown, including the middleware split

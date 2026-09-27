@@ -27,8 +27,8 @@ pnpm build      # frontend build → typecheck → tsup → dist/, frontend copi
 pnpm start      # node dist/index.js
 ```
 
-The server itself never migrates the database — run `pnpm migrate:dev` first
-(schema + admin seed) against a fresh database; see "Database & migrations"
+The server itself never migrates the database — run `pnpm migrate:dev` first (schema + admin seed) against a fresh
+database; see "Database & migrations"
 below.
 
 `pnpm build` deliberately builds `@sensor-sim/frontend` first and copies its
@@ -41,15 +41,15 @@ endpoints; the login request stores its token for the calls below it.
 
 ## Environment variables
 
-| Variable                 | Default          | Purpose                                                          |
-|--------------------------|------------------|------------------------------------------------------------------|
-| `DATABASE_URL`           | — (required)     | Postgres connection string used by Drizzle                       |
-| `JWT_SECRET`             | — (required)     | HS256 secret the login tokens are signed with                    |
-| `DEFAULT_ADMIN_USERNAME` | `admin`          | Admin account created by the migrate step                        |
-| `DEFAULT_ADMIN_PASSWORD` | —                | Its password; without it nothing is seeded (logged as a warning) |
-| `MAPTILER_KEY`           | —                | Required for `/api/maptiler`; without it the proxy returns 500   |
-| `PORT`                   | `4000`           | HTTP port (shared by REST, WebSockets and static files)          |
-| `NODE_ENV`               | —                | Only logged; CORS is currently enabled for all origins           |
+| Variable                 | Default      | Purpose                                                          |
+|--------------------------|--------------|------------------------------------------------------------------|
+| `DATABASE_URL`           | — (required) | Postgres connection string used by Drizzle                       |
+| `JWT_SECRET`             | — (required) | HS256 secret the login tokens are signed with                    |
+| `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin account created by the migrate step                        |
+| `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded (logged as a warning) |
+| `MAPTILER_KEY`           | —            | Required for `/api/maptiler`; without it the proxy returns 500   |
+| `PORT`                   | `4000`       | HTTP port (shared by REST, WebSockets and static files)          |
+| `NODE_ENV`               | —            | Only logged; CORS is currently enabled for all origins           |
 
 `.env` files are loaded via `dotenv/config`.
 
@@ -63,12 +63,12 @@ returns a 24-hour HS256 token whose payload is
 
 Access is decided by each route file itself, not by mount order in `src/index.ts` (see Architecture below):
 
-| Scope              | Routes                                                              |
-|--------------------|----------------------------------------------------------------------|
-| public             | `POST /api/login`, `GET /api/shared/:token`, `GET /api/shared/:token/ws`, static files |
-| any logged-in user | `/api/me`, `GET /api/sims`, `POST /api/sims`, `/api/status` (incl. `/ws`), `/api/maptiler` |
+| Scope              | Routes                                                                                           |
+|--------------------|--------------------------------------------------------------------------------------------------|
+| public             | `POST /api/login`, `GET /api/shared/:token`, `GET /api/shared/:token/ws`, static files           |
+| any logged-in user | `/api/me`, `GET /api/sims`, `POST /api/sims`, `/api/status` (incl. `/ws`), `/api/maptiler`       |
 | sim owner only     | `/api/sims/:id*` — read, update, delete, start/stop, updateCurrent, `GET /:id/ws`, share/unshare |
-| admin only         | `/api/users`                                                        |
+| admin only         | `/api/users`                                                                                     |
 
 Three consequences worth spelling out:
 
@@ -213,10 +213,10 @@ creating user's id) and `shareToken` (empty string when not shared).
 
 ### `/api/status`
 
-| Method | Path  | Body                  | Result                                                                 |
-|--------|-------|-----------------------|-------------------------------------------------------------------------|
-| GET    | `/`   | —                     | `Status` — `{ startedAt, simListUpdatedAt, numSims }`                    |
-| GET    | `/ws` | — (WebSocket upgrade) | Streams `Status` whenever a simulation is created or removed             |
+| Method | Path  | Body                  | Result                                                       |
+|--------|-------|-----------------------|--------------------------------------------------------------|
+| GET    | `/`   | —                     | `Status` — `{ startedAt, simListUpdatedAt, numSims }`        |
+| GET    | `/ws` | — (WebSocket upgrade) | Streams `Status` whenever a simulation is created or removed |
 
 This isn't sim data — it's a cheap signal for clients that hold their own sim
 list (e.g. the frontend's REST-fetched list) to know when to refetch it,
@@ -232,17 +232,17 @@ without pushing the whole list on every tick.
 | PUT    | `/:id` | any subset of the above          | The updated user; `password` is only re-hashed when present |
 | DELETE | `/:id` | —                                | `{ message: 'User deleted' }`                               |
 
-Password hashes never leave the server: `user.service.ts` projects every query
+Password hashes never leave the server: `user.repository.ts` projects every query
 onto the non-secret columns, with a single deliberate exception used by the
 login route.
 
 ## WebSocket API
 
-| Path                    | Payload      | Auth                                       | Emitted when                                          |
-|-------------------------|--------------|---------------------------------------------|--------------------------------------------------------|
-| `/api/sims/:id/ws`      | `Simulation` | bearer token (header or `?token=`), owner only | Every tick of that simulation while it is playing       |
-| `/api/shared/:token/ws` | `Simulation` | valid, unexpired share token in the path    | Same, for a shared simulation — no bearer token needed  |
-| `/api/status/ws`        | `Status`     | bearer token (header or `?token=`)          | Any simulation created or removed                       |
+| Path                    | Payload      | Auth                                           | Emitted when                                           |
+|-------------------------|--------------|------------------------------------------------|--------------------------------------------------------|
+| `/api/sims/:id/ws`      | `Simulation` | bearer token (header or `?token=`), owner only | Every tick of that simulation while it is playing      |
+| `/api/shared/:token/ws` | `Simulation` | valid, unexpired share token in the path       | Same, for a shared simulation — no bearer token needed |
+| `/api/status/ws`        | `Status`     | bearer token (header or `?token=`)             | Any simulation created or removed                      |
 
 All three are **push-only**: a client receives a snapshot as soon as it
 connects (once authenticated/authorized) and then keeps receiving them. There
@@ -284,7 +284,7 @@ Three things worth knowing before changing anything here:
   `JWTPayload` from that source — so a Zod schema or database column change still changes frontend *types*
   immediately, with no build in between. But the frontend now calls REST/WS endpoints with a plain `ky` client, so a
   renamed or moved *route* is a runtime error on the frontend, not a compile error. Check both sides by hand.
-- **Route handlers import the service from `index.ts`.** `simulationService` is
+- **Route handlers import the service from `index.ts`.** `simulationEngine` is
   a module-level singleton created with top-level `await`; routes import it
   rather than receiving it, so import cycles between `index.ts` and
   `routes/*` are load-order sensitive.

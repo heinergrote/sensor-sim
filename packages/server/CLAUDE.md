@@ -13,13 +13,13 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
 
 - `index.ts` — bootstrap: creates the simulation service, mounts routes as a flat list (mount order has no security
   consequences — see "Auth" below), serves the built frontend, handles SIGINT/SIGTERM shutdown. Exports
-  `simulationService` (module singleton) and re-exports `types.ts`, including `HonoGlobalVars` (`{user}`, set by
-  `jwtMiddleware`) and `HonoSimVars` (`HonoGlobalVars & {sim, simStream}`, set by `withOwnSimMiddleware`) — the
+  `simulationEngine` (module singleton) and re-exports `types.ts`, including `HonoGlobalVars` (`{user}`, set by
+  `jwtMiddleware`) and `HonoSimRunnerVars` (`HonoGlobalVars & {sim, simStream}`, set by `withOwnSimMiddleware`) — the
   `Variables` types each subapp's `Hono<{Variables: ...}>()` uses.
 - `zodSchema.ts` — Zod input schemas (`simConfigInput`, `simCreateInput`, `positionInput`, `userInput`, `loginInput`).
 - `types.ts` — domain types: `Position`, `SimConfig` (`ownerId`, `shareToken`, …), `SimState`, `Simulation`
   (`{config, state}`), `Status`, `User`/`Profile` (`{id, username, admin}`, no `exp`), `JWTPayload` (adds `exp`),
-  `HonoGlobalVars`, `HonoSimVars`.
+  `HonoGlobalVars`, `HonoSimRunnerVars`.
 - `simulations.service.ts` — orchestrator. Owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres
   (`sim_configs`, reloaded on startup), exposes `createSim`/`update`/`remove`/`startSim`/`stopSim`/`list(ownerId)`
   (owner-filtered)/`get`/`getSimStream`, plus a `Status`/`statusStream` — a cheap "list changed" signal, not the
@@ -32,8 +32,8 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   seeds the admin, invoked only from `migrate.ts`). `migrate.ts` is a **second build entrypoint**
   (`dist/migrate.js`), never imported by `index.ts` — `tsup.config.ts` must list both, and the build script must
   call plain `tsup` (a CLI positional silently drops it).
-- `user.service.ts` — Drizzle queries for users; every export projects columns **minus `password`** except
-  `getUserWithSecretsByName`, used only by login.
+- `user.repository.ts` — Drizzle queries for users; every export projects columns **minus `password`** except
+  `getUserByName`, used only by login.
 - `util/` — `passwords.ts` (scrypt hash/verify), `appSecret.ts` (validates `JWT_SECRET`, shared by
   `middleware/jwtAuth.ts` and `token.service.ts`), `eventStream.ts` (tiny pub/sub; `.collect()` → async generator
   for WS handlers), `geoCalc.ts` (geodesic helpers), `randomOffset.ts`.
@@ -50,8 +50,9 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
 - `middleware/simShareMiddleware.ts` — verifies a `:token` path param via `token.service.ts`, and additionally
   checks it still equals the sim's *current* `shareToken` (so unshare/re-share invalidates old links immediately).
   Used only by `routes/shared.ts`.
-- `routes/` — `login.ts` (public), `users.ts` (admin-only CRUD), `sims.ts` (simulation REST + per-sim `/:id/ws` +
-  share/unshare, owner-scoped), `shared.ts` (public, share-token gated), `status.ts`, `me.ts`, `maptiler.ts` (proxy).
+- `routes/` — `login.ts` (public), `users.routes.ts` (admin-only CRUD), `sims.ts` (simulation REST + per-sim `/:id/ws` +
+  share/unshare, owner-scoped), `shared.ts` (public, share-token gated), `status.routes.ts`, `me.ts`, `maptiler.ts`
+  (proxy).
 
 ## Auth — each subapp declares its own requirement
 
@@ -88,8 +89,8 @@ they just run after it. `share` mints a 7-day HMAC token (`token.service.ts`) in
 
 ## REST & WebSocket API
 
-Full endpoint tables are in `README.md`. Rules worth knowing here: all inputs are Zod-validated
-(`src/zodSchema.ts`); the frontend calls these with a plain `ky` client and imports response *types* from this
+Full endpoint tables are in `README.md`. Rules worth knowing here: all inputs are Zod-validated (`src/zodSchema.ts`);
+the frontend calls these with a plain `ky` client and imports response *types* from this
 package's source, so a schema/column change still changes frontend types immediately, but a renamed route is only
 caught at runtime. Every `/api/sims/:id*` route 404s an unknown id and 403s a non-owner before running its handler.
 There's no `updateTarget` endpoint — move the target with `PUT /:id`. There's no full-list broadcast socket —

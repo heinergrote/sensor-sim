@@ -1,7 +1,7 @@
 import {Hono} from "hono";
 import {zValidator} from "@hono/zod-validator";
-import {loginInput} from "../zodSchema";
-import {getUserWithSecretsByName} from "../user.service";
+import {loginSchema} from "../zodSchema";
+import {getUserByName} from "../users/user.repository";
 import {verifyPassword} from "../util/passwords";
 import {sign} from "hono/jwt";
 import {JWTPayload} from "../types";
@@ -13,11 +13,11 @@ if (!jwtSecret) {
 
 export const loginApp = new Hono()
 
-  .post('/', zValidator('json', loginInput),
+  .post('/', zValidator('json', loginSchema),
     async (c) => {
-      const {username, password} = await c.req.json()
+      const {username, password} = c.req.valid("json")
 
-      const user = await getUserWithSecretsByName(username)
+      const user = await getUserByName(username)
 
       if (!user || !(await verifyPassword(password, user.password))) {
         return c.json({error: "Invalid credentials"}, 401)

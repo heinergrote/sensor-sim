@@ -1,6 +1,6 @@
 import {Hono} from 'hono'
 import {jwtMiddleware} from '../middleware/jwtAuth'
-import {HonoGlobalVars, Profile, User} from '../types'
+import {HonoGlobalVars, Profile} from '../types'
 
 export const meApp = new Hono<{ Variables: HonoGlobalVars }>()
 
@@ -8,7 +8,7 @@ export const meApp = new Hono<{ Variables: HonoGlobalVars }>()
 
   .get('/', (c) => {
     // Retrieve decoded payload attached by the middleware
-    const user = c.get('user') as User
+    const user = c.get('user')
 
     const profile: Profile = {
       id: user.id,

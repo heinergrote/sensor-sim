@@ -1,8 +1,9 @@
 import {TbOutlineHome, TbOutlineLogout, TbOutlineMapPinCog, TbOutlineUser, TbOutlineUsers} from "solid-icons/tb";
-import {useMatch, useNavigate} from "@solidjs/router";
+import {revalidate, useMatch, useNavigate} from "@solidjs/router";
 import {paths} from "../router";
 import {useAuth} from "../auth";
 import {Loading, Show} from "solid-js";
+import {fetchSimConfigs} from "../service/configs.service";
 
 export default function Nav() {
 
@@ -34,11 +35,19 @@ export default function Nav() {
           <Show when={user()}>
             {user =>
               <>
+
+                <button class={"btn btn-square btn-sm"} onClick={() => {
+                  revalidate(fetchSimConfigs.key, true);
+                }}>X
+                </button>
+
                 <div class={"flex items-center gap-2"}><TbOutlineUser/> {user()?.username}</div>
                 <button class={"btn btn-square btn-sm"} onClick={() => {
                   logout();
                   navigate(paths());
                 }}><TbOutlineLogout/></button>
+
+
               </>
             }
           </Show>

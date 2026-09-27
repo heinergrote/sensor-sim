@@ -20,7 +20,7 @@ export async function getSimConfigsOfUser(ownerId: number) {
 }
 
 
-export async function getSimConfigById(id: string) {
+export async function getSimConfigById(id: number) {
   const [row] = await db
     .select()
     .from(simConfigs)
@@ -34,11 +34,12 @@ export async function insertSimConfig(ownerId: number, simConfig: NewSimConfig) 
   return row;
 }
 
-export async function updateSimConfig(id: string, simConfig: PatchSimConfig) {
+export async function updateSimConfig(id: number, simConfig: PatchSimConfig) {
+  console.log("Updating sim config", id, simConfig);
   const [row] = await db.update(simConfigs).set(simConfig).where(eq(simConfigs.id, id)).returning();
   return row;
 }
 
-export async function deleteSimConfig(id: string) {
+export async function deleteSimConfig(id: number) {
   return await db.delete(simConfigs).where(eq(simConfigs.id, id)).returning();
 }

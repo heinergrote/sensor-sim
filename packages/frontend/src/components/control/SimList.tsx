@@ -1,39 +1,20 @@
-import {createEffect, createMemo, createSignal, For} from "solid-js";
+import {createMemo, For} from "solid-js";
+
 import {SimDetails} from "./SimDetails";
-import {addSim, fetchSimulations} from "../../service/simulations.service";
-import {Simulation} from "@sensor-sim/server";
+import {addSimConfig, fetchSimConfigs} from "../../service/configs.service";
 
 export function SimList() {
 
-  const simulations = createMemo(() => fetchSimulations());
-
-  const [newSimId, setNewSimId] = createSignal<string>("")
-
-  const nextSimId = (sims: Simulation[]) => {
-    const highest = sims.reduce((acc, sim) => {
-      const simId = parseInt(sim.config.id.split("-")[1]);
-      return simId > acc ? simId : acc;
-    }, 0);
-    return highest + 1;
-  }
-
-  createEffect(
-    () => nextSimId(simulations()),
-    (id) => {
-      setNewSimId(`sim-${id}`)
-    })
+  const simConfigs = createMemo(() => fetchSimConfigs());
 
   return (
     <>
-      <form action={addSim} method="post">
+      <form action={addSimConfig} method="post">
         <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">
-              <label class="label">ID</label>
-              <input name="simId" type="text" class="input" placeholder="SimId"
-                     value={newSimId()}
-                     onChange={(e) => setNewSimId(e.currentTarget.value)}
-              />
+              <label class="label">Label</label>
+              <input name="label" type="text" class="input" placeholder="Label"/>
             </div>
             <div class="flex-1">
               <label class="label">Type</label>
@@ -49,15 +30,15 @@ export function SimList() {
         </fieldset>
       </form>
 
-      <For each={simulations()} keyed={(sim) => sim.config.id}>
-        {(sim, key) => (
+      <For each={simConfigs()} keyed={(config) => config.id}>
+        {(config, key) => (
 
           <div class="card w-full bg-base-200 card-md shadow-sm mb-2">
             <div class="card-body">
-              <h2 class="card-title">{sim().config.id}</h2>
+              <h2 class="card-title">{config().id} - {config().label}</h2>
               <div class="flex items-center"></div>
               <div class={"flex-1"}>
-                <SimDetails id={sim().config.id}/>
+                <SimDetails simConfig={config()}/>
               </div>
             </div>
           </div>

@@ -10,7 +10,7 @@ export interface GeneratedTokenResponse {
 }
 
 export interface DecodedTokenResponse {
-  resourceId: string;
+  resourceId: number;
   ownerId: number;
   expiryTimestamp: number;
   expiryDate: Date;
@@ -30,26 +30,20 @@ function fromBase64Url(str: string): Buffer {
  * generate a manipulation-resistant token
  */
 export function generateToken(
-  resourceId: string,
+  resourceId: number,
   ownerId: number,
   expiryTimestamp: number
 ): GeneratedTokenResponse {
-  const idBuffer = Buffer.from(resourceId, 'utf8');
-  if (idBuffer.length > 64) {
-    throw new Error("max resourceId id length: 64 chars");
-  }
 
-  const dataLength = 4 + 6 + 1 + idBuffer.length;
+  const dataLength = 4 + 4 + 6 // resourceId, ownerId, timestamp
   const dataBuffer = Buffer.alloc(dataLength);
 
   let offset = 0;
+  dataBuffer.writeUInt32BE(resourceId, offset);
+  offset += 4;
   dataBuffer.writeUInt32BE(ownerId, offset);
   offset += 4;
   dataBuffer.writeUIntBE(expiryTimestamp, offset, 6);
-  offset += 6;
-  dataBuffer.writeUInt8(idBuffer.length, offset);
-  offset += 1;
-  idBuffer.copy(dataBuffer, offset);
 
   const hmac = createHmac('sha256', appSecret()!);
   hmac.update(dataBuffer);
@@ -72,8 +66,8 @@ export function verifyAndDecode(token: string): DecodedTokenResponse | null {
   try {
     const fullBuffer = fromBase64Url(token);
 
-    // check minimum size (16 bytes signature + 11 bytes minimum payload)
-    if (fullBuffer.length < HMAC_SIZE + 11) {
+    // check minimum size (16 bytes signature + 14 bytes payload)
+    if (fullBuffer.length < HMAC_SIZE + 14) {
       return null;
     }
 
@@ -90,6 +84,10 @@ export function verifyAndDecode(token: string): DecodedTokenResponse | null {
     }
 
     let offset = 0;
+    const resourceId = dataBuffer.readUInt32BE(offset);
+    offset += 4;
+
+
     const ownerId = dataBuffer.readUInt32BE(offset);
     offset += 4;
 
@@ -100,11 +98,6 @@ export function verifyAndDecode(token: string): DecodedTokenResponse | null {
     if (Date.now() > expiryTimestamp) {
       return null;
     }
-
-    const idLength = dataBuffer.readUInt8(offset);
-    offset += 1;
-
-    const resourceId = dataBuffer.toString('utf8', offset, offset + idLength);
 
     return {
       resourceId,

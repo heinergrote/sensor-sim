@@ -10,8 +10,15 @@ export const users = pgTable("users", {
 
 export const typeEnum = pgEnum('type', ['follow', 'circle']);
 
+export type UserRow = typeof users.$inferSelect;
+export type NewUserRow = typeof users.$inferInsert;
+export type UpdateUserRow = Partial<Omit<NewUserRow, 'id'>>;
+
+// ---------------------------------------------------------
+
 export const simConfigs = pgTable("sim_configs", {
-  id: varchar("id", {length: 64}).primaryKey(),
+  id: serial("id").primaryKey(),
+  label: varchar("label", {length: 64}).unique(),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   shareToken: text("share_token").notNull().default(""),
   targetLatitude: numeric("target_latitude", {mode: 'number'}).notNull(),
@@ -23,16 +30,19 @@ export const simConfigs = pgTable("sim_configs", {
   playing: boolean("playing").notNull().default(false),
 });
 
+export type SimConfigRow = typeof simConfigs.$inferSelect;
+export type NewSimConfig = typeof simConfigs.$inferInsert;
+
+// ---------------------------------------------------------
+
 export const usersRelations = relations(users, ({many}) => ({
   objects: many(simConfigs),
 }));
 
-export const objectsRelations = relations(simConfigs, ({one}) => ({
+export const simConfigsRelations = relations(simConfigs, ({one}) => ({
   owner: one(users, {
     fields: [simConfigs.ownerId],
     references: [users.id],
   }),
 }));
 
-export type SimConfigRow = typeof simConfigs.$inferSelect;
-export type NewSimConfig = typeof simConfigs.$inferInsert;

@@ -1,14 +1,14 @@
-import {Simulation} from "@sensor-sim/server";
 import {serverUrl} from "../api";
 import {jwtToken} from "../auth";
+import {SimState} from "@sensor-sim/server";
 
-export type SimulationListener = ((simulation: Simulation) => void)
+export type SimulationListener = ((simState: SimState) => void)
 
-const simulationListeners = new Map<string, SimulationListener[]>()
-const simulationSockets = new Map<string, WebSocket>()
+const simulationListeners = new Map<number, SimulationListener[]>()
+const simulationSockets = new Map<number, WebSocket>()
 
 export function addSimulationListener(
-  simulationId: string,
+  simulationId: number,
   newListener: SimulationListener = (() => {
   })): () => void {
 
@@ -18,9 +18,9 @@ export function addSimulationListener(
     const wsUrl = `${serverUrl}/api/sims/${simulationId}/ws?token=${jwtToken()}`;
     const simSocket = new WebSocket(wsUrl)
     simSocket.onmessage = (event) => {
-      const receivedSim = JSON.parse(event.data) as Simulation
+      const receivedSimState = JSON.parse(event.data) as SimState
       const listeners = simulationListeners.get(simulationId) || []
-      listeners.forEach(l => l(receivedSim))
+      listeners.forEach(l => l(receivedSimState))
     }
     simulationSockets.set(simulationId, simSocket)
   }
@@ -29,7 +29,7 @@ export function addSimulationListener(
   return () => removeSimulationListener(simulationId, newListener)
 }
 
-function removeSimulationListener(simulationId: string, listener: SimulationListener) {
+function removeSimulationListener(simulationId: number, listener: SimulationListener) {
   const listeners = simulationListeners.get(simulationId) || []
   let newListeners = listeners.filter(l => l !== listener)
 
