@@ -59,7 +59,10 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / `.schema
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
   `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced
   (500 ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
-- `syncConfigs` creates a runner for new ids and calls `runner.applySimConfig(config)` on existing ones.
+- `syncConfigs` is **serialized** through a promise queue (`syncQueue`) — concurrent requests would otherwise apply
+  an older DB snapshot after a newer one and dispose a just-created runner. Always go through `syncConfigs()`,
+  never call the inner `doSyncConfigs()` directly.
+- A sync creates a runner for new ids and calls `runner.applySimConfig(config)` on existing ones.
   `applySimConfig` ignores changes outside `type/playing/target*/initial*/speed`; `type`/`speed` apply live, the
   rest restart the runner (state rebuilt from config).
 - `SimulationRunner`: 100 ms tick; `follow` moves toward target and snaps at 0; `circle` orbits at the current

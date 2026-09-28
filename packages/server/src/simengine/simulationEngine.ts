@@ -12,10 +12,19 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
 
   const simulationRunners = new Map<number, SimulationRunner>();
 
+  // concurrent requests may call syncConfigs() in parallel; run them one after another, so an older config list
+  // can never be applied after a newer one (and e.g. dispose a runner that was just created)
+  let syncQueue: Promise<void> = Promise.resolve();
+
   await syncConfigs()
 
+  function syncConfigs(): Promise<void> {
+    // run even if the previous sync failed; the caller still gets this sync's own result
+    return syncQueue = syncQueue.then(doSyncConfigs, doSyncConfigs);
+  }
+
   // load persisted simConfigs, add and start simulations
-  async function syncConfigs() {
+  async function doSyncConfigs() {
     const configs = await getSimConfigs();
 
     // add or update simulationRunners

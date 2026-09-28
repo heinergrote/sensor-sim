@@ -37,6 +37,11 @@ pnpm lint                      # oxlint src
 - `src/service/simulation.service.ts` — live `SimState` only. `addSimulationListener(id, cb)` lazily opens one
   ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
   store.
+- **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff
+  (1 s → 30 s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
+  so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
+  socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
+  retrying once the revalidated config list drops its map listener — which depends on the status socket being up.
 - `components/control/SimList.tsx` — create form + one card per `fetchSimConfigs()` entry; passes the config as a
   prop to `SimDetails.tsx` (no per-sim query). `SimDetails` shows config/share token and calls the actions; it shows
   no live position.

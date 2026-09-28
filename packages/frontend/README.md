@@ -57,6 +57,9 @@ and map stay in sync across clients.
 **Live position — per-sim WebSocket.** `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)` opens
 one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimState`. Only the map uses it.
 
+Both the status socket and the per-sim sockets reconnect with backoff (1 s up to 30 s) when the server closes them,
+e.g. on a backend restart, and the config list is refetched after the status socket reconnects.
+
 **The map** (`components/control/simulationMap.ts`, imperative MapLibre outside Solid's reactivity) draws a target
 marker from each config and a current-position marker from its live state. Dragging the target updates the config's
 target; dragging the current marker recomputes `initialDistance`/`initialAzimuth` relative to the target and saves
