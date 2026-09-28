@@ -1,18 +1,29 @@
 import {NewSimConfig, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
 import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "../sharedTypes";
+import {randomOffset} from "../util/randomOffset";
 
 
-const defaults = {
-  label: undefined,
-  targetLatitude: 52.264683,
-  targetLongitude: 10.523783,
-  type: "follow",
-  initialDistance: 50,
-  initialAzimuth: 0,
-  speed: 10,
-  playing: true
-} as const;
+const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
+
+function randomBetween(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+/** Defaults for a new config, randomized so new sims don't all start on top of each other. */
+function createDefaults() {
+  const target = randomOffset(defaultTarget, 0, 500);
+  return {
+    label: undefined,
+    targetLatitude: target.latitude,
+    targetLongitude: target.longitude,
+    type: "follow",
+    initialDistance: randomBetween(50, 200),
+    initialAzimuth: randomBetween(0, 360),
+    speed: Math.round(randomBetween(5, 20)), // whole m/s, matching the UI's speed slider steps
+    playing: true
+  } as const;
+}
 
 
 // --- helpers ---
@@ -41,7 +52,7 @@ export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
   }
 
   return {
-    ...defaults,
+    ...createDefaults(),
     ...dto,
     ownerId,
     shareToken: ""

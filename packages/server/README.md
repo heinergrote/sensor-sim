@@ -81,7 +81,7 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 |--------|----------------|--------------------------|----------------------------------------------------------|
 | GET    | `/`            | —                        | Caller's `SimConfigDto[]`                                |
 | GET    | `/:id`         | —                        | `SimConfigDto`                                           |
-| POST   | `/`            | `CreateSimConfigDto`     | Created config. All fields optional — defaults: target Braunschweig, `follow`, 50 m, 0°, 10 m/s, playing, label `sim-<n>` |
+| POST   | `/`            | `CreateSimConfigDto`     | Created config. All fields optional — defaults: target random within 500 m of central Braunschweig, `follow`, random 50–200 m / 0–360° / 5–20 m/s, playing, label `sim-<n>` |
 | PATCH  | `/:id`         | `UpdateSimConfigDto`     | Updated config (any subset of label, type, target, initial distance/azimuth, speed, playing) |
 | DELETE | `/:id`         | —                        | Deleted config                                           |
 | PUT    | `/:id/start`   | —                        | Sets `playing: true` → `{success: true}`                 |
