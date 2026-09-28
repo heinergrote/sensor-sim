@@ -1,11 +1,11 @@
 import {createEffect, createMemo, createSignal, onSettled} from "solid-js";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {jwtToken} from "../../auth";
-import {fetchSimulations} from "../../service/simulations.service";
+import {fetchSimConfigs} from "../../service/configs.service";
 
 export default function SimMap() {
 
-  const simulations = createMemo(() => fetchSimulations());
+  const simConfigs = createMemo(() => fetchSimConfigs());
 
   const [mapReady, setMapReady] = createSignal(false);
 
@@ -14,10 +14,10 @@ export default function SimMap() {
 
   createEffect(() => ({
       ready: mapReady(),
-      simIds: simulations().map((sim) => sim.config.id)
+      configs: simConfigs()
     }),
     (c) => {
-      if (c.ready) map?.updateSims(c.simIds)
+      if (c.ready) map?.updateSimConfigs(c.configs)
     }
   )
 

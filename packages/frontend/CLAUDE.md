@@ -1,109 +1,89 @@
-# Agent Guide
+# packages/frontend — Agent Guide
 
-This is a SolidJS 2.x project. Solid is not React: components run once (there is no re-render), reactivity is
-fine-grained through signals, and effects/memos have Solid-specific semantics. Do not port React patterns.
+SolidJS 2.x, **not React**: components run once (no re-render), reactivity is fine-grained signals, effects/memos
+have Solid-specific semantics. Don't port React patterns.
+
+## Commands (run here, or `pnpm --filter @sensor-sim/frontend <script>` from root)
+
+```bash
+pnpm dev                       # vite on :3000 (expects server on :4000)
+pnpm build                     # vite build → dist/client, then typecheck
+pnpm serve                     # preview the build
+pnpm typecheck                 # tsc --noEmit
+pnpm test                      # vitest (jsdom); single file: pnpm test src/foo.test.tsx
+pnpm lint                      # oxlint src
+```
 
 ## Architecture
 
-Single-page Solid app (`@sensor-sim/frontend`) that logs in against `@sensor-sim/server`, visualizes and controls
-simulations, and administers users. In dev it runs on Vite (default `:3000`) against the server on `:4000`; in
-production it's built to `dist/client` and served by the server itself from the same origin.
+- `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Errored`/`Loading`) and HTML document. No
+  `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`) generates entries.
+- `src/router.ts` — typed `paths` helpers (`paths()`, `paths.control()`, `paths.users(id)`); use them for all links.
+- `src/routes/` — filesystem pages: `index.tsx`, `control.tsx`, `users/index.tsx`, `users/[id].tsx`,
+  `[...404].tsx`. `file-routes.d.ts` is generated — never edit.
+- `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
+  `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
+- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
+  per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
+- `src/geoCalc.ts` — turf helpers (`getPosition`, `getDistance`, `getAzimuth`).
 
-- `src/App.tsx` / `src/Document.tsx` — app shell: `Router`, page `<Title>`, `Nav`, `Errored`/`Loading` boundaries, and
-  the HTML document wrapper.
-- `src/router.ts` — `createRouter({routes: fileRoutes(pageRoutes)})`; exports `Router` and the typed `paths` helpers
-  (`paths()`, `paths.control()`, `paths.users(id)`) used for every link and `navigate()` call.
-- `src/routes/` — the pages (filesystem routing): `index.tsx` (home; login form when logged out), `control.tsx`
-  (`SimControl`), `users/index.tsx` (list + add form), `users/[id].tsx` (detail, `int` match filter + `preload`),
-  `[...404].tsx`. `file-routes.d.ts` at the package root is generated — never edit it.
-- `src/auth.ts` — the auth store: one **module-level** signal seeded from `localStorage["jwt_token"]`. `useAuth()`
-  returns `{token, login, logout, user}`; `user` is an async `createMemo` that calls `GET /api/me` (via its own `ky`
-  instance, not `src/api.ts`'s) and logs out on a non-OK response. Because the signal is module-level, every
-  `useAuth()` caller shares the same state.
-- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api", hooks: {beforeRequest: [...]}})`, with
-  `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod. The `beforeRequest` hook re-reads
-  the token signal per request, so login/logout takes effect without rebuilding the client. There is no typed RPC
-  client any more (`hc<AppType>`/`honoClient` are gone) — every service module calls `api.get/post/put/delete(path)`
-  against a plain path string and casts the JSON response to a type imported from `@sensor-sim/server`.
-- `src/components/Nav.tsx` — top nav; Control/Users links and the username + logout button render only when `user()`
-  resolves.
-- `src/components/LoginForm.tsx` — posts to `/login` via `api`, stores the token via `login()`, navigates to Control.
-- `src/components/users/` — `UserList` / `UserAddForm` / `UserDetail`, all typed on `Omit<User, "password">` (`User`
-  comes from `@sensor-sim/server`, derived from the Drizzle schema).
-- `src/service/users.service.ts` — user data access as `@solidjs/router` `query()`/`action()` around `api`:
-  `fetchUsers`, `fetchUser`, `addUser`, `updateUser`, `deleteUser`. **Different pattern from sims:** these are
-  ordinary REST reads with router-managed caching/revalidation, driven by form `action=` submissions.
-- `src/components/control/SimControl.tsx` — main layout: `SimList` (sidebar) + `SimMap` (main pane).
-- `src/components/control/SimList.tsx` — create-sim form (id/type) plus a list of sim rows, each rendering a
-  `SimDetails`. Reads the sim list from `fetchSimulations()` (a router `query()`, not a store).
-- `src/components/control/SimDetails.tsx` — per-sim control card. Reads that one sim's config via
-  `fetchSimulation(id)` (a router `query()`, not a live socket) from `simulations.service.ts`; shows config (type,
-  target, distance/azimuth, speed) and the share token; no longer shows live position, since that query doesn't
-  auto-revalidate. start/stop/delete/share/unshare buttons call the `@solidjs/router` actions, also from
-  `simulations.service.ts`.
-- `src/components/control/SimMap.tsx` — mounts a MapLibre instance via `createSimulationMap(el, token())` on an element
-  ref; disposes it on unmount.
-- `src/components/control/simulationMap.ts` — imperative MapLibre wrapper (outside Solid's reactivity). Tracks one
-  target marker + one current-position marker per sim, subscribes per sim via `addSimulationListener` (same registry
-  `SimDetails.tsx` uses), and posts config / `updateCurrent` changes on marker drag through the `@solidjs/router`
-  actions. It also passes the JWT: `transformRequest` attaches `Authorization: Bearer …` to every request whose
-  origin matches the map style's, because the server's `/api/maptiler` proxy sits behind the JWT middleware. The
-  token is read **once**, at map creation.
-- `src/service/simulation.service.ts` — live per-sim state. `addSimulationListener(id, listener)` lazily opens (and
-  ref-counts) one `WebSocket` per sim id against `${serverUrl}/api/sims/:id/ws?token=...` — the token travels as a
-  query param because a `WebSocket` can't set headers — and closes it once the last listener for that id
-  unsubscribes. There is no Solid store here; it's a plain listener registry, now subscribed to only by
-  `simulationMap.ts` (`SimDetails.tsx` switched to the `fetchSimulation` REST query instead).
-- `src/service/simulations.service.ts` — the sim *list*, a single-sim fetch, and mutations:
-    - `fetchSimulations` is a router `query()` over `GET /sims` (cache key `"simulations"`) — a plain REST fetch, not
-      a push.
-    - `fetchSimulation(id)` is a router `query()` over `GET /sims/:id` (cache key `"simulation"`) — a one-shot
-      config snapshot for `SimDetails.tsx`; nothing revalidates it automatically.
-    - One module-level `WebSocket` to `${serverUrl}/api/status/ws?token=...` keeps a `status` store
-      (`{startedAt, simListUpdatedAt, numSims}`) in sync, and calls `revalidate("simulations")` whenever
-      `simListUpdatedAt` advances — that's what makes `fetchSimulations()` reflect a sim someone else just created or
-      deleted (this does not revalidate `fetchSimulation`).
-    - Exposes the mutation actions (`addSim`, `updateSim`, `deleteSim`, `startSim`, `stopSim`, `updateType`,
-      `updateSpeed`, `updateCurrent`, `share`, `unShare`) as `@solidjs/router` `action()`s around `api`.
-- For simulations: the list and a sim's config come from router `query()`s (list refreshed on the status signal, a
-  single sim not auto-refreshed); only `simulationMap.ts`'s markers still track *live* position, via the per-sim
-  WebSocket listener registry — no full-list push socket and no Solid store for sim state any more. For users it's
-  plain REST reads via router queries, unchanged.
+### Simulations: configs vs. live state
 
-Server types (`Simulation`, `SimConfig`, `Status`, `User`, `Profile`) are imported from `@sensor-sim/server`'s
-**source**, so a Zod schema or Drizzle column change on the server shows up here with no build step in between — but
-since there's no typed RPC client any more, a renamed *route* is caught only by calling it, not by `tsc`.
+- `src/service/configs.service.ts` — everything config-side, as `@solidjs/router` `query()`/`action()`:
+  `fetchSimConfigs` (`GET /configs`, key `"simConfigs"`), `fetchSimConfig(id)`, and actions `addSimConfig` (form:
+  `label`, `type`), `updateSimConfig(id, UpdateSimConfigDto)` (PATCH), `deleteSimConfig`, `startSim`/`stopSim`,
+  `updateType`, `updateSpeed`, `share`, `unShare`. A module-level `createRoot` opens `/api/status/ws?token=` whenever
+  `user()` changes and calls `revalidate(fetchSimConfigs.key)` on each newer `configUpdate` message.
+- `src/service/simulation.service.ts` — live `SimState` only. `addSimulationListener(id, cb)` lazily opens one
+  ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
+  store.
+- **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff
+  (1 s → 30 s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
+  so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
+  socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
+  retrying once the revalidated config list drops its map listener — which depends on the status socket being up.
+- `components/control/SimList.tsx` — create form + one card per `fetchSimConfigs()` entry; passes the config as a
+  prop to `SimDetails.tsx` (no per-sim query). `SimDetails` shows config/share token and calls the actions; it shows
+  no live position.
+- `components/control/SimMap.tsx` — feeds `fetchSimConfigs()` into `createSimulationMap(el, token).updateSimConfigs`.
+- `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
+  Target marker ← config; current marker ← `SimState` via `addSimulationListener`. Dragging the target PATCHes
+  `targetLatitude/Longitude`; dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
+  (`geoCalc.ts`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6: `setWorkerUrl` with a
+  `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
+  `transformRequest` (read once at map creation).
+
+### Users
+
+`src/service/users.service.ts` — `fetchUsers`, `fetchUser`, `addUser`, `updateUser`, `deleteUser` as router
+query/actions driven by form `action=`. Components in `components/users/` are typed on `UserDto`.
+
+### Server types
+
+Import only DTO types from `@sensor-sim/server` (`SimConfigDto`, `UpdateSimConfigDto`, `SimState`, `PositionDto`,
+`StatusMessage`, `UserDto`, `Profile`). They come from the server's **source**, so schema changes break `tsc` here
+immediately — renamed routes don't.
+
+`Nav.tsx` currently has a temporary "X" button that force-revalidates `fetchSimConfigs` (debug aid).
 
 ## Env vars
 
-- `VITE_MAP_STYLE` — MapLibre style URL (see `.env.development` / `.env.production`); falls back to
-  `<origin>/api/maptiler/maps/streets-v2/style.json`
+`VITE_MAP_STYLE` — MapLibre style URL; falls back to `<origin>/api/maptiler/maps/streets-v2/style.json`.
 
 ## Versioned skills (in node_modules — read on demand)
 
-The installed packages ship agent skills that match their exact installed versions:
-
-- `node_modules/solid-js/skills/reactivity-diagnostics/SKILL.md` — repair guide mapping every dev-mode diagnostic code
-  (e.g. `REACTIVE_WRITE_IN_OWNED_SCOPE`, `STRICT_READ_UNTRACKED`) to its prescribed fix. Read it whenever a Solid
-  diagnostic code appears in test output or the browser console.
-- `node_modules/@solidjs/diagnostics/skills/agent-loops/SKILL.md` — how to capture reactive evidence (which scopes
-  re-ran and why, wasted recomputes, cost tables) and assert budgets, in tests and against live pages.
+- `node_modules/solid-js/skills/reactivity-diagnostics/SKILL.md` — maps every dev diagnostic code
+  (`REACTIVE_WRITE_IN_OWNED_SCOPE`, `STRICT_READ_UNTRACKED`, …) to its fix. Read it whenever one appears.
+- `node_modules/@solidjs/diagnostics/skills/agent-loops/SKILL.md` — capturing reactive evidence and asserting budgets.
 
 ## Reactive diagnostics — capture evidence instead of guessing
 
-Use these whenever you are debugging reactivity (something doesn't update, updates too often, or is slow) or verifying a
-change didn't regress update granularity:
+- **In tests:** `captureArtifact()` from `@solidjs/diagnostics`; matchers from `@solidjs/diagnostics/vitest`
+  (`toHaveNoDiagnostics`, `toStayWithinRerunBudget`, `toHaveNoWaste`, …).
+- **Against the dev server** (requires `diagnostics: true` in `vite.config.ts` — currently `false` — and an open
+  page): `GET /__solid/diagnostics`; `POST` with `{"method":"begin"}` / `{"method":"end"}`,
+  `{"method":"whyDidRun","params":{"name":"<scope>"}}`, `{"method":"costs"}`.
 
-- **In tests:** `captureArtifact()` from `@solidjs/diagnostics` wraps a scenario and returns a serializable artifact of
-  diagnostics + rerun attribution; matchers from `@solidjs/diagnostics/vitest` (`toHaveNoDiagnostics`,
-  `toStayWithinRerunBudget`, `toHaveNoWaste`, …) assert on it. No browser needed.
-- **Against the running dev server** (`diagnostics: true` in vite.config.ts; dev-only, no-op in builds). Requires an
-  open page connected to the dev server (e.g. via a browser tool):
-    - `GET /__solid/diagnostics` — status and connected client count
-    - `POST /__solid/diagnostics` with JSON `{"method":"begin"}` then `{"method":"end"}` — capture a session into an
-      artifact
-    - `{"method":"whyDidRun","params":{"name":"<scope name>"}}` — recorded re-runs of one named scope in the open
-      session
-    - `{"method":"costs"}` — running cost tables for the open session
+Name signals/memos/effects (`{ name: "..." }`) — attribution reports scopes by name.
 
-Name your signals/memos/effects (the `{ name: "..." }` option) — attribution reports scopes by name.
+Solid 2.0 batches DOM updates: tests must `flush()` after firing events before asserting.

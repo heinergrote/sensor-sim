@@ -1,7 +1,6 @@
-import {createMemo, Show} from "solid-js";
+import {Show} from "solid-js";
 import {
   TbFillPlayerPlay,
-  TbFillPlayerSkipBack,
   TbFillPlayerStop,
   TbFillTrash,
   TbOutlineAngle,
@@ -13,24 +12,22 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
+import {useAction} from "@solidjs/router";
 import {
-  deleteSim,
-  fetchSimulation,
+  deleteSimConfig,
   share,
   startSim,
   stopSim,
   unShare,
   updateSpeed,
   updateType
-} from "../../service/simulations.service";
-import {useAction} from "@solidjs/router";
+} from "../../service/configs.service";
+import {SimConfigDto} from "@sensor-sim/server";
 
-export function SimDetails(props: { id: string }) {
-
-  const simulation = createMemo(() => fetchSimulation(props.id));
+export function SimDetails(props: { simConfig: SimConfigDto }) {
 
   const updateTypeAction = useAction(updateType)
-  const deleteSimAction = useAction(deleteSim)
+  const deleteSimAction = useAction(deleteSimConfig)
   const startSimAction = useAction(startSim)
   const stopSimAction = useAction(stopSim)
   const updateSpeedAction = useAction(updateSpeed)
@@ -39,8 +36,8 @@ export function SimDetails(props: { id: string }) {
 
   return (
     <>
-      <Show fallback={<div>Connecting...</div>} when={simulation()}>
-        {(sim) =>
+      <Show fallback={<div>Connecting...</div>} when={props.simConfig}>
+        {(config) =>
           <>
 
             <div class={"flex flex-col gap-1 w-full"}>
@@ -49,63 +46,60 @@ export function SimDetails(props: { id: string }) {
               <div class="flex gap-2 items-center">
                 <div class="join">
                   <input
-                    class={`join-item btn ${sim().config.type === "follow" ? "btn-primary" : ""} btn-sm`}
+                    class={`join-item btn ${config().type === "follow" ? "btn-primary" : ""} btn-sm`}
                     type="radio" name="options" value={"follow"}
-                    onClick={() => updateTypeAction(sim().config.id, "follow")}
-                    checked={sim().config.type === "follow"} aria-label="Follow"/>
+                    onClick={() => updateTypeAction(config().id, "follow")}
+                    checked={config().type === "follow"} aria-label="Follow"/>
                   <input
-                    class={`join-item btn ${sim().config.type === "circle" ? "btn-primary" : ""} btn-sm`}
+                    class={`join-item btn ${config().type === "circle" ? "btn-primary" : ""} btn-sm`}
                     type="radio" name="options" value={"circle"}
-                    onClick={() => updateTypeAction(sim().config.id, "circle")}
-                    checked={sim().config.type === "circle"} aria-label="Circle"/>
+                    onClick={() => updateTypeAction(config().id, "circle")}
+                    checked={config().type === "circle"} aria-label="Circle"/>
                 </div>
                 <div class="join">
-                  {sim().state ?
+                  {config().playing ?
                     <>
-                      <button class="btn btn-sm join-item" onClick={() => startSimAction(sim().config.id)}>
-                        <TbFillPlayerSkipBack/>
-                      </button>
-                      <button class="btn btn-sm join-item" onClick={() => stopSimAction(sim().config.id)}>
+                      <button class="btn btn-sm join-item" onClick={() => stopSimAction(config().id)}>
                         <TbFillPlayerStop/>
                       </button>
                     </>
                     :
                     <>
-                      <button class="btn btn-sm join-item" onClick={() => startSimAction(sim().config.id)}>
+                      <button class="btn btn-sm join-item" onClick={() => startSimAction(config().id)}>
                         <TbFillPlayerPlay/>
                       </button>
                     </>
                   }
-                  <button class="btn btn-sm join-item" onClick={() => deleteSimAction(sim().config.id)}>
+                  <button class="btn btn-sm join-item" onClick={() => deleteSimAction(config().id)}>
                     <TbFillTrash/>
                   </button>
                 </div>
               </div>
               <div class="flex gap-2 items-center">
-                <TbOutlineWorldLatitude/>{sim().config.targetLatitude.toFixed(5)}
-                <TbOutlineWorldLongitude/>{sim().config.targetLongitude.toFixed(5)}
-                <TbOutlineRulerMeasure/> {sim().config.initialDistance.toFixed(2)}m
-                <TbOutlineAngle/> {sim().config.initialAzimuth.toFixed(2)}°
+                <TbOutlineWorldLatitude/>{config().targetLatitude.toFixed(5)}
+                <TbOutlineWorldLongitude/>{config().targetLongitude.toFixed(5)}
+                <TbOutlineRulerMeasure/> {config().initialDistance.toFixed(2)}m
+                <TbOutlineAngle/> {config().initialAzimuth.toFixed(2)}°
               </div>
               <div class="flex gap-1 items-center">
-                <div class="flex gap-1 items-center"><BsSpeedometer/> {sim().config.speed}m/s</div>
-                <div><input type="range" min="0" max="40" value={sim().config.speed}
-                            onChange={(e) => updateSpeedAction(sim().config.id, +e.currentTarget.value)}
+                <div class="flex gap-1 items-center"><BsSpeedometer/> {config().speed}m/s</div>
+                <div><input type="range" min="0" max="40" value={config().speed}
+                            onChange={(e) => updateSpeedAction(config().id, +e.currentTarget.value)}
                             class="range range-xs w-60"/></div>
               </div>
 
               <div class="flex gap-1 items-center">
-                <button class="btn btn-sm" onClick={() => shareAction(sim().config.id)}>
+                <button class="btn btn-sm" onClick={() => shareAction(config().id)}>
                   <TbOutlineShare/> Share
                 </button>
-                <Show when={sim().config.shareToken}>
-                  <button class="btn btn-sm" onClick={() => unShareAction(sim().config.id)}>
+                <Show when={config().shareToken}>
+                  <button class="btn btn-sm" onClick={() => unShareAction(config().id)}>
                     <TbOutlineShareOff/>
                   </button>
-                  <div class="truncate" id="shareToken">{sim().config.shareToken}</div>
+                  <div class="truncate" id="shareToken">{config().shareToken}</div>
                   <button class="btn btn-sm" onClick={() => {
                     // copy to clipboard
-                    navigator.clipboard.writeText(sim().config.shareToken);
+                    navigator.clipboard.writeText(config().shareToken);
                   }}>
                     <TbOutlineClipboard/>
                   </button>

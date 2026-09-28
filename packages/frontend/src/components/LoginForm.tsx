@@ -22,7 +22,6 @@ export default function LoginForm() {
           password: password()
         }
       }).json()
-      console.log("Login response", response)
       login(response.token)
       navigate(paths.control())
 

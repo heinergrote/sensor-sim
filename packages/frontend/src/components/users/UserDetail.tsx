@@ -1,10 +1,10 @@
 import {TbOutlineArrowLeft, TbOutlineDeviceFloppy, TbOutlineTrash} from "solid-icons/tb";
 import {useAction, useNavigate} from "@solidjs/router";
-import {User} from "@sensor-sim/server";
+import {UserDto} from "@sensor-sim/server";
 import {deleteUser, updateUser} from "../../service/users.service";
 
 export function UserDetail(props: {
-  user: Omit<User, "password">
+  user: UserDto
 }) {
 
   const navigate = useNavigate()

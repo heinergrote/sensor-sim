@@ -1,7 +1,7 @@
 import {Hono} from "hono";
 import {upgradeWebSocket} from "@hono/node-server";
-import {simulationService} from "../index";
 import {jwtMiddleware, wsJwtMiddleware} from "../middleware/jwtAuth";
+import {statusStream} from "./status.service";
 
 export const statusApp = new Hono()
 
@@ -9,20 +9,22 @@ export const statusApp = new Hono()
   .use(jwtMiddleware)
 
   .get('/',
-    (c) => c.json(simulationService.status())
+    (c) => c.json(statusStream.get())
   )
 
   .get('/ws',
     upgradeWebSocket((c) => {
-      const stream = simulationService.statusStream.collect()
+      const abort = new AbortController();
+      const stream = statusStream.collect(abort.signal)
       return {
         onOpen: async (_event, ws) => {
           for await (const data of stream) {
             ws.send(JSON.stringify(data));
           }
+          ws.close()
         },
         onClose: () => {
-          stream.return(undefined)
+          abort.abort()
         },
       }
     })

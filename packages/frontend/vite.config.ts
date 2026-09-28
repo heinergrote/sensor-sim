@@ -36,4 +36,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 2000,
   },
+  ssr: {
+    noExternal: ['maplibre-gl'],
+  },
 });

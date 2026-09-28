@@ -1,0 +1,192 @@
+{
+  "id": "a9e35ac5-0a01-4e05-a17a-17343a628ea2",
+  "prevId": "b895cc1b-a5f1-4fab-877f-39718778d802",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.sim_configs": {
+      "name": "sim_configs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sim-' || nextval('sim_config_label_seq')"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "share_token": {
+          "name": "share_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "target_latitude": {
+          "name": "target_latitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_longitude": {
+          "name": "target_longitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "initial_distance": {
+          "name": "initial_distance",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "initial_azimuth": {
+          "name": "initial_azimuth",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'follow'"
+        },
+        "speed": {
+          "name": "speed",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "playing": {
+          "name": "playing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sim_configs_owner_id_users_id_fk": {
+          "name": "sim_configs_owner_id_users_id_fk",
+          "tableFrom": "sim_configs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sim_configs_label_unique": {
+          "name": "sim_configs_label_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "label"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "admin": {
+          "name": "admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "username"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.type": {
+      "name": "type",
+      "schema": "public",
+      "values": [
+        "follow",
+        "circle"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {
+    "public.sim_config_label_seq": {
+      "name": "sim_config_label_seq",
+      "schema": "public",
+      "increment": "1",
+      "startWith": "1",
+      "minValue": "1",
+      "maxValue": "9223372036854775807",
+      "cache": "1",
+      "cycle": false
+    }
+  },
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
