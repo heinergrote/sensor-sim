@@ -1,7 +1,7 @@
 // --- DTO -> row ---
 
-import {CreateUserDto, UpdateUserDto, UserDto} from "../types";
 import {NewUserRow, UpdateUserRow, UserRow} from "../db/schema";
+import {CreateUserDto, UpdateUserDto, UserDto} from "../sharedTypes";
 
 export function toInsert(dto: CreateUserDto) {
   return {

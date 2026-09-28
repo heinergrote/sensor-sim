@@ -1,8 +1,12 @@
-import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl} from "maplibre-gl";
+import {GeolocateControl, Map as MapLibre, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {useAction} from "@solidjs/router";
 import {addSimulationListener} from "../../service/simulation.service";
-import {updateCurrent, updateSimConfig} from "../../service/configs.service";
-import {SimConfigDto, SimState} from "@sensor-sim/server";
+import {updateSimConfig} from "../../service/configs.service";
+import {PositionDto, SimConfigDto, SimState} from "@sensor-sim/server";
+import {getAzimuth, getDistance} from "../../geoCalc";
+
+setWorkerUrl(workerUrl);
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
@@ -56,7 +60,6 @@ export function createSimulationMap(
 ) {
 
   const updateSimConfigAction = useAction(updateSimConfig);
-  const updateCurrentAction = useAction(updateCurrent);
 
 
   // extract origin from mapStyle url
@@ -78,7 +81,12 @@ export function createSimulationMap(
         }
         // keep other requests unmodified
         return {url};
-      } : undefined
+      } : undefined,
+  });
+
+  map.setMissingStyleImageResolver((id) => {
+    // Create a 1x1 transparent RGBA pixel for missing icons, to silence the warnings
+    map.addImage(id, {width: 1, height: 1, data: new Uint8Array([0, 0, 0, 0])}, {sdf: true});
   });
 
   map.addControl(new NavigationControl(), 'top-right');
@@ -96,7 +104,9 @@ export function createSimulationMap(
 
   const trackedSims = new Map<number, TrackedSim>();
 
-  function createTrackedSim(config: SimConfigDto) {
+  function createTrackedSim(newConfig: SimConfigDto) {
+
+    let config = {...newConfig}
 
     const targetMarker = new Marker({
       draggable: true,
@@ -122,15 +132,17 @@ export function createSimulationMap(
       draggingTarget: false,
       draggingCurrent: false,
 
-      updateConfig: (simConfig: SimConfigDto) => {
+      updateConfig: (newConfig: SimConfigDto) => {
+        config = {...newConfig}
+
         if (!trackedSim.targetOnMap) {
-          trackedSim.targetMarker.setLngLat([simConfig.targetLongitude, simConfig.targetLatitude]);
+          trackedSim.targetMarker.setLngLat([config.targetLongitude, config.targetLatitude]);
           trackedSim.targetMarker.addTo(map)
           trackedSim.targetOnMap = true
         }
 
         if (!trackedSim.draggingTarget)
-          trackedSim.targetMarker.setLngLat([simConfig.targetLongitude, simConfig.targetLatitude]);
+          trackedSim.targetMarker.setLngLat([config.targetLongitude, config.targetLatitude]);
       },
 
       updateState: (simState: SimState) => {
@@ -154,8 +166,19 @@ export function createSimulationMap(
 
     targetMarker.on('dragend', async () => {
       trackedSim.draggingTarget = false;
-      const lngLat = targetMarker.getLngLat()
-      await updateSimConfigAction(config.id, {targetLatitude: lngLat.lat, targetLongitude: lngLat.lng})
+
+      const {lng: targetLongitude, lat: targetLatitude} = targetMarker.getLngLat()
+      const currentLngLat = trackedSim.currentMarker.getLngLat()
+      const targetPosition: PositionDto = {longitude: targetLongitude, latitude: targetLatitude}
+      const currentPosition: PositionDto = {longitude: currentLngLat.lng, latitude: currentLngLat.lat}
+
+      // calculate new initial distance and azimuth
+      const initialDistance = getDistance(targetPosition, currentPosition)
+      const initialAzimuth = getAzimuth(targetPosition, currentPosition)
+
+      await updateSimConfigAction(config.id, {
+        targetLatitude, targetLongitude, initialDistance, initialAzimuth
+      })
     });
     targetMarker.on('dragstart', () => {
       trackedSim.draggingTarget = true;
@@ -163,9 +186,20 @@ export function createSimulationMap(
 
     currentMarker.on('dragend', async () => {
       trackedSim.draggingCurrent = false;
-      const lngLat = currentMarker.getLngLat()
-      await updateCurrentAction(config.id, lngLat.lat, lngLat.lng);
-    });
+
+      const {lng: currentLongitude, lat: currentLatitude} = currentMarker.getLngLat()
+      const targetPosition: PositionDto = {longitude: config.targetLongitude, latitude: config.targetLatitude}
+      const currentPosition: PositionDto = {longitude: currentLongitude, latitude: currentLatitude}
+
+      // calculate new initial distance and azimuth
+      const initialDistance = getDistance(targetPosition, currentPosition)
+      const initialAzimuth = getAzimuth(targetPosition, currentPosition)
+
+      await updateSimConfigAction(config.id, {
+        initialDistance, initialAzimuth,
+      })
+    })
+
     currentMarker.on('dragstart', () => {
       trackedSim.draggingCurrent = true;
     });

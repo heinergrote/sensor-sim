@@ -1,5 +1,5 @@
-import {boolean, integer, numeric, pgEnum, pgTable, serial, text, varchar} from "drizzle-orm/pg-core";
-import {relations} from "drizzle-orm";
+import {boolean, integer, numeric, pgEnum, pgSequence, pgTable, serial, text} from "drizzle-orm/pg-core";
+import {relations, sql} from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -16,9 +16,17 @@ export type UpdateUserRow = Partial<Omit<NewUserRow, 'id'>>;
 
 // ---------------------------------------------------------
 
+export const simConfigLabelSeq = pgSequence("sim_config_label_seq", {
+  startWith: 1,
+  increment: 1,
+});
+
 export const simConfigs = pgTable("sim_configs", {
   id: serial("id").primaryKey(),
-  label: varchar("label", {length: 64}).unique(),
+  label: text("label")
+    .notNull()
+    .unique()
+    .default(sql.raw(`'sim-' || nextval('sim_config_label_seq')`)),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   shareToken: text("share_token").notNull().default(""),
   targetLatitude: numeric("target_latitude", {mode: 'number'}).notNull(),

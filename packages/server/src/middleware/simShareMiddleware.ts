@@ -1,6 +1,7 @@
 import {createMiddleware} from "hono/factory";
-import {verifyAndDecode} from "../token.service";
-import {HonoSimRunnerVars, simulationEngine} from "../index";
+import {verifyAndDecode} from "../util/shareTokens";
+import {simulationEngine} from "../index";
+import {HonoSimRunnerVars} from "../types";
 
 export const simShareMiddleware = createMiddleware<{ Variables: HonoSimRunnerVars }>(async (c, next) => {
 

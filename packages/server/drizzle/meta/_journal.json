@@ -50,6 +50,13 @@
       "when": 1790405876385,
       "tag": "0006_brown_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790601066291,
+      "tag": "0007_reflective_firebird",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,6 @@
 import {Show} from "solid-js";
 import {
   TbFillPlayerPlay,
-  TbFillPlayerSkipBack,
   TbFillPlayerStop,
   TbFillTrash,
   TbOutlineAngle,
@@ -60,9 +59,6 @@ export function SimDetails(props: { simConfig: SimConfigDto }) {
                 <div class="join">
                   {config().playing ?
                     <>
-                      <button class="btn btn-sm join-item" onClick={() => startSimAction(config().id)}>
-                        <TbFillPlayerSkipBack/>
-                      </button>
                       <button class="btn btn-sm join-item" onClick={() => stopSimAction(config().id)}>
                         <TbFillPlayerStop/>
                       </button>

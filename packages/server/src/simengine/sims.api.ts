@@ -1,8 +1,9 @@
 import {Hono} from 'hono'
-import {HonoSimRunnerVars, simulationEngine} from "../index";
+import {simulationEngine} from "../index";
 import {jwtMiddleware, wsJwtMiddleware} from "../middleware/jwtAuth";
 import {upgradeWebSocket} from "@hono/node-server";
 import {withOwnSimMiddleware} from "../middleware/withOwnSim";
+import {HonoSimRunnerVars} from "../types";
 
 
 export const simsApp = new Hono<{
@@ -30,11 +31,9 @@ export const simsApp = new Hono<{
     const simStreamGenerator = simRunner.simStateStream.collect(abort.signal)
     return upgradeWebSocket(c, {
       onOpen: async (_event, ws) => {
-        console.log('ws opened for: ', simRunner.simState.id)
         for await (const data of simStreamGenerator) ws.send(JSON.stringify(data))
       },
       onClose: () => {
-        console.log('ws closed for: ', simRunner.simState.id)
         abort.abort()
       },
     })

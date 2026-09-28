@@ -110,14 +110,14 @@ creation) can expose it to someone without an account:
   bearer token) and return the same `Simulation` shape as their authenticated
   `/api/sims/:id` counterparts, but only while the token is valid.
 
-The share token is **not** a JWT. `src/token.service.ts` implements its own
+The share token is **not** a JWT. `src/util/shareTokens.ts` implements its own
 compact, HMAC-SHA256-signed binary format (owner id + expiry + sim id,
 base64url-encoded), signed with the same `JWT_SECRET` via `util/appSecret.ts`
 but verified with a constant-time comparison and its own expiry check —
 independent of `hono/jwt`. `src/middleware/simShareMiddleware.ts` verifies the
 signature and expiry, then checks the decoded owner id and the token itself
 still match the simulation's *current* `owner_id`/`share_token` columns before
-setting `sim`/`simStream` in context for the `shared.ts` route handlers —
+setting `sim`/`simStream` in context for the `shared.api.ts` route handlers —
 that last check is what makes `unshare` effective immediately rather than only
 at expiry.
 
@@ -289,9 +289,9 @@ Three things worth knowing before changing anything here:
   rather than receiving it, so import cycles between `index.ts` and
   `routes/*` are load-order sensitive.
 - **Each subapp decides its own access level, not `index.ts`.** Every route file
-  under `src/routes/*` applies whatever `.use('*', jwtMiddleware)` /
+  under `src/shared` applies whatever `.use('*', jwtMiddleware)` /
   `.use('*', requireRole(true))` / `.use('/:id/*', withOwnSimMiddleware())` it
-  needs as the first thing in its own chain (`login.ts` and `shared.ts` apply
+  needs as the first thing in its own chain (`login.api.ts` and `shared.api.ts` apply
   neither → public). Reordering the `.route()` calls in `index.ts` changes
   routing, not who can reach an endpoint.
 

@@ -13,12 +13,13 @@
   "dependencies": {
     "@sensor-sim/server": "workspace:*",
     "@solidjs/meta": "^1.0.0-next.2",
-    "@solidjs/router": "2.0.0-next.23",
+    "@solidjs/router": "^2.0.0-next.23",
     "@solidjs/web": "^2.0.0-rc.6",
     "@tailwindcss/vite": "^4.3.3",
     "daisyui": "^5.7.16",
     "ky": "^2.1.0",
-    "maplibre-gl": "5.24.0",
+    "@turf/turf": "7.3.5",
+    "maplibre-gl": "6.11.2",
     "solid-icons": "^1.2.0",
     "solid-js": "^2.0.0-rc.6",
     "tailwindcss": "^4.3.3"

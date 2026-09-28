@@ -1,8 +1,8 @@
 import {Hono} from 'hono'
-import {HonoSimConfigsVars, simulationEngine} from "../index";
+import {simulationEngine} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {jwtMiddleware} from "../middleware/jwtAuth";
-import {generateToken} from "../token.service";
+import {generateToken} from "../util/shareTokens";
 import {
   deleteSimConfig,
   getSimConfigById,
@@ -10,10 +10,11 @@ import {
   insertSimConfig,
   updateSimConfig
 } from "./simconfigs.repository";
-import {createSimConfigSchema, positionSchema, simConfigIdParam, updateSimConfigSchema} from "./simconfigs.schemas";
+import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema} from "./simconfigs.schemas";
 import {createMiddleware} from "hono/factory";
 import {toDto, toInsert, toUpdate} from "./mappings";
 import {sendStatusMessage} from "../status/status.service";
+import {HonoSimConfigsVars} from "../types";
 
 
 const loadOwnedSimConfig = createMiddleware<{
@@ -41,9 +42,19 @@ const loadOwnedSimConfig = createMiddleware<{
   await next()
 })
 
-function handleSimConfigsUpdate() {
-  sendStatusMessage({type: "configUpdate", updatedAt: Date.now()})
-  simulationEngine.syncConfigs()
+
+let messageTimeout: NodeJS.Timeout | undefined
+
+async function handleSimConfigsUpdate() {
+  await simulationEngine.syncConfigs()
+  // send the status update message, with a 500ms delay
+  // if there is already one waiting, clear and reschedule
+  if (messageTimeout) {
+    clearTimeout(messageTimeout)
+  }
+  messageTimeout = setTimeout(() => {
+    sendStatusMessage({type: "configUpdate", updatedAt: Date.now()})
+  }, 500)
 }
 
 export const simConfigsApp = new Hono<{
@@ -73,8 +84,7 @@ export const simConfigsApp = new Hono<{
       const newSimConfig = toInsert(json, user.id)
 
       const result = await insertSimConfig(user.id, newSimConfig)
-
-      handleSimConfigsUpdate()
+      await handleSimConfigsUpdate()
 
       return c.json(toDto(result))
     })
@@ -86,7 +96,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     const result = await updateSimConfig(simConfig.id, updateInput)
 
-    handleSimConfigsUpdate()
+    await handleSimConfigsUpdate()
     return c.json(toDto(result))
   })
 
@@ -94,24 +104,15 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     const [deletedConfig] = await deleteSimConfig(simConfig.id)
 
-    handleSimConfigsUpdate()
+    await handleSimConfigsUpdate()
     return c.json(toDto(deletedConfig))
-  })
-
-  .put('/:id/updateCurrent', zValidator('json', positionSchema), async (c) => {
-    const simConfig = c.get('simConfig')
-    const input = c.req.valid('json')
-    // TODO: update config and runtime
-
-    handleSimConfigsUpdate()
-    return c.json({success: true})
   })
 
   .put('/:id/start', async (c) => {
     const simConfig = c.get('simConfig')
     await updateSimConfig(simConfig.id, {playing: true})
 
-    handleSimConfigsUpdate()
+    await handleSimConfigsUpdate()
     return c.json({success: true})
   })
 
@@ -119,7 +120,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     await updateSimConfig(simConfig.id, {playing: false})
 
-    handleSimConfigsUpdate()
+    await handleSimConfigsUpdate()
     return c.json({success: true})
   })
 
@@ -132,6 +133,7 @@ export const simConfigsApp = new Hono<{
     await updateSimConfig(simConfig.id, {
       shareToken: token
     });
+    await handleSimConfigsUpdate()
     return c.json({token, expiryDate});
   })
 
@@ -140,5 +142,6 @@ export const simConfigsApp = new Hono<{
     await updateSimConfig(simConfig.id, {
       shareToken: ""
     });
+    await handleSimConfigsUpdate()
     return c.json({success: true});
   })

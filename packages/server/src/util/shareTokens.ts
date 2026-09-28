@@ -1,6 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {createHmac, timingSafeEqual} from 'node:crypto';
-import {appSecret} from "./util/appSecret";
+import {appSecret} from "./appSecret";
 
 const HMAC_SIZE = 16;
 
@@ -86,13 +86,9 @@ export function verifyAndDecode(token: string): DecodedTokenResponse | null {
     let offset = 0;
     const resourceId = dataBuffer.readUInt32BE(offset);
     offset += 4;
-
-
     const ownerId = dataBuffer.readUInt32BE(offset);
     offset += 4;
-
     const expiryTimestamp = dataBuffer.readUIntBE(offset, 6);
-    offset += 6;
 
     // check expiration
     if (Date.now() > expiryTimestamp) {

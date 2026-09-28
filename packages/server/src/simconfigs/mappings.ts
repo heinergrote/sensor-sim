@@ -1,17 +1,17 @@
 import {NewSimConfig, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
-import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "../types";
+import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "../sharedTypes";
 
 
 const defaults = {
-  label: null,
+  label: undefined,
   targetLatitude: 52.264683,
   targetLongitude: 10.523783,
   type: "follow",
   initialDistance: 50,
   initialAzimuth: 0,
   speed: 10,
-  playing: false
+  playing: true
 } as const;
 
 
@@ -35,6 +35,11 @@ true satisfies NoExtraKeys<UpdateSimConfigDto, PatchSimConfig>;
 // --- DTO -> row ---
 
 export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
+
+  if (!dto.label) {
+    dto.label = undefined;
+  }
+
   return {
     ...defaults,
     ...dto,

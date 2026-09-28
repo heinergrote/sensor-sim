@@ -5,7 +5,7 @@ Standalone Node.js simulation engine (`@sensor-sim/server`), a single Hono app s
 JWT auth for the whole system, and in production serves the built frontend too (see "Static frontend & map proxy"
 below).
 
-The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts`, `src/routes/login.ts` and
+The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts`, `src/login/login.api.ts` and
 `src/middleware/jwtAuth.ts` throw at import time. For the full REST/WebSocket reference and env var table, see
 `README.md` in this package — this file focuses on the rules an agent needs before changing code.
 
@@ -26,7 +26,7 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   list itself.
 - `simulationRuntime.ts` — per-sim 100ms tick advancing `SimState` for `follow`/`circle` modes via `util/geoCalc.ts`
   (`@turf/turf`); owns that sim's `simStream`.
-- `token.service.ts` — `generateToken`/`verifyAndDecode`: a non-JWT, HMAC-SHA256-signed capability token for
+- `shareTokens.ts` — `generateToken`/`verifyAndDecode`: a non-JWT, HMAC-SHA256-signed capability token for
   simulation sharing (see "Sharing" below) — deliberately separate from `hono/jwt`.
 - `db/` — `index.ts` (Drizzle client), `schema.ts` (`users`, `sim_configs` tables), `dbInit.ts` (applies migrations +
   seeds the admin, invoked only from `migrate.ts`). `migrate.ts` is a **second build entrypoint**
@@ -35,7 +35,7 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
 - `user.repository.ts` — Drizzle queries for users; every export projects columns **minus `password`** except
   `getUserByName`, used only by login.
 - `util/` — `passwords.ts` (scrypt hash/verify), `appSecret.ts` (validates `JWT_SECRET`, shared by
-  `middleware/jwtAuth.ts` and `token.service.ts`), `eventStream.ts` (tiny pub/sub; `.collect()` → async generator
+  `middleware/jwtAuth.ts` and `shareTokens.ts`), `eventStream.ts` (tiny pub/sub; `.collect()` → async generator
   for WS handlers), `geoCalc.ts` (geodesic helpers), `randomOffset.ts`.
 - `middleware/jwtAuth.ts` — `jwtMiddleware`: runs `hono/jwt`'s check, then sets `c.set('user', {id, username,
   admin})` from the decoded payload — everything downstream reads `c.get('user')`, not the raw JWT payload. Also
@@ -46,12 +46,14 @@ The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db
   (unused today).
 - `middleware/withOwnSim.ts` — `withOwnSimMiddleware(idParamKey = "id")`: assumes `jwtMiddleware` ran, loads the sim
   from that route param, 404 if unknown, 403 if `sim.config.ownerId !== user.id`, else sets `sim`/`simStream` in
-  context. Mounted on `sims.ts`'s `/:id/*` routes.
-- `middleware/simShareMiddleware.ts` — verifies a `:token` path param via `token.service.ts`, and additionally
+  context. Mounted on `sims.api.ts`'s `/:id/*` routes.
+- `middleware/simShareMiddleware.ts` — verifies a `:token` path param via `shareTokens.ts`, and additionally
   checks it still equals the sim's *current* `shareToken` (so unshare/re-share invalidates old links immediately).
   Used only by `routes/shared.ts`.
-- `routes/` — `login.ts` (public), `users.routes.ts` (admin-only CRUD), `sims.ts` (simulation REST + per-sim `/:id/ws` +
-  share/unshare, owner-scoped), `shared.ts` (public, share-token gated), `status.routes.ts`, `me.ts`, `maptiler.ts`
+- `routes/` — `login.api.ts` (public), `users.api.ts` (admin-only CRUD), `sims.api.ts` (simulation REST + per-sim
+  `/:id/ws` +
+  share/unshare, owner-scoped), `shared.api.ts` (public, share-token gated), `status.api.ts`, `me.api.ts`,
+  `maptiler.api.ts`
   (proxy).
 
 ## Auth — each subapp declares its own requirement
@@ -82,7 +84,7 @@ logout just drops the client-side token.
 
 `sim_configs.owner_id` is set from the JWT's `sub` at `POST /api/sims` time, and `withOwnSimMiddleware` enforces it
 as a real ACL on every `/api/sims/:id*` route — so `POST /:id/share`/`unshare` don't re-check ownership themselves,
-they just run after it. `share` mints a 7-day HMAC token (`token.service.ts`) into `sim_configs.share_token`;
+they just run after it. `share` mints a 7-day HMAC token (`shareTokens.ts`) into `sim_configs.share_token`;
 `unshare` clears it. `routes/shared.ts` then serves `GET /:token` and `GET /:token/ws` with **no JWT at all** —
 `simShareMiddleware` checks the token's signature, expiry, and that it still matches the sim's current
 `share_token` and owner.

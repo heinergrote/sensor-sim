@@ -35,7 +35,6 @@ export async function insertSimConfig(ownerId: number, simConfig: NewSimConfig) 
 }
 
 export async function updateSimConfig(id: number, simConfig: PatchSimConfig) {
-  console.log("Updating sim config", id, simConfig);
   const [row] = await db.update(simConfigs).set(simConfig).where(eq(simConfigs.id, id)).returning();
   return row;
 }

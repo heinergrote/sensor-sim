@@ -1,10 +1,10 @@
 import {Hono} from "hono";
 import {zValidator} from "@hono/zod-validator";
-import {loginSchema} from "../zodSchema";
 import {getUserByName} from "../users/user.repository";
 import {verifyPassword} from "../util/passwords";
 import {sign} from "hono/jwt";
 import {JWTPayload} from "../types";
+import {loginSchema} from "./login.schema";
 
 const jwtSecret = process.env.JWT_SECRET
 if (!jwtSecret) {

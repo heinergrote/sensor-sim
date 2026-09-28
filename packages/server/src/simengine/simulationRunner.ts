@@ -1,30 +1,34 @@
 import {createEventStream} from "../util/eventStream";
 import {getPosition} from "../util/geoCalc";
-import {SimConfigDto, SimState} from "../types";
+import {SimConfigDto, SimState} from "../sharedTypes";
 
 export type SimulationRunner = ReturnType<typeof createSimulationRunner>
 
 export function createSimulationRunner(config: SimConfigDto) {
 
+  let simState: SimState = initialState();
+
   let interval: NodeJS.Timeout | undefined;
   let lastTick = Date.now();
-
-  const simState: SimState = {
-    id: config.id,
-    start: Date.now(),
-    current: getPosition(
-      {latitude: config.targetLatitude, longitude: config.targetLongitude},
-      config.initialDistance, config.initialAzimuth
-    ),
-    distance: config.initialDistance,
-    azimuth: config.initialAzimuth,
-  }
 
   const simStateStream = createEventStream<SimState>();
   simStateStream.emit(() => simState);
 
   if (config.playing) start();
 
+
+  function initialState(): SimState {
+    return {
+      id: config.id,
+      start: Date.now(),
+      current: getPosition(
+        {latitude: config.targetLatitude, longitude: config.targetLongitude},
+        config.initialDistance, config.initialAzimuth
+      ),
+      distance: config.initialDistance,
+      azimuth: config.initialAzimuth,
+    }
+  }
 
   function updateState(deltaMs: number) {
 
@@ -77,41 +81,40 @@ export function createSimulationRunner(config: SimConfigDto) {
     simStateStream.emit(); // reemit the current state
   }
 
-  function updateConfig(updateInput: SimConfigDto) {
+  function applySimConfig(newConfig: SimConfigDto) {
+
+    type ConfigField = keyof SimConfigDto
+
+    const relevantFields: ConfigField[] = ['type', 'playing', 'targetLatitude', 'targetLongitude', 'initialAzimuth', 'initialDistance', 'speed']
+    const noRestartFields: ConfigField[] = ['type', 'speed']
+    const restartFields: ConfigField[] = relevantFields.filter(field => !noRestartFields.includes(field))
+
+    // check if config has changed
+    const hasRelevantChanges = relevantFields.some(field => newConfig[field] !== config[field]);
+    if (!hasRelevantChanges) {
+      return;
+    }
+
+    // check if any fields require restart
+    const requiresRestart = restartFields.some(field => newConfig[field] !== config[field]);
+    if (requiresRestart) {
+      stop()
+    }
 
     // apply new config
-    config = {...config, ...updateInput};
-    tick()
+    config = {...config, ...newConfig};
 
-    if (config.playing) {
+    if (config.playing && (requiresRestart || !interval)) {
       start();
-    } else {
-      stop();
     }
+
   }
 
-  //
-  // function updateCurrent(position: PositionDto) {
-  //   stop();
-  //   sim.config.initialDistance = getDistance(
-  //     {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
-  //     position);
-  //   sim.config.initialAzimuth = getAzimuth(
-  //     {latitude: sim.config.targetLatitude, longitude: sim.config.targetLongitude},
-  //     position);
-  //   start()
-  // }
-  //
-  // function updatePlaying(playing: boolean) {
-  //   stop();
-  //   sim.config.playing = playing;
-  //   if (playing) {
-  //     start();
-  //   }
-  // }
+  function start() {
+    stop()
+    lastTick = Date.now()
+    simState = initialState();
 
-
-  function start(reset: boolean = false) {
     if (!interval) {
       tick()
       interval = setInterval(() => {
@@ -128,7 +131,7 @@ export function createSimulationRunner(config: SimConfigDto) {
   }
 
   return {
-    simState, simStateStream, config, updateConfig, start, stop,
+    simState, simStateStream, config, applySimConfig, start, stop,
   };
 
 }

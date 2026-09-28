@@ -4,7 +4,6 @@ import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
 import {jwtToken, useAuth} from "../auth";
 
-
 const dispose = createRoot(dispose => {
   const {user} = useAuth()
   let lastConfigListUpdatedAt = 0
@@ -20,8 +19,6 @@ const dispose = createRoot(dispose => {
       wss = new WebSocket(`${serverUrl}/api/status/ws?token=${jwtToken()}`)
       wss.onmessage = (event) => {
         const statusMessage = JSON.parse(event.data) as StatusMessage
-
-        console.log("statusMessage: ", statusMessage)
 
         if (statusMessage.type === "configUpdate") {
           // always refetch configs, when configs status changes
@@ -44,7 +41,6 @@ const dispose = createRoot(dispose => {
 
 
 export const fetchSimConfigs = query(async () => {
-  console.log("fetchSimConfigs")
   return api.get<SimConfigDto[]>(`/configs`).json()
 }, "simConfigs");
 
@@ -92,13 +88,6 @@ export const updateSpeed = action(async (id: number, speed: number) => {
     json: {speed}
   }).json()
 })
-
-export const updateCurrent = action(async (id: number, latitude: number, longitude: number) => {
-  return api.patch<SimConfigDto>(`/configs/${id}/updateCurrent`, {
-    json: {latitude, longitude}
-  }).json()
-})
-
 
 export const share = action(async (id: number) => {
   return api.post<{ token: string, expiryDate: Date }>(`/configs/${id}/share`).json()

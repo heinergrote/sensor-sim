@@ -4,18 +4,18 @@ import {readFile} from "node:fs/promises";
 import path from "node:path";
 import {Hono} from "hono";
 import {cors} from "hono/cors";
-import {loginApp} from "./routes/login";
-import {maptilerApp} from "./routes/maptiler";
-import {usersApp} from "./users/users.routes";
-import {meApp} from "./routes/me";
-import {sharedApp} from "./routes/shared";
+import {loginApp} from "./login/login.api";
+import {maptilerApp} from "./maptiler/maptiler.api";
+import {usersApp} from "./users/users.api";
+import {meApp} from "./me/me.api";
+import {sharedApp} from "./shared/shared.api";
 import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
 import {db} from "./db";
-import {simsApp} from "./routes/sims";
-import {statusApp} from "./status/status.routes";
-import {simConfigsApp} from "./simconfigs/simconfigs.route";
+import {simsApp} from "./simengine/sims.api";
+import {statusApp} from "./status/status.api";
+import {simConfigsApp} from "./simconfigs/simconfigs.api";
 import {createSimulationEngine} from "./simengine/simulationEngine";
 
 console.log("Starting server -", process.env.NODE_ENV);
@@ -107,5 +107,4 @@ function shutdown(signal: NodeJS.Signals) {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-export * from "./types";
-
+export * from "./sharedTypes";

@@ -1,5 +1,6 @@
 import {createEventStream} from "../util/eventStream";
-import {StatusMessage} from "../types";
+
+import {StatusMessage} from "../sharedTypes";
 
 export const statusStream = createEventStream<StatusMessage>();
 export let currentStatusMessage: StatusMessage = {type: "ping"};

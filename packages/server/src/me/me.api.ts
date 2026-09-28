@@ -1,6 +1,7 @@
 import {Hono} from 'hono'
 import {jwtMiddleware} from '../middleware/jwtAuth'
-import {HonoGlobalVars, Profile} from '../types'
+import {HonoGlobalVars} from '../types'
+import {Profile} from "../sharedTypes";
 
 export const meApp = new Hono<{ Variables: HonoGlobalVars }>()
 
