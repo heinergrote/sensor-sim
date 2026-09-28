@@ -17,6 +17,8 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
   // load persisted simConfigs, add and start simulations
   async function syncConfigs() {
     const configs = await getSimConfigs();
+
+    // add or update simulationRunners
     configs.forEach(config => {
       const simRunner = get(config.id)
 
@@ -26,8 +28,16 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
       } else {
         simRunner.applySimConfig(config);
       }
-
     })
+
+    // delete old simulationRunners not present in configs
+    simulationRunners.forEach(simRunner => {
+      if (!configs.find(config => config.id === simRunner.config.id)) {
+        simRunner.dispose()
+        simulationRunners.delete(simRunner.config.id)
+      }
+    })
+
   }
 
   function list(ownerId: number): SimulationRunner[] {
@@ -35,10 +45,11 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
     return allRunners.filter(runner => runner.config.ownerId === ownerId)
   }
 
-  // stops all timers so the process can exit cleanly on shutdown
+  // stops all runners
   function shutdown() {
     for (const simRuntime of simulationRunners.values()) {
-      simRuntime.stop();
+      simRuntime.dispose();
+      simulationRunners.delete(simRuntime.config.id)
     }
   }
 

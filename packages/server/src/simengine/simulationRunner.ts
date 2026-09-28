@@ -130,8 +130,19 @@ export function createSimulationRunner(config: SimConfigDto) {
     }
   }
 
+  function dispose() {
+    stop()
+    simStateStream.close()
+  }
+
   return {
-    simState, simStateStream, config, applySimConfig, start, stop,
+    get simState() {
+      return simState
+    },
+    get config() {
+      return config
+    },
+    simStateStream, applySimConfig, start, stop, dispose
   };
 
 }

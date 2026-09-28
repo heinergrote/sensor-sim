@@ -21,6 +21,7 @@ export const statusApp = new Hono()
           for await (const data of stream) {
             ws.send(JSON.stringify(data));
           }
+          ws.close()
         },
         onClose: () => {
           abort.abort()

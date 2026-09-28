@@ -22,6 +22,7 @@ export const sharedApp = new Hono()
     return upgradeWebSocket(c, {
       onOpen: async (_event, ws) => {
         for await (const data of simStreamGenerator) ws.send(JSON.stringify(data))
+        ws.close()
       },
       onClose: () => abort.abort(),
     })

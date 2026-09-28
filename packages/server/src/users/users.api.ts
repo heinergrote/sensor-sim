@@ -14,7 +14,7 @@ export const usersApp = new Hono()
 
   .get('/', async (c) => {
     const users = await getUsers();
-    return c.json(users);
+    return c.json(users.map(toDto));
   })
 
   .get('/:id',

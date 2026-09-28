@@ -1,124 +1,107 @@
 # packages/server
 
-Standalone Node.js simulation engine (`@sensor-sim/server`), a single Hono app served over one HTTP server via
-`@hono/node-server`. Listens on `PORT` (default `4000`). It also owns the user store (Postgres via Drizzle) and the
-JWT auth for the whole system, and in production serves the built frontend too (see "Static frontend & map proxy"
-below).
+`@sensor-sim/server`: one Hono app on `@hono/node-server` (`PORT`, default 4000). Owns sim configs + users (Postgres
+via Drizzle), the in-memory simulation engine, JWT auth, the MapTiler proxy, and serves the built frontend in prod.
+Throws at import without `DATABASE_URL` / `JWT_SECRET`. Endpoint tables and env reference: `README.md`.
 
-The process refuses to start without `DATABASE_URL` and `JWT_SECRET` — `src/db/index.ts`, `src/login/login.api.ts` and
-`src/middleware/jwtAuth.ts` throw at import time. For the full REST/WebSocket reference and env var table, see
-`README.md` in this package — this file focuses on the rules an agent needs before changing code.
+## Commands (run here, or `pnpm --filter @sensor-sim/server <script>` from root)
 
-## Source layout (`src/`)
-
-- `index.ts` — bootstrap: creates the simulation service, mounts routes as a flat list (mount order has no security
-  consequences — see "Auth" below), serves the built frontend, handles SIGINT/SIGTERM shutdown. Exports
-  `simulationEngine` (module singleton) and re-exports `types.ts`, including `HonoGlobalVars` (`{user}`, set by
-  `jwtMiddleware`) and `HonoSimRunnerVars` (`HonoGlobalVars & {sim, simStream}`, set by `withOwnSimMiddleware`) — the
-  `Variables` types each subapp's `Hono<{Variables: ...}>()` uses.
-- `zodSchema.ts` — Zod input schemas (`simConfigInput`, `simCreateInput`, `positionInput`, `userInput`, `loginInput`).
-- `types.ts` — domain types: `Position`, `SimConfig` (`ownerId`, `shareToken`, …), `SimState`, `Simulation`
-  (`{config, state}`), `Status`, `User`/`Profile` (`{id, username, admin}`, no `exp`), `JWTPayload` (adds `exp`),
-  `HonoGlobalVars`, `HonoSimRunnerVars`.
-- `simulations.service.ts` — orchestrator. Owns `Map<id, SimulationRuntime>`, persists `SimConfig` to Postgres
-  (`sim_configs`, reloaded on startup), exposes `createSim`/`update`/`remove`/`startSim`/`stopSim`/`list(ownerId)`
-  (owner-filtered)/`get`/`getSimStream`, plus a `Status`/`statusStream` — a cheap "list changed" signal, not the
-  list itself.
-- `simulationRuntime.ts` — per-sim 100ms tick advancing `SimState` for `follow`/`circle` modes via `util/geoCalc.ts`
-  (`@turf/turf`); owns that sim's `simStream`.
-- `shareTokens.ts` — `generateToken`/`verifyAndDecode`: a non-JWT, HMAC-SHA256-signed capability token for
-  simulation sharing (see "Sharing" below) — deliberately separate from `hono/jwt`.
-- `db/` — `index.ts` (Drizzle client), `schema.ts` (`users`, `sim_configs` tables), `dbInit.ts` (applies migrations +
-  seeds the admin, invoked only from `migrate.ts`). `migrate.ts` is a **second build entrypoint**
-  (`dist/migrate.js`), never imported by `index.ts` — `tsup.config.ts` must list both, and the build script must
-  call plain `tsup` (a CLI positional silently drops it).
-- `user.repository.ts` — Drizzle queries for users; every export projects columns **minus `password`** except
-  `getUserByName`, used only by login.
-- `util/` — `passwords.ts` (scrypt hash/verify), `appSecret.ts` (validates `JWT_SECRET`, shared by
-  `middleware/jwtAuth.ts` and `shareTokens.ts`), `eventStream.ts` (tiny pub/sub; `.collect()` → async generator
-  for WS handlers), `geoCalc.ts` (geodesic helpers), `randomOffset.ts`.
-- `middleware/jwtAuth.ts` — `jwtMiddleware`: runs `hono/jwt`'s check, then sets `c.set('user', {id, username,
-  admin})` from the decoded payload — everything downstream reads `c.get('user')`, not the raw JWT payload. Also
-  `wsJwtMiddleware`, which copies a `?token=` query param into `Authorization` first (WebSocket upgrades can't set
-  headers) — apply only to `/ws` routes.
-- `middleware/requireRole.ts` — `requireRole(requireAdmin, {checkDb})`: 401 without a user, 403 if admin required
-  and missing. Assumes `jwtMiddleware` already ran; `checkDb: true` re-reads the DB instead of trusting the token
-  (unused today).
-- `middleware/withOwnSim.ts` — `withOwnSimMiddleware(idParamKey = "id")`: assumes `jwtMiddleware` ran, loads the sim
-  from that route param, 404 if unknown, 403 if `sim.config.ownerId !== user.id`, else sets `sim`/`simStream` in
-  context. Mounted on `sims.api.ts`'s `/:id/*` routes.
-- `middleware/simShareMiddleware.ts` — verifies a `:token` path param via `shareTokens.ts`, and additionally
-  checks it still equals the sim's *current* `shareToken` (so unshare/re-share invalidates old links immediately).
-  Used only by `routes/shared.ts`.
-- `routes/` — `login.api.ts` (public), `users.api.ts` (admin-only CRUD), `sims.api.ts` (simulation REST + per-sim
-  `/:id/ws` +
-  share/unshare, owner-scoped), `shared.api.ts` (public, share-token gated), `status.api.ts`, `me.api.ts`,
-  `maptiler.api.ts`
-  (proxy).
-
-## Auth — each subapp declares its own requirement
-
-```
-routes/login.ts, routes/shared.ts                    no .use() at all                        → PUBLIC
-routes/maptiler.ts, routes/me.ts, routes/status.ts    .use('*', jwtMiddleware)                → any authenticated user
-routes/sims.ts                                        .use('*', jwtMiddleware)
-                                                       .use('/:id/*', withOwnSimMiddleware()) → authenticated, /:id/* owner-only
-routes/users.ts                                       .use('*', jwtMiddleware).use('*', requireRole(true)) → admin only
+```bash
+pnpm dev          # tsx watch src/index.ts
+pnpm typecheck    # tsc --noEmit
+pnpm build        # frontend build → typecheck → tsup (index + migrate) → copy frontend to dist/public
+pnpm start        # node dist/index.js
+pnpm migrate:dev  # tsx src/migrate.ts — migrations + admin seed
+pnpm migrate      # node dist/migrate.js (same, built)
+pnpm db:generate  # schema.ts → new SQL file in drizzle/
+pnpm db:migrate   # drizzle-kit, schema only — NO admin seed
+pnpm db:push      # dev only, no migration file
+pnpm db:studio
 ```
 
-`src/index.ts` mounts all subapps as a flat list of `.route()` calls — reordering them changes routing, not access
-level, since each file applies its own auth as the first `.use('*', ...)` in its chain. `routes/shared.ts` is public
-in a different sense: no `jwtMiddleware`, but every path is gated by `simShareMiddleware` instead.
+No test suite. `http/users.http` has ready-made login/user requests.
 
-- `/api/sims/:id/ws` needs a bearer token *and* ownership — `withOwnSimMiddleware` 403s a non-owner. Share the sim
-  instead (below) to expose it to someone else.
-- Every other `/api/sims/:id*` route (read, update, delete, start/stop, updateCurrent, share/unshare) is likewise
-  owner-scoped; only `GET /` (filtered to the caller's own sims) and `POST /` (create) skip it.
-- `/api/maptiler` is behind the JWT too — the frontend sends it via MapLibre's `transformRequest`.
+## Module layout (`src/`) — one directory per feature
 
-`POST /api/login` signs an HS256 token, payload `{sub: user.id, username, admin, exp}`, valid 24h. `GET /api/me`
-echoes `id`/`username`/`admin` (no `exp` — `Profile` doesn't carry it). No refresh flow, no server-side session —
-logout just drops the client-side token.
+```
+index.ts                 bootstrap; creates + exports `simulationEngine` (top-level await), mounts subapps,
+                         serves frontend, SIGINT/SIGTERM shutdown; `export * from "./sharedTypes"`
+sharedTypes.ts           THE frontend-visible types: *Dto (z.infer of module schemas), SimState, StatusMessage, Profile
+types.ts                 server-internal: JWTPayload, HonoGlobalVars {user}, HonoSimRunnerVars {+simRunner},
+                         HonoSimConfigsVars {+simConfig}
+db/                      schema.ts (tables + *Row types), index.ts (client), dbInit.ts (migrate + seed; migrate.ts only)
+simconfigs/              simconfigs.api.ts (/api/configs), .repository.ts, .schemas.ts, mappings.ts
+simengine/               simulationEngine.ts (Map<id, runner>), simulationRunner.ts (tick loop), sims.api.ts (/api/sims)
+users/                   users.api.ts (/api/users), user.repository.ts, users.schemas.ts, users.mappings.ts
+login/ me/ maptiler/     login.api.ts + login.schema.ts, me.api.ts, maptiler.api.ts
+status/                  status.service.ts (statusStream, sendStatusMessage), status.api.ts
+shared/                  shared.api.ts — public share-token endpoints
+middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
+util/                    shareTokens, eventStream, geoCalc (turf), passwords (scrypt), appSecret, randomOffset
+```
 
-## Sharing simulations
+New feature → new directory with `<name>.api.ts` / `.repository.ts` / `.schemas.ts` / mappings, following
+`simconfigs/` or `users/`.
 
-`sim_configs.owner_id` is set from the JWT's `sub` at `POST /api/sims` time, and `withOwnSimMiddleware` enforces it
-as a real ACL on every `/api/sims/:id*` route — so `POST /:id/share`/`unshare` don't re-check ownership themselves,
-they just run after it. `share` mints a 7-day HMAC token (`shareTokens.ts`) into `sim_configs.share_token`;
-`unshare` clears it. `routes/shared.ts` then serves `GET /:token` and `GET /:token/ws` with **no JWT at all** —
-`simShareMiddleware` checks the token's signature, expiry, and that it still matches the sim's current
-`share_token` and owner.
+## Type layering rules
 
-## REST & WebSocket API
+- **DB layer:** `db/schema.ts` exports `UserRow`/`NewUserRow`/`UpdateUserRow`, `SimConfigRow`/`NewSimConfig`.
+  Repositories take and return rows only.
+- **Network layer:** Zod schemas in `*.schemas.ts` (`create*`, `update*`, `*Response`, id params); DTO types are
+  `z.infer`'d in `sharedTypes.ts`. Handlers validate with `zValidator` and **return `toDto(row)`, never a raw row** —
+  `toDto` is where `password` is stripped.
+- **Mappings** (`toInsert`/`toUpdate`/`toDto`) bridge the two. `simconfigs/mappings.ts` holds create defaults and
+  `stripUndefined` (PATCH semantics: `undefined` dropped, `null` kept) plus a compile-time `NoExtraKeys` check.
+- Row types must not appear in `sharedTypes.ts`.
 
-Full endpoint tables are in `README.md`. Rules worth knowing here: all inputs are Zod-validated (`src/zodSchema.ts`);
-the frontend calls these with a plain `ky` client and imports response *types* from this
-package's source, so a schema/column change still changes frontend types immediately, but a renamed route is only
-caught at runtime. Every `/api/sims/:id*` route 404s an unknown id and 403s a non-owner before running its handler.
-There's no `updateTarget` endpoint — move the target with `PUT /:id`. There's no full-list broadcast socket —
-`GET /api/sims` is a plain REST fetch and `/api/status/ws` only signals *that* the list changed.
+## Config vs. runtime
 
-## Database & migrations
+- `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
+  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced
+  (500 ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
+- `syncConfigs` creates a runner for new ids and calls `runner.applySimConfig(config)` on existing ones.
+  `applySimConfig` ignores changes outside `type/playing/target*/initial*/speed`; `type`/`speed` apply live, the
+  rest restart the runner (state rebuilt from config).
+- `SimulationRunner`: 100 ms tick; `follow` moves toward target and snaps at 0; `circle` orbits at the current
+  radius. A stopped runner stays in the map and keeps its last state (no `null` state any more).
+- `/api/sims` is read-only: `GET /` (caller's `SimState[]`), `GET /:id`, `GET /:id/ws`.
+- Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
 
-Drizzle Kit config: `drizzle.config.ts` (schema `./src/db/schema.ts`, output `./drizzle`). **The server never
-migrates itself** — `pnpm migrate:dev` (tsx) / `pnpm migrate` (built) run `src/migrate.ts`, which applies pending
-migrations and seeds the admin; `pnpm db:migrate` (drizzle-kit) applies the schema only, skipping the seed, leaving
-no account to log in with. Workflow for a schema change: edit `db/schema.ts` → `pnpm db:generate` → commit the
-generated file in `drizzle/` → `pnpm migrate:dev` → restart. See root `CLAUDE.md` for the full command list.
+- `syncConfigs` `dispose()`s and drops runners whose config was deleted. `dispose()` = `stop()` + close the
+  runner's `simStateStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
+  socket close. `shutdown()` disposes all runners.
+- The runner exposes `simState`/`config` as **getters** — keep it that way; returning the variables directly
+  snapshots them and goes stale after `start()`/`applySimConfig`.
+- `runner.config` only tracks runtime-relevant fields (`applySimConfig` returns early otherwise), so e.g. its
+  `shareToken`/`label` can be stale. Read those from the DB — `simShareMiddleware` does.
 
-## Static frontend & map proxy
+## Auth — each subapp declares its own
 
-`index.ts` serves a built frontend from `dist/public` (bundled by `pnpm build`) or, failing that,
-`../../frontend/dist/client` (monorepo source build); unmatched GETs fall back to `index.html` for SPA routing.
-`routes/maptiler.ts` forwards `GET /api/maptiler/:path` to `api.maptiler.com`, injects `MAPTILER_KEY` server-side,
-strips any client-supplied `key`, and rewrites absolute MapTiler URLs in JSON responses back to the proxy —
-authenticated like any other route file.
+```
+login.api, shared.api        no JWT                                              → public (shared: share-token gated)
+maptiler, me, status         .use(jwtMiddleware)                                 → any logged-in user
+simconfigs.api               jwtMiddleware + loadOwnedSimConfig on '/:id/*'      → 400 bad id / 404 / 403 non-owner
+sims.api                     wsJwtMiddleware on '/:id/ws', jwtMiddleware,
+                             withOwnSimMiddleware() on '/:id/*'                  → 404 / 403 non-owner (engine lookup)
+users.api                    jwtMiddleware + requireRole(true)                   → admin only
+```
 
-## Env vars
+`jwtMiddleware` sets `c.get('user')` (`{id, username, admin}`) — downstream reads that, not the JWT payload.
+`wsJwtMiddleware` copies `?token=` into `Authorization`; mount it only on `/ws` routes. Login: HS256, 24 h,
+`{sub, username, admin, exp}`; no refresh, no server session.
 
-`PORT` (4000), `NODE_ENV` (logged only — CORS is open regardless), `MAPTILER_KEY` (required for the map proxy),
-`DATABASE_URL`/`JWT_SECRET` (**required**), `DEFAULT_ADMIN_USERNAME` (`admin`), `DEFAULT_ADMIN_PASSWORD` (no
-seeding without it). Loaded via `dotenv/config`.
+## Sharing
 
-`http/users.http` holds ready-made requests for the user/login endpoints (stores the login token in `auth_token`
-for the calls below it).
+`POST /api/configs/:id/share` mints a 7-day HMAC-SHA256 token (`util/shareTokens.ts`, not a JWT; payload sim id +
+owner id + expiry, signed with `JWT_SECRET`) into `sim_configs.share_token`; `unshare` clears it.
+`simShareMiddleware` verifies signature/expiry and that the token equals the DB row's current `share_token` and
+owner, then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`.
+
+## Gotchas
+
+- Route modules import `simulationEngine` from `../index` — circular import, load-order sensitive.
+- `migrate.ts` is a second tsup entry; `tsup.config.ts` must list both and `build` must call plain `tsup`.
+- Schema change: edit `db/schema.ts` → `pnpm db:generate` → commit `drizzle/` → `pnpm migrate:dev` → restart.
+  Hand-edited SQL is fine (0007 contains a `DELETE FROM sim_configs`).
+- `util/eventStream.ts`: `emit(() => v)` stores a producer re-evaluated per read; `.collect(signal)` is the async
+  generator each WS iterates until closed.
