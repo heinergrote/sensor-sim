@@ -13,7 +13,7 @@ export default function Users() {
       <Title>Users</Title>
       <UserAddForm/>
       <Loading fallback={<p>Loading users…</p>}>
-        <UserList users={users()}></UserList>
+        <UserList users={users()}/>
       </Loading>
     </>
   );

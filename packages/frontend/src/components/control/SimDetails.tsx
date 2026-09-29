@@ -46,12 +46,12 @@ export function SimDetails(props: { simConfig: SimConfigDto }) {
               <div class="flex gap-2 items-center">
                 <div class="join">
                   <input
-                    class={`join-item btn ${config().type === "follow" ? "btn-primary" : ""} btn-sm`}
+                    class={["join-item btn btn-sm", {"btn-primary": config().type === "follow"}]}
                     type="radio" name="options" value={"follow"}
                     onClick={() => updateTypeAction(config().id, "follow")}
                     checked={config().type === "follow"} aria-label="Follow"/>
                   <input
-                    class={`join-item btn ${config().type === "circle" ? "btn-primary" : ""} btn-sm`}
+                    class={["join-item btn btn-sm", {"btn-primary": config().type === "circle"}]}
                     type="radio" name="options" value={"circle"}
                     onClick={() => updateTypeAction(config().id, "circle")}
                     checked={config().type === "circle"} aria-label="Circle"/>

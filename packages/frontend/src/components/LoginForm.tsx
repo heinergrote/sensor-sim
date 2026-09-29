@@ -8,7 +8,7 @@ export default function LoginForm() {
   const [username, setUsername] = createSignal('')
   const [password, setPassword] = createSignal('')
   const [error, setError] = createSignal('')
-  const {login, logout, user} = useAuth()
+  const {login, logout} = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: SubmitEvent) => {
@@ -25,7 +25,7 @@ export default function LoginForm() {
       login(response.token)
       navigate(paths.control())
 
-    } catch (e) {
+    } catch {
       setError('Login failed')
       logout()
     }

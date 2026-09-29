@@ -30,7 +30,7 @@ export function useAuth() {
     });
     try {
       return await api.get<Profile>("/api/me").json()
-    } catch (e) {
+    } catch {
       logout()
       return null
     }

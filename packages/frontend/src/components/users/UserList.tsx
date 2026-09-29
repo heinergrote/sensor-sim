@@ -40,7 +40,7 @@ export function UserList(props: { users: UserDto[] }) {
     <div>
       <ul class="list rounded-box shadow-sm mt-2">
         <For each={users()} keyed={(user) => user.id}>
-          {(user, index) =>
+          {(user) =>
             <UserItem user={user()}/>
           }
         </For>

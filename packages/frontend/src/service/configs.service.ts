@@ -7,7 +7,7 @@ import {jwtToken, useAuth} from "../auth";
 const RECONNECT_MIN_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 30000
 
-const dispose = createRoot(dispose => {
+const _dispose = createRoot(dispose => {
   const {user} = useAuth()
   let lastConfigListUpdatedAt = 0
   let wss: WebSocket | undefined
