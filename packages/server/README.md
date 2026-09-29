@@ -27,15 +27,15 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 
 ## Environment variables
 
-| Variable                 | Default      | Purpose                                                 |
-|--------------------------|--------------|---------------------------------------------------------|
-| `DATABASE_URL`           | — (required) | Postgres connection string                              |
-| `JWT_SECRET`             | — (required) | HS256 secret for login tokens; also signs share tokens  |
-| `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step                       |
-| `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded              |
-| `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)           |
-| `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files         |
-| `NODE_ENV`               | —            | Only logged; CORS is open for all origins               |
+| Variable                 | Default      | Purpose                                                |
+|--------------------------|--------------|--------------------------------------------------------|
+| `DATABASE_URL`           | — (required) | Postgres connection string                             |
+| `JWT_SECRET`             | — (required) | HS256 secret for login tokens; also signs share tokens |
+| `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step                      |
+| `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded             |
+| `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)          |
+| `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files        |
+| `NODE_ENV`               | —            | Only logged; CORS is open for all origins              |
 
 ## Architecture
 
@@ -52,7 +52,8 @@ src/util/          shareTokens, eventStream, passwords, appSecret
 
 **Config vs. runtime.** A sim config is the durable row in `sim_configs`; the engine keeps one in-memory runner
 per config. Each config mutation re-syncs the engine from the database: new configs get a runner, runners of
-deleted configs are disposed, existing runners apply the change (`type`/`speed` live, anything else restarts from the config's initial position). Movement is
+deleted configs are disposed, existing runners apply the change (`type`/`speed` live, anything else restarts from the
+config's initial position). Movement is
 geodesic (`@turf/turf`): `follow` moves toward the target and stops there, `circle` orbits it.
 
 **Layered types.** Repositories speak Drizzle row types; handlers validate input with Zod and return DTOs built by
@@ -63,12 +64,12 @@ each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are
 `POST /api/login` returns a 24 h HS256 token (`{sub, username, admin, exp}`). Send it as `Authorization: Bearer …`,
 or as `?token=` on WebSocket routes. No refresh, no server sessions.
 
-| Scope              | Routes                                                                    |
-|--------------------|---------------------------------------------------------------------------|
-| public             | `POST /api/login`, `/api/shared/:token[/ws]`, static files                |
+| Scope              | Routes                                                                              |
+|--------------------|-------------------------------------------------------------------------------------|
+| public             | `POST /api/login`, `/api/shared/:token[/ws]`, static files                          |
 | any logged-in user | `/api/me`, `/api/status`, `/api/maptiler`, `GET/POST /api/configs`, `GET /api/sims` |
-| owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)        |
-| admin only         | `/api/users`                                                              |
+| owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)                  |
+| admin only         | `/api/users`                                                                        |
 
 Each subapp applies its own middleware; mount order in `index.ts` is irrelevant for access.
 
@@ -76,28 +77,28 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 
 ### `/api/configs` — sim configs (owner-scoped)
 
-| Method | Path           | Body                     | Result                                                   |
-|--------|----------------|--------------------------|----------------------------------------------------------|
-| GET    | `/`            | —                        | Caller's `SimConfigDto[]`                                |
-| GET    | `/:id`         | —                        | `SimConfigDto`                                           |
-| POST   | `/`            | `CreateSimConfigDto`     | Created config. All fields optional — defaults: target random within 500 m of central Braunschweig, `follow`, random 50–200 m / 0–360° / 5–20 m/s, playing, label `sim-<n>` |
-| PATCH  | `/:id`         | `UpdateSimConfigDto`     | Updated config (any subset of label, type, target, initial distance/azimuth, speed, playing) |
-| DELETE | `/:id`         | —                        | Deleted config                                           |
-| PUT    | `/:id/start`   | —                        | Sets `playing: true` → `{success: true}`                 |
-| PUT    | `/:id/stop`    | —                        | Sets `playing: false` → `{success: true}`                |
-| POST   | `/:id/share`   | —                        | 7-day share token → `{token, expiryDate}`                |
-| POST   | `/:id/unshare` | —                        | Clears the token → `{success: true}`                     |
+| Method | Path           | Body              | Result                                                                                                                                                                      |
+|--------|----------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/`            | —                 | Caller's `SimConfigDto[]`                                                                                                                                                   |
+| GET    | `/:id`         | —                 | `SimConfig`                                                                                                                                                                 |
+| POST   | `/`            | `CreateSimConfig` | Created config. All fields optional — defaults: target random within 500 m of central Braunschweig, `follow`, random 50–200 m / 0–360° / 5–20 m/s, playing, label `sim-<n>` |
+| PATCH  | `/:id`         | `UpdateSimConfig` | Updated config (any subset of label, type, target, initial distance/azimuth, speed, playing)                                                                                |
+| DELETE | `/:id`         | —                 | Deleted config                                                                                                                                                              |
+| PUT    | `/:id/start`   | —                 | Sets `playing: true` → `{success: true}`                                                                                                                                    |
+| PUT    | `/:id/stop`    | —                 | Sets `playing: false` → `{success: true}`                                                                                                                                   |
+| POST   | `/:id/share`   | —                 | 7-day share token → `{token, expiryDate}`                                                                                                                                   |
+| POST   | `/:id/unshare` | —                 | Clears the token → `{success: true}`                                                                                                                                        |
 
-`SimConfigDto`: `{id, ownerId, label, shareToken, type, targetLatitude, targetLongitude, initialDistance,
+`SimConfig`: `{id, ownerId, label, shareToken, type, targetLatitude, targetLongitude, initialDistance,
 initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` when not shared.
 
 ### `/api/sims` — running simulations (read-only)
 
-| Method | Path      | Result                                        |
-|--------|-----------|-----------------------------------------------|
-| GET    | `/`       | Caller's `SimState[]`                         |
+| Method | Path      | Result                                                 |
+|--------|-----------|--------------------------------------------------------|
+| GET    | `/`       | Caller's `SimState[]`                                  |
 | GET    | `/:id`    | `SimState` — `{id, start, current, distance, azimuth}` |
-| GET    | `/:id/ws` | WebSocket, streams `SimState` every tick      |
+| GET    | `/:id/ws` | WebSocket, streams `SimState` every tick               |
 
 ### Others
 
@@ -108,11 +109,11 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 
 ## WebSocket API
 
-| Path                    | Payload         | Auth                             | Emitted                                   |
-|-------------------------|-----------------|----------------------------------|-------------------------------------------|
-| `/api/sims/:id/ws`      | `SimState`      | bearer / `?token=`, owner only   | on connect, then every tick while playing |
-| `/api/shared/:token/ws` | `SimState`      | valid share token in the path    | same                                      |
-| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`               | on connect, then ≤ every 500 ms on config changes |
+| Path                    | Payload         | Auth                           | Emitted                                           |
+|-------------------------|-----------------|--------------------------------|---------------------------------------------------|
+| `/api/sims/:id/ws`      | `SimState`      | bearer / `?token=`, owner only | on connect, then every tick while playing         |
+| `/api/shared/:token/ws` | `SimState`      | valid share token in the path  | same                                              |
+| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 500 ms on config changes |
 
 All sockets are push-only. The status socket is a "refetch configs" signal, not data. Deleting a config closes
 every open socket for that simulation from the server side.

@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 import {point} from "@turf/turf";
-import type {PositionDto as Position} from "../types";
+import type {GeoPosition as Position} from "../types";
 
 export function getPosition(origin: Position, distance: number, azimuth: number): Position {
   const position = turf.destination(point([origin.longitude, origin.latitude]), distance, azimuth, {units: "meters"});

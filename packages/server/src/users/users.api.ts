@@ -5,7 +5,7 @@ import {hashPassword} from "../util/passwords";
 import {jwtMiddleware} from "../middleware/jwtAuth";
 import {requireRole} from "../middleware/requireRole";
 import {createUserSchema, updateUserSchema, userIdParamSchema} from "@sensor-sim/shared";
-import {toDto, toInsert, toUpdate} from "./users.mappings";
+import {toCreate, toDto, toUpdate} from "./users.mapping";
 
 export const usersApp = new Hono()
 
@@ -34,9 +34,9 @@ export const usersApp = new Hono()
       const user = c.req.valid("json")
 
       const hashedPassword = await hashPassword(user.password);
-      const userHashedPassword = {...user, password: hashedPassword};
+      const userWithHashedPassword = {...user, password: hashedPassword};
 
-      const [createdUser] = await insertUser(toInsert(userHashedPassword));
+      const [createdUser] = await insertUser(toCreate(userWithHashedPassword));
       return c.json(toDto(createdUser));
     })
 

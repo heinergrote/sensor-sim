@@ -1,10 +1,10 @@
-import {UserDto} from "@sensor-sim/shared";
+import {User} from "@sensor-sim/shared";
 import {createMemo, For} from "solid-js";
 import {paths} from "../../router";
 
 
 export function UserItem(
-  props: { user: UserDto }
+  props: { user: User }
 ) {
 
   return (
@@ -32,7 +32,7 @@ export function UserItem(
 }
 
 
-export function UserList(props: { users: UserDto[] }) {
+export function UserList(props: { users: User[] }) {
 
   const users = createMemo(() => props.users);
 

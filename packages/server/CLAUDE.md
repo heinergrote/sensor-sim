@@ -45,7 +45,7 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 
 ## Type layering rules
 
-- **DB layer:** `db/schema.ts` exports `UserRow`/`NewUserRow`/`UpdateUserRow`, `SimConfigRow`/`NewSimConfig`.
+- **DB layer:** `db/schema.ts` exports `UserRow`/`NewUserRow`/`UpdateUserRow`, `SimConfigRow`/`NewSimConfigRow`.
   Repositories take and return rows only.
 - **Network layer:** Zod schemas (`create*`, `update*`, `*Response`, id params, `login`) and their `z.infer`'d DTO
   types live in `@sensor-sim/shared`. Handlers validate with `zValidator` and **return `toDto(row)`, never a raw row** —

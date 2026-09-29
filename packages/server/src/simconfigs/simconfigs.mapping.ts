@@ -1,6 +1,6 @@
-import {NewSimConfig, SimConfigRow} from "../db/schema";
+import {NewSimConfigRow, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
-import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "@sensor-sim/shared";
+import {CreateSimConfig, SimConfig, UpdateSimConfig} from "@sensor-sim/shared";
 import {randomOffset} from "@sensor-sim/shared/geoUtils";
 
 
@@ -40,12 +40,12 @@ function stripUndefined<T extends object>(obj: T): Defined<T> {
 /** Compile error if A has keys that B doesn't (spreads skip excess-property checks). */
 type NoExtraKeys<A, B> = [Exclude<keyof A, keyof B>] extends [never] ? true : never;
 
-true satisfies NoExtraKeys<UpdateSimConfigDto, PatchSimConfig>;
+true satisfies NoExtraKeys<UpdateSimConfig, PatchSimConfig>;
 
 
 // --- DTO -> row ---
 
-export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
+export function toCreate(dto: CreateSimConfig, ownerId: number) {
 
   if (!dto.label) {
     dto.label = undefined;
@@ -56,7 +56,7 @@ export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
     ...dto,
     ownerId,
     shareToken: ""
-  } satisfies NewSimConfig;
+  } satisfies NewSimConfigRow;
 }
 
 // example, add timestamps
@@ -64,13 +64,13 @@ export function toInsert(dto: CreateSimConfigDto, ownerId: number) {
 //  return { ...dto, createdAt: now, updatedAt: now } satisfies NewUser;
 //}
 
-export function toUpdate(dto: UpdateSimConfigDto) {
+export function toUpdate(dto: UpdateSimConfig) {
   return {
     ...stripUndefined(dto),
   } satisfies PatchSimConfig;
 }
 
-export function toDto(row: SimConfigRow): SimConfigDto {
+export function toDto(row: SimConfigRow): SimConfig {
   return {
     id: row.id,
     label: row.label,

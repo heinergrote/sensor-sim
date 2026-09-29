@@ -10,7 +10,7 @@ import {
 export type SimState = {
   id: number,
   start: number,
-  current: PositionDto,
+  current: GeoPosition,
   distance: number,
   azimuth: number,
 }
@@ -26,10 +26,12 @@ export type Profile = {
   username: string,
   admin: boolean,
 }
-export type CreateUserDto = z.infer<typeof createUserSchema>;
-export type UpdateUserDto = z.infer<typeof updateUserSchema>;
-export type UserDto = z.infer<typeof userResponseSchema>;
-export type CreateSimConfigDto = z.infer<typeof createSimConfigSchema>;
-export type UpdateSimConfigDto = z.infer<typeof updateSimConfigSchema>;
-export type SimConfigDto = z.infer<typeof simConfigResponseSchema>;
-export type PositionDto = z.infer<typeof positionSchema>;
+export type CreateUser = z.infer<typeof createUserSchema>;
+export type UpdateUser = z.infer<typeof updateUserSchema>;
+export type User = z.infer<typeof userResponseSchema>;
+
+export type CreateSimConfig = z.infer<typeof createSimConfigSchema>;
+export type UpdateSimConfig = z.infer<typeof updateSimConfigSchema>;
+export type SimConfig = z.infer<typeof simConfigResponseSchema>;
+
+export type GeoPosition = z.infer<typeof positionSchema>;

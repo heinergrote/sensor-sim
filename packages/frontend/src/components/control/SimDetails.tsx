@@ -22,9 +22,9 @@ import {
   updateSpeed,
   updateType
 } from "../../service/configs.service";
-import {SimConfigDto} from "@sensor-sim/shared";
+import {SimConfig} from "@sensor-sim/shared";
 
-export function SimDetails(props: { simConfig: SimConfigDto }) {
+export function SimDetails(props: { simConfig: SimConfig }) {
 
   const updateTypeAction = useAction(updateType)
   const deleteSimAction = useAction(deleteSimConfig)

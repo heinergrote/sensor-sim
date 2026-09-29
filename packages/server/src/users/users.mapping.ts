@@ -1,9 +1,9 @@
 // --- DTO -> row ---
 
 import {NewUserRow, UpdateUserRow, UserRow} from "../db/schema";
-import {CreateUserDto, UpdateUserDto, UserDto} from "@sensor-sim/shared";
+import {CreateUser, UpdateUser, User} from "@sensor-sim/shared";
 
-export function toInsert(dto: CreateUserDto) {
+export function toCreate(dto: CreateUser) {
   return {
     ...dto,
   } satisfies NewUserRow;
@@ -14,13 +14,13 @@ export function toInsert(dto: CreateUserDto) {
 //  return { ...dto, createdAt: now, updatedAt: now } satisfies NewSomeRow;
 //}
 
-export function toUpdate(dto: UpdateUserDto) {
+export function toUpdate(dto: UpdateUser) {
   return {
     ...dto,
   } satisfies UpdateUserRow;
 }
 
-export function toDto(row: UserRow): UserDto {
+export function toDto(row: UserRow): User {
   // password gets stripped
   return {
     id: row.id,
