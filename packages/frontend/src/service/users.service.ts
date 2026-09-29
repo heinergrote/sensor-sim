@@ -1,6 +1,6 @@
 import {api} from "../api";
 import {action, query} from "@solidjs/router";
-import {UserDto} from "@sensor-sim/server";
+import {UserDto} from "@sensor-sim/shared";
 
 export const fetchUsers = query(async () => {
   return api.get<UserDto[]>(`/users`).json();

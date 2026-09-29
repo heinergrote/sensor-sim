@@ -25,7 +25,6 @@ pnpm lint                      # oxlint src
   `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
   per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
-- `src/geoCalc.ts` — turf helpers (`getPosition`, `getDistance`, `getAzimuth`).
 
 ### Simulations: configs vs. live state
 
@@ -49,7 +48,7 @@ pnpm lint                      # oxlint src
 - `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
   Target marker ← config; current marker ← `SimState` via `addSimulationListener`. Dragging the target PATCHes
   `targetLatitude/Longitude`; dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
-  (`geoCalc.ts`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6: `setWorkerUrl` with a
+  (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6: `setWorkerUrl` with a
   `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
   `transformRequest` (read once at map creation).
 
@@ -60,9 +59,10 @@ query/actions driven by form `action=`. Components in `components/users/` are ty
 
 ### Server types
 
-Import only DTO types from `@sensor-sim/server` (`SimConfigDto`, `UpdateSimConfigDto`, `SimState`, `PositionDto`,
-`StatusMessage`, `UserDto`, `Profile`). They come from the server's **source**, so schema changes break `tsc` here
-immediately — renamed routes don't.
+Import DTO types from `@sensor-sim/shared` (`SimConfigDto`, `UpdateSimConfigDto`, `SimState`, `PositionDto`,
+`StatusMessage`, `UserDto`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
+**source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
+too (e.g. for client-side validation), but that pulls `zod` into the bundle.
 
 `Nav.tsx` currently has a temporary "X" button that force-revalidates `fetchSimConfigs` (debug aid).
 

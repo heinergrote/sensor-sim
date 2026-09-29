@@ -1,5 +1,5 @@
 import {SimulationRunner} from "./simengine/simulationRunner";
-import {SimConfigDto, UserDto} from "./sharedTypes";
+import {SimConfigDto, UserDto} from "@sensor-sim/shared";
 
 
 export type JWTPayload = {

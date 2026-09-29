@@ -10,7 +10,7 @@ import {
   insertSimConfig,
   updateSimConfig
 } from "./simconfigs.repository";
-import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema} from "./simconfigs.schemas";
+import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema} from "@sensor-sim/shared";
 import {createMiddleware} from "hono/factory";
 import {toDto, toInsert, toUpdate} from "./mappings";
 import {sendStatusMessage} from "../status/status.service";

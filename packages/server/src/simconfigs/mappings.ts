@@ -1,7 +1,7 @@
 import {NewSimConfig, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
-import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "../sharedTypes";
-import {randomOffset} from "../util/randomOffset";
+import {CreateSimConfigDto, SimConfigDto, UpdateSimConfigDto} from "@sensor-sim/shared";
+import {randomOffset} from "@sensor-sim/shared/geoUtils";
 
 
 const defaultTarget = {latitude: 52.264683, longitude: 10.523783};

@@ -1,4 +1,4 @@
-import {UserDto} from "@sensor-sim/server";
+import {UserDto} from "@sensor-sim/shared";
 import {createMemo, For} from "solid-js";
 import {paths} from "../../router";
 

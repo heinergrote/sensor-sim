@@ -106,5 +106,3 @@ function shutdown(signal: NodeJS.Signals) {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-
-export * from "./sharedTypes";

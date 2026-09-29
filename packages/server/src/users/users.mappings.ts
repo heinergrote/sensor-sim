@@ -1,7 +1,7 @@
 // --- DTO -> row ---
 
 import {NewUserRow, UpdateUserRow, UserRow} from "../db/schema";
-import {CreateUserDto, UpdateUserDto, UserDto} from "../sharedTypes";
+import {CreateUserDto, UpdateUserDto, UserDto} from "@sensor-sim/shared";
 
 export function toInsert(dto: CreateUserDto) {
   return {

@@ -1,6 +1,6 @@
 import {TbOutlineArrowLeft, TbOutlineDeviceFloppy, TbOutlineTrash} from "solid-icons/tb";
 import {useAction, useNavigate} from "@solidjs/router";
-import {UserDto} from "@sensor-sim/server";
+import {UserDto} from "@sensor-sim/shared";
 import {deleteUser, updateUser} from "../../service/users.service";
 
 export function UserDetail(props: {

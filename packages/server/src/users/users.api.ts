@@ -4,7 +4,7 @@ import {zValidator} from "@hono/zod-validator";
 import {hashPassword} from "../util/passwords";
 import {jwtMiddleware} from "../middleware/jwtAuth";
 import {requireRole} from "../middleware/requireRole";
-import {createUserSchema, updateUserSchema, userIdParamSchema} from "./users.schemas";
+import {createUserSchema, updateUserSchema, userIdParamSchema} from "@sensor-sim/shared";
 import {toDto, toInsert, toUpdate} from "./users.mappings";
 
 export const usersApp = new Hono()

@@ -1,11 +1,11 @@
 import {z} from "zod";
-import {createUserSchema, updateUserSchema, userResponseSchema} from "./users/users.schemas";
+import {createUserSchema, updateUserSchema, userResponseSchema} from "./schemas/users";
 import {
   createSimConfigSchema,
   positionSchema,
   simConfigResponseSchema,
   updateSimConfigSchema
-} from "./simconfigs/simconfigs.schemas";
+} from "./schemas/simconfigs";
 
 export type SimState = {
   id: number,

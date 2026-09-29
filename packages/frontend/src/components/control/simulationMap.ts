@@ -3,8 +3,8 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {useAction} from "@solidjs/router";
 import {addSimulationListener} from "../../service/simulation.service";
 import {updateSimConfig} from "../../service/configs.service";
-import {PositionDto, SimConfigDto, SimState} from "@sensor-sim/server";
-import {getAzimuth, getDistance} from "../../geoCalc";
+import {PositionDto, SimConfigDto, SimState} from "@sensor-sim/shared";
+import {getAzimuth, getDistance} from "@sensor-sim/shared/geoUtils";
 
 setWorkerUrl(workerUrl);
 

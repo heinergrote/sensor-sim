@@ -1,7 +1,7 @@
 import {Hono} from 'hono'
 import {jwtMiddleware} from '../middleware/jwtAuth'
 import {HonoGlobalVars} from '../types'
-import {Profile} from "../sharedTypes";
+import {Profile} from "@sensor-sim/shared";
 
 export const meApp = new Hono<{ Variables: HonoGlobalVars }>()
 

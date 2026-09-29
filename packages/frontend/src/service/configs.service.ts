@@ -1,4 +1,4 @@
-import {SimConfigDto, StatusMessage, UpdateSimConfigDto} from "@sensor-sim/server";
+import {SimConfigDto, StatusMessage, UpdateSimConfigDto} from "@sensor-sim/shared";
 import {createEffect, createRoot} from "solid-js";
 import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";

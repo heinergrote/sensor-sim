@@ -1,6 +1,6 @@
 import {createEventStream} from "../util/eventStream";
-import {getPosition} from "../util/geoCalc";
-import {SimConfigDto, SimState} from "../sharedTypes";
+import {getPosition} from "@sensor-sim/shared/geoUtils";
+import {SimConfigDto, SimState} from "@sensor-sim/shared";
 
 export type SimulationRunner = ReturnType<typeof createSimulationRunner>
 

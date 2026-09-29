@@ -40,15 +40,14 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 ## Architecture
 
 ```
-src/index.ts       bootstrap, mounts subapps, serves frontend, graceful shutdown; re-exports sharedTypes.ts
-src/sharedTypes.ts network DTOs shared with the frontend (SimConfigDto, UserDto, SimState, StatusMessage, …)
+src/index.ts       bootstrap, mounts subapps, serves frontend, graceful shutdown
 src/db/            Drizzle schema (row types), client, migrate + admin seed
-src/simconfigs/    /api/configs — persisted sim configs (api, repository, Zod schemas, mappings)
+src/simconfigs/    /api/configs — persisted sim configs (api, repository, mappings)
 src/simengine/     SimulationEngine (id → runner) + SimulationRunner (100 ms tick) + /api/sims (read-only)
-src/users/         /api/users — admin CRUD (api, repository, schemas, mappings)
+src/users/         /api/users — admin CRUD (api, repository, mappings)
 src/login/ me/ maptiler/ status/ shared/   remaining subapps
 src/middleware/    jwtAuth, requireRole, withOwnSim, simShareMiddleware
-src/util/          shareTokens, eventStream, geoCalc, passwords, appSecret
+src/util/          shareTokens, eventStream, passwords, appSecret
 ```
 
 **Config vs. runtime.** A sim config is the durable row in `sim_configs`; the engine keeps one in-memory runner

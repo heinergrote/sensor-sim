@@ -9,6 +9,7 @@ point, watch them live on a map, and feed their positions into your own app as i
   auth, MapTiler proxy; in production it serves the UI too.
 - **[packages/frontend](packages/frontend)** — the management UI: map, simulation controls, user administration
   (SolidJS 2 + MapLibre).
+- **[packages/shared](packages/shared)** — the API contract (Zod schemas and DTO types) used by both.
 
 ## Quick start
 

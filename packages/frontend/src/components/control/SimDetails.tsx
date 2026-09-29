@@ -22,7 +22,7 @@ import {
   updateSpeed,
   updateType
 } from "../../service/configs.service";
-import {SimConfigDto} from "@sensor-sim/server";
+import {SimConfigDto} from "@sensor-sim/shared";
 
 export function SimDetails(props: { simConfig: SimConfigDto }) {
 
