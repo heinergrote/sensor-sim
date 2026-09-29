@@ -1,8 +1,8 @@
 import {db} from "../db";
-import {NewSimConfig, simConfigs} from "../db/schema";
+import {NewSimConfigRow, simConfigs} from "../db/schema";
 import {eq} from "drizzle-orm";
 
-export type PatchSimConfig = Partial<Omit<NewSimConfig, "id" | "ownerId">>;
+export type PatchSimConfig = Partial<Omit<NewSimConfigRow, "id" | "ownerId">>;
 
 export async function getSimConfigs() {
   return await db
@@ -29,7 +29,7 @@ export async function getSimConfigById(id: number) {
   return row;
 }
 
-export async function insertSimConfig(ownerId: number, simConfig: NewSimConfig) {
+export async function insertSimConfig(ownerId: number, simConfig: NewSimConfigRow) {
   const [row] = await db.insert(simConfigs).values({...simConfig, ownerId}).returning();
   return row;
 }

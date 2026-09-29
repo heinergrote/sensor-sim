@@ -1,5 +1,5 @@
 import {SimulationRunner} from "./simengine/simulationRunner";
-import {SimConfigDto, UserDto} from "./sharedTypes";
+import {SimConfig, User} from "@sensor-sim/shared";
 
 
 export type JWTPayload = {
@@ -10,7 +10,7 @@ export type JWTPayload = {
 }
 
 export type HonoGlobalVars = {
-  user: UserDto;
+  user: User;
 };
 
 export type HonoSimRunnerVars = HonoGlobalVars & {
@@ -18,7 +18,7 @@ export type HonoSimRunnerVars = HonoGlobalVars & {
 };
 
 export type HonoSimConfigsVars = HonoGlobalVars & {
-  simConfig: SimConfigDto,
+  simConfig: SimConfig,
 };
 
 

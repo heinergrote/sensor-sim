@@ -31,12 +31,12 @@ export function SimList() {
       </form>
 
       <For each={simConfigs()} keyed={(config) => config.id}>
-        {(config, key) => (
+        {(config) => (
 
           <div class="card w-full bg-base-200 card-md shadow-sm mb-2">
             <div class="card-body">
               <h2 class="card-title">{config().id} - {config().label}</h2>
-              <div class="flex items-center"></div>
+              <div class="flex items-center"/>
               <div class={"flex-1"}>
                 <SimDetails simConfig={config()}/>
               </div>

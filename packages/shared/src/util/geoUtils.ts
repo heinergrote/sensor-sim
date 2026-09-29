@@ -1,10 +1,6 @@
 import * as turf from "@turf/turf";
 import {point} from "@turf/turf";
-
-type Position = {
-  longitude: number;
-  latitude: number;
-}
+import type {GeoPosition as Position} from "../types";
 
 export function getPosition(origin: Position, distance: number, azimuth: number): Position {
   const position = turf.destination(point([origin.longitude, origin.latitude]), distance, azimuth, {units: "meters"});
@@ -28,5 +24,8 @@ export function getAzimuth(from: Position, to: Position): number {
   );
 }
 
-
-
+export function randomOffset(origin: Position, minMeters: number, maxMeters: number): Position {
+  const azimuth = Math.random() * 360;
+  const distance = minMeters + Math.random() * (maxMeters - minMeters);
+  return getPosition(origin, distance, azimuth);
+}

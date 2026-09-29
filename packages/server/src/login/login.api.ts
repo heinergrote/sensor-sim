@@ -4,7 +4,7 @@ import {getUserByName} from "../users/user.repository";
 import {verifyPassword} from "../util/passwords";
 import {sign} from "hono/jwt";
 import {JWTPayload} from "../types";
-import {loginSchema} from "./login.schema";
+import {login} from "@sensor-sim/shared";
 
 const jwtSecret = process.env.JWT_SECRET
 if (!jwtSecret) {
@@ -13,7 +13,7 @@ if (!jwtSecret) {
 
 export const loginApp = new Hono()
 
-  .post('/', zValidator('json', loginSchema),
+  .post('/', zValidator('json', login),
     async (c) => {
       const {username, password} = c.req.valid("json")
 

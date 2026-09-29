@@ -1,8 +1,6 @@
 {
   "name": "@sensor-sim/server",
   "type": "module",
-  "exports": "./src/index.ts",
-  "types": "./src/index.ts",
   "files": [
     "dist",
     "drizzle"
@@ -22,7 +20,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.12",
     "@hono/zod-validator": "^0.9.1",
-    "@turf/turf": "7.3.5",
+    "@sensor-sim/shared": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "^4.12.34",
     "ws": "^8.21.1",

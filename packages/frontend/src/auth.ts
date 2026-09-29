@@ -1,6 +1,6 @@
 import {createMemo, createSignal} from 'solid-js'
 import {serverUrl} from "./api";
-import {Profile} from "@sensor-sim/server";
+import {Profile} from "@sensor-sim/shared";
 import ky from "ky";
 
 
@@ -30,7 +30,7 @@ export function useAuth() {
     });
     try {
       return await api.get<Profile>("/api/me").json()
-    } catch (e) {
+    } catch {
       logout()
       return null
     }

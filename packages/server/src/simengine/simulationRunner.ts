@@ -1,10 +1,10 @@
 import {createEventStream} from "../util/eventStream";
-import {getPosition} from "../util/geoCalc";
-import {SimConfigDto, SimState} from "../sharedTypes";
+import {getPosition} from "@sensor-sim/shared/geoUtils";
+import {SimConfig, SimState} from "@sensor-sim/shared";
 
 export type SimulationRunner = ReturnType<typeof createSimulationRunner>
 
-export function createSimulationRunner(config: SimConfigDto) {
+export function createSimulationRunner(config: SimConfig) {
 
   let simState: SimState = initialState();
 
@@ -81,9 +81,9 @@ export function createSimulationRunner(config: SimConfigDto) {
     simStateStream.emit(); // reemit the current state
   }
 
-  function applySimConfig(newConfig: SimConfigDto) {
+  function applySimConfig(newConfig: SimConfig) {
 
-    type ConfigField = keyof SimConfigDto
+    type ConfigField = keyof SimConfig
 
     const relevantFields: ConfigField[] = ['type', 'playing', 'targetLatitude', 'targetLongitude', 'initialAzimuth', 'initialDistance', 'speed']
     const noRestartFields: ConfigField[] = ['type', 'speed']

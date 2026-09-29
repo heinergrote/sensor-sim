@@ -1,6 +1,6 @@
 import {serverUrl} from "../api";
 import {jwtToken} from "../auth";
-import {SimState} from "@sensor-sim/server";
+import {SimState} from "@sensor-sim/shared";
 
 export type SimulationListener = ((simState: SimState) => void)
 

@@ -1,5 +1,9 @@
 import {number, z} from "zod";
 
+export const simConfigIdParam = z.object({
+  id: z.coerce.number().int().positive()
+});
+
 const positionFields = z.object({
   latitude: z.number(),
   longitude: z.number()
@@ -38,16 +42,3 @@ export const updateSimConfigSchema =
     .omit({id: true, ownerId: true, shareToken: true})
     .partial()
 ;
-
-export const simConfigIdParam = z.object({
-  id: z.coerce.number().int().positive()
-});
-
-
-
-
-
-
-
-
-

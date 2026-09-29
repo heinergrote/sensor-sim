@@ -39,7 +39,7 @@ export const simConfigs = pgTable("sim_configs", {
 });
 
 export type SimConfigRow = typeof simConfigs.$inferSelect;
-export type NewSimConfig = typeof simConfigs.$inferInsert;
+export type NewSimConfigRow = typeof simConfigs.$inferInsert;
 
 // ---------------------------------------------------------
 

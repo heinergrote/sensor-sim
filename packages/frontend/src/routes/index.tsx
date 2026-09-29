@@ -16,7 +16,6 @@ export default function Home() {
       <Show when={user()} fallback={<LoginForm/>}>
         <div>Logged in as {user()?.username}</div>
       </Show>
-      {/*<div>{import.meta.env.DEV ? "DEV" : ""}</div>*/}
 
     </div>
   );

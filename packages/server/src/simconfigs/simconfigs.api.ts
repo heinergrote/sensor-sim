@@ -10,9 +10,9 @@ import {
   insertSimConfig,
   updateSimConfig
 } from "./simconfigs.repository";
-import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema} from "./simconfigs.schemas";
+import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema} from "@sensor-sim/shared";
 import {createMiddleware} from "hono/factory";
-import {toDto, toInsert, toUpdate} from "./mappings";
+import {toCreate, toDto, toUpdate} from "./simconfigs.mapping";
 import {sendStatusMessage} from "../status/status.service";
 import {HonoSimConfigsVars} from "../types";
 
@@ -81,7 +81,7 @@ export const simConfigsApp = new Hono<{
       const user = c.get('user')
 
       const json = c.req.valid('json')
-      const newSimConfig = toInsert(json, user.id)
+      const newSimConfig = toCreate(json, user.id)
 
       const result = await insertSimConfig(user.id, newSimConfig)
       await handleSimConfigsUpdate()

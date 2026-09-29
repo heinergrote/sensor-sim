@@ -9,6 +9,7 @@ export default function SimMap() {
 
   const [mapReady, setMapReady] = createSignal(false);
 
+  // oxlint-disable-next-line no-unassigned-vars
   let mapEl!: HTMLDivElement
   let map: SimulationMap | undefined;
 

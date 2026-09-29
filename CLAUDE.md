@@ -9,6 +9,7 @@ broadcast their position in real time over WebSockets. Access is gated by JWT au
 store.
 
 ```
+packages/shared      – network contract: Zod request/response schemas + DTO types, SimState, StatusMessage, Profile
 packages/server      – Hono + ws: sim configs (Postgres/Drizzle), in-memory simulation engine, users, JWT auth,
                        MapTiler proxy; serves the built frontend in prod
 packages/frontend    – SolidJS 2.x management UI (MapLibre map, sim controls, login, user admin)
@@ -27,7 +28,7 @@ pnpm dev                                     # server (:4000) + frontend (:3000)
 pnpm dev:server                              # server only (tsx watch)
 pnpm dev:frontend                            # frontend only (vite)
 pnpm build                                   # = server build (builds the frontend first)
-pnpm typecheck                               # tsc --noEmit in both packages
+pnpm typecheck                               # tsc --noEmit in all packages
 
 pnpm --filter @sensor-sim/server migrate:dev # migrations + admin seed — run before first dev start
 pnpm --filter @sensor-sim/server db:generate # drizzle-kit: SQL migration from src/db/schema.ts → drizzle/
@@ -45,14 +46,16 @@ definition; a *simulation* (`/api/sims`) is the read-only in-memory runner deriv
 Every write goes through `/api/configs` (start/stop included — they just flip `playing`); the server then resyncs
 the engine from the DB and pings `/api/status/ws` so clients refetch the config list.
 
-**Two type layers, one shared surface.** DB row types come from Drizzle (`db/schema.ts`); network DTOs come from Zod
-schemas (`<module>/*.schemas.ts`) and are converted by `<module>/*mappings.ts` (`toInsert`/`toUpdate`/`toDto`). Only
-`packages/server/src/sharedTypes.ts` (DTOs, `SimState`, `StatusMessage`, `Profile`) is re-exported to the frontend —
-never export row types across the boundary.
+**Two type layers, one shared surface.** DB row types come from Drizzle (`packages/server/src/db/schema.ts`);
+network DTOs are `z.infer`'d from the Zod schemas in `@sensor-sim/shared` and converted by the server's
+`<module>/*mappings.ts` (`toInsert`/`toUpdate`/`toDto`). `packages/shared` is the only surface the frontend sees —
+never put row types or server-only code (Drizzle, Hono, node APIs) in it. Pure helpers used on both sides
+live there too (`@sensor-sim/shared/geoUtils`, a subpath export so the frontend doesn't pull in the Zod schemas).
 
-**Types cross the package boundary through source, not an RPC client.** `@sensor-sim/server`'s `exports` points at
-`src/index.ts`; the frontend imports DTO types from it and calls endpoints with plain `ky`. A schema change breaks
-`tsc` on both sides; a renamed route only fails at runtime.
+**Types cross the package boundary through source, not an RPC client.** `@sensor-sim/shared`'s `exports` points at
+`src/index.ts` (no build step); server and frontend both depend on it, the frontend calls endpoints with plain `ky`.
+A schema change breaks `tsc` on both sides; a renamed route only fails at runtime. Because it ships `.ts`, the
+server's `tsup.config.ts` bundles it (`noExternal`) — the prod `node dist/index.js` never loads it from node_modules.
 
 **One origin in prod, two in dev.** The server serves `dist/public` (else `../../frontend/dist/client`) with SPA
 fallback. In dev Vite (`:3000`) talks cross-origin to `:4000`; CORS is `origin: '*'` unconditionally.

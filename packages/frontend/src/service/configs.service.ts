@@ -1,4 +1,4 @@
-import {SimConfigDto, StatusMessage, UpdateSimConfigDto} from "@sensor-sim/server";
+import {SimConfig, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
 import {createEffect, createRoot} from "solid-js";
 import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
@@ -7,7 +7,7 @@ import {jwtToken, useAuth} from "../auth";
 const RECONNECT_MIN_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 30000
 
-const dispose = createRoot(dispose => {
+const _dispose = createRoot(dispose => {
   const {user} = useAuth()
   let lastConfigListUpdatedAt = 0
   let wss: WebSocket | undefined
@@ -73,17 +73,17 @@ const dispose = createRoot(dispose => {
 
 
 export const fetchSimConfigs = query(async () => {
-  return api.get<SimConfigDto[]>(`/configs`).json()
+  return api.get<SimConfig[]>(`/configs`).json()
 }, "simConfigs");
 
 
 export const fetchSimConfig = query(async (id: number) => {
-  return api.get<SimConfigDto>(`/configs/${id}`).json()
+  return api.get<SimConfig>(`/configs/${id}`).json()
 }, "simConfig");
 
 
 export const addSimConfig = action(async (form: FormData) => {
-  return api.post<SimConfigDto>(`/configs`, {
+  return api.post<SimConfig>(`/configs`, {
     json: {
       type: form.get("type") as "follow" | "circle",
       label: form.get("label") as string
@@ -91,14 +91,14 @@ export const addSimConfig = action(async (form: FormData) => {
   }).json()
 })
 
-export const updateSimConfig = action(async (id: number, config: UpdateSimConfigDto) => {
-  return api.patch<SimConfigDto>(`/configs/${id}`, {
+export const updateSimConfig = action(async (id: number, config: UpdateSimConfig) => {
+  return api.patch<SimConfig>(`/configs/${id}`, {
     json: config
   }).json()
 })
 
 export const deleteSimConfig = action(async (id: number) => {
-  return api.delete<SimConfigDto>(`/configs/${id}`).json()
+  return api.delete<SimConfig>(`/configs/${id}`).json()
 })
 
 export const startSim = action(async (id: number) => {
@@ -110,13 +110,13 @@ export const stopSim = action(async (id: number) => {
 })
 
 export const updateType = action(async (id: number, type: "follow" | "circle") => {
-  return api.patch<SimConfigDto>(`/configs/${id}`, {
+  return api.patch<SimConfig>(`/configs/${id}`, {
     json: {type}
   }).json()
 })
 
 export const updateSpeed = action(async (id: number, speed: number) => {
-  return api.patch<SimConfigDto>(`/configs/${id}`, {
+  return api.patch<SimConfig>(`/configs/${id}`, {
     json: {speed}
   }).json()
 })

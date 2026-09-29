@@ -25,40 +25,40 @@ No test suite. `http/users.http` has ready-made login/user requests.
 
 ```
 index.ts                 bootstrap; creates + exports `simulationEngine` (top-level await), mounts subapps,
-                         serves frontend, SIGINT/SIGTERM shutdown; `export * from "./sharedTypes"`
-sharedTypes.ts           THE frontend-visible types: *Dto (z.infer of module schemas), SimState, StatusMessage, Profile
+                         serves frontend, SIGINT/SIGTERM shutdown
 types.ts                 server-internal: JWTPayload, HonoGlobalVars {user}, HonoSimRunnerVars {+simRunner},
                          HonoSimConfigsVars {+simConfig}
 db/                      schema.ts (tables + *Row types), index.ts (client), dbInit.ts (migrate + seed; migrate.ts only)
-simconfigs/              simconfigs.api.ts (/api/configs), .repository.ts, .schemas.ts, mappings.ts
+simconfigs/              simconfigs.api.ts (/api/configs), .repository.ts, mappings.ts
 simengine/               simulationEngine.ts (Map<id, runner>), simulationRunner.ts (tick loop), sims.api.ts (/api/sims)
-users/                   users.api.ts (/api/users), user.repository.ts, users.schemas.ts, users.mappings.ts
-login/ me/ maptiler/     login.api.ts + login.schema.ts, me.api.ts, maptiler.api.ts
+users/                   users.api.ts (/api/users), user.repository.ts, users.mappings.ts
+login/ me/ maptiler/     login.api.ts, me.api.ts, maptiler.api.ts
 status/                  status.service.ts (statusStream, sendStatusMessage), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
-util/                    shareTokens, eventStream, geoCalc (turf), passwords (scrypt), appSecret, randomOffset
+util/                    shareTokens, eventStream, passwords (scrypt), appSecret; geo helpers (incl.
+                         randomOffset) come from `@sensor-sim/shared/geoUtils`
 ```
 
-New feature → new directory with `<name>.api.ts` / `.repository.ts` / `.schemas.ts` / mappings, following
-`simconfigs/` or `users/`.
+New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings, following `simconfigs/` or
+`users/`; its Zod schemas (bodies, responses, id params) and DTO types go into `packages/shared/src/schemas`.
 
 ## Type layering rules
 
-- **DB layer:** `db/schema.ts` exports `UserRow`/`NewUserRow`/`UpdateUserRow`, `SimConfigRow`/`NewSimConfig`.
+- **DB layer:** `db/schema.ts` exports `UserRow`/`NewUserRow`/`UpdateUserRow`, `SimConfigRow`/`NewSimConfigRow`.
   Repositories take and return rows only.
-- **Network layer:** Zod schemas in `*.schemas.ts` (`create*`, `update*`, `*Response`, id params); DTO types are
-  `z.infer`'d in `sharedTypes.ts`. Handlers validate with `zValidator` and **return `toDto(row)`, never a raw row** —
+- **Network layer:** Zod schemas (`create*`, `update*`, `*Response`, id params, `login`) and their `z.infer`'d DTO
+  types live in `@sensor-sim/shared`. Handlers validate with `zValidator` and **return `toDto(row)`, never a raw row** —
   `toDto` is where `password` is stripped.
 - **Mappings** (`toInsert`/`toUpdate`/`toDto`) bridge the two. `simconfigs/mappings.ts` holds create defaults and
   `stripUndefined` (PATCH semantics: `undefined` dropped, `null` kept) plus a compile-time `NoExtraKeys` check.
-- Row types must not appear in `sharedTypes.ts`.
+- Row types must not appear in `@sensor-sim/shared`.
 
 ## Config vs. runtime
 
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
-  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced
-  (500 ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
+  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced (500
+  ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
 - `syncConfigs` is **serialized** through a promise queue (`syncQueue`) — concurrent requests would otherwise apply
   an older DB snapshot after a newer one and dispose a just-created runner. Always go through `syncConfigs()`,
   never call the inner `doSyncConfigs()` directly.

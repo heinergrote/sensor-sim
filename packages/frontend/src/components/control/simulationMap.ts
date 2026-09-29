@@ -3,8 +3,8 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {useAction} from "@solidjs/router";
 import {addSimulationListener} from "../../service/simulation.service";
 import {updateSimConfig} from "../../service/configs.service";
-import {PositionDto, SimConfigDto, SimState} from "@sensor-sim/server";
-import {getAzimuth, getDistance} from "../../geoCalc";
+import {GeoPosition, SimConfig, SimState} from "@sensor-sim/shared";
+import {getAzimuth, getDistance} from "@sensor-sim/shared/geoUtils";
 
 setWorkerUrl(workerUrl);
 
@@ -38,7 +38,7 @@ function createCurrentMarkerElement(): HTMLElement {
 
 export type SimulationMap = {
   map: MapLibre,
-  updateSimConfigs: (simConfigs: SimConfigDto[]) => void,
+  updateSimConfigs: (simConfigs: SimConfig[]) => void,
   dispose: () => void
 }
 
@@ -50,7 +50,7 @@ type TrackedSim = {
   draggingTarget: boolean,
   draggingCurrent: boolean,
   updateState: (simState: SimState) => void,
-  updateConfig: (simConfig: SimConfigDto) => void,
+  updateConfig: (simConfig: SimConfig) => void,
   dispose: () => void
 }
 
@@ -104,7 +104,7 @@ export function createSimulationMap(
 
   const trackedSims = new Map<number, TrackedSim>();
 
-  function createTrackedSim(newConfig: SimConfigDto) {
+  function createTrackedSim(newConfig: SimConfig) {
 
     let config = {...newConfig}
 
@@ -132,7 +132,7 @@ export function createSimulationMap(
       draggingTarget: false,
       draggingCurrent: false,
 
-      updateConfig: (newConfig: SimConfigDto) => {
+      updateConfig: (newConfig: SimConfig) => {
         config = {...newConfig}
 
         if (!trackedSim.targetOnMap) {
@@ -169,8 +169,8 @@ export function createSimulationMap(
 
       const {lng: targetLongitude, lat: targetLatitude} = targetMarker.getLngLat()
       const currentLngLat = trackedSim.currentMarker.getLngLat()
-      const targetPosition: PositionDto = {longitude: targetLongitude, latitude: targetLatitude}
-      const currentPosition: PositionDto = {longitude: currentLngLat.lng, latitude: currentLngLat.lat}
+      const targetPosition: GeoPosition = {longitude: targetLongitude, latitude: targetLatitude}
+      const currentPosition: GeoPosition = {longitude: currentLngLat.lng, latitude: currentLngLat.lat}
 
       // calculate new initial distance and azimuth
       const initialDistance = getDistance(targetPosition, currentPosition)
@@ -188,8 +188,8 @@ export function createSimulationMap(
       trackedSim.draggingCurrent = false;
 
       const {lng: currentLongitude, lat: currentLatitude} = currentMarker.getLngLat()
-      const targetPosition: PositionDto = {longitude: config.targetLongitude, latitude: config.targetLatitude}
-      const currentPosition: PositionDto = {longitude: currentLongitude, latitude: currentLatitude}
+      const targetPosition: GeoPosition = {longitude: config.targetLongitude, latitude: config.targetLatitude}
+      const currentPosition: GeoPosition = {longitude: currentLongitude, latitude: currentLatitude}
 
       // calculate new initial distance and azimuth
       const initialDistance = getDistance(targetPosition, currentPosition)
@@ -210,7 +210,7 @@ export function createSimulationMap(
 
   }
 
-  function updateSimConfigs(simConfigs: readonly SimConfigDto[]) {
+  function updateSimConfigs(simConfigs: readonly SimConfig[]) {
     // add new, remove deleted sims
     simConfigs.forEach(config => {
 

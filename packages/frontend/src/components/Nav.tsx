@@ -18,19 +18,19 @@ export default function Nav() {
     <Loading>
       <nav class="bg-base-300">
         <ul class="flex items-center p-2 gap-2">
-          <a class={`btn ${isHome() ? "btn-primary" : ""}`} href={paths()}>
+          <a class={["btn", {"btn-primary": Boolean(isHome())}]} href={paths()}>
             <TbOutlineHome size={24}/>
           </a>
           <Show when={user()}>
-            <a class={`btn ${isControl() ? "btn-primary" : ""}`} href={paths.control}>
+            <a class={["btn", {"btn-primary": Boolean(isControl())}]} href={paths.control}>
               <TbOutlineMapPinCog size={24}/> Control
             </a>
           </Show>
           <Show when={user()?.admin}>
-            <a class={`btn ${isUsers() ? "btn-primary" : ""}`} href={paths.users}>
+            <a class={["btn", {"btn-primary": Boolean(isUsers())}]} href={paths.users}>
               <TbOutlineUsers size={24}/> Users</a>
           </Show>
-          <div class={`mx-1 flex-1`}></div>
+          <div class={`mx-1 flex-1`}/>
 
           <Show when={user()}>
             {user =>

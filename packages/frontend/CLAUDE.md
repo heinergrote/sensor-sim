@@ -25,7 +25,6 @@ pnpm lint                      # oxlint src
   `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
   per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
-- `src/geoCalc.ts` — turf helpers (`getPosition`, `getDistance`, `getAzimuth`).
 
 ### Simulations: configs vs. live state
 
@@ -37,8 +36,8 @@ pnpm lint                      # oxlint src
 - `src/service/simulation.service.ts` — live `SimState` only. `addSimulationListener(id, cb)` lazily opens one
   ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
   store.
-- **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff
-  (1 s → 30 s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
+- **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff (1 s → 30
+  s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
   so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
   socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
   retrying once the revalidated config list drops its map listener — which depends on the status socket being up.
@@ -49,20 +48,22 @@ pnpm lint                      # oxlint src
 - `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
   Target marker ← config; current marker ← `SimState` via `addSimulationListener`. Dragging the target PATCHes
   `targetLatitude/Longitude`; dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
-  (`geoCalc.ts`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6: `setWorkerUrl` with a
+  (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6:
+  `setWorkerUrl` with a
   `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
   `transformRequest` (read once at map creation).
 
 ### Users
 
 `src/service/users.service.ts` — `fetchUsers`, `fetchUser`, `addUser`, `updateUser`, `deleteUser` as router
-query/actions driven by form `action=`. Components in `components/users/` are typed on `UserDto`.
+query/actions driven by form `action=`. Components in `components/users/` are typed on `User`.
 
 ### Server types
 
-Import only DTO types from `@sensor-sim/server` (`SimConfigDto`, `UpdateSimConfigDto`, `SimState`, `PositionDto`,
-`StatusMessage`, `UserDto`, `Profile`). They come from the server's **source**, so schema changes break `tsc` here
-immediately — renamed routes don't.
+Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `SimState`, `GeoPosition`,
+`StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
+**source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
+too (e.g. for client-side validation), but that pulls `zod` into the bundle.
 
 `Nav.tsx` currently has a temporary "X" button that force-revalidates `fetchSimConfigs` (debug aid).
 

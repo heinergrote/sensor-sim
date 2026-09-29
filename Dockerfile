@@ -4,13 +4,14 @@
 #   docker build -t ghcr.io/heinergrote/sensor-sim .
 
 # ── deps ──────────────────────────────────────────────────────────────────────
-# Shared install layer. packages/frontend imports AppType from packages/server
-# at build time, so both manifests are needed here.
+# Shared install layer. Server and frontend both import DTO types/schemas from
+# packages/shared at build time, so all three manifests are needed here.
 FROM node:24-slim AS deps
 RUN corepack enable pnpm
 WORKDIR /repo
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json      ./packages/shared/
 COPY packages/server/package.json      ./packages/server/
 COPY packages/frontend/package.json    ./packages/frontend/
 
@@ -21,7 +22,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 # into packages/server/dist/public (see packages/server/scripts/copy-frontend.mjs),
 # so this single build step produces one self-contained server+frontend artifact.
 FROM deps AS build
-COPY packages/server      ./packages/server
+COPY packages/shared      ./packages/shared
+COPY packages/server     ./packages/server
 COPY packages/frontend      ./packages/frontend
 
 RUN pnpm --filter @sensor-sim/server build

@@ -22,8 +22,8 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 ## Key dependencies
 
 - **SolidJS 2.0** + **@solidjs/router** (filesystem routing, `query`/`action` data APIs)
-- **MapLibre GL 6** — map rendering; **@turf/turf** — distance/bearing when dragging markers
-- **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/server`'s source
+- **MapLibre GL 6** — map rendering; `@sensor-sim/shared/geoUtils` (turf) — distance/bearing when dragging markers
+- **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
 
 ## Environment variables
