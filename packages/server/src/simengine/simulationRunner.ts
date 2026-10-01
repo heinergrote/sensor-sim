@@ -1,34 +1,45 @@
 import {createEventStream} from "../util/eventStream";
 import {getPosition} from "@sensor-sim/shared/geoUtils";
-import {SimConfig, SimState} from "@sensor-sim/shared";
+import {SimConfig, SimData} from "@sensor-sim/shared";
 
 export type SimulationRunner = ReturnType<typeof createSimulationRunner>
 
 export function createSimulationRunner(config: SimConfig) {
 
-  let simState: SimState = initialState();
+  const simDataStream = createEventStream<SimData>();
+  simDataStream.emit(currentSimData);
 
   let interval: NodeJS.Timeout | undefined;
   let lastTick = Date.now();
 
-  const simStateStream = createEventStream<SimState>();
-  simStateStream.emit(() => simState);
+  let state = {
+    distance: config.initialDistance,
+    azimuth: config.initialAzimuth,
+    position: getPosition(
+      {latitude: config.targetLatitude, longitude: config.targetLongitude},
+      config.initialDistance, config.initialAzimuth
+    ),
+  }
 
-  if (config.playing) start();
-
-
-  function initialState(): SimState {
-    return {
-      id: config.id,
-      start: Date.now(),
-      current: getPosition(
+  function init() {
+    state = {
+      distance: config.initialDistance,
+      azimuth: config.initialAzimuth,
+      position: getPosition(
         {latitude: config.targetLatitude, longitude: config.targetLongitude},
         config.initialDistance, config.initialAzimuth
       ),
-      distance: config.initialDistance,
-      azimuth: config.initialAzimuth,
     }
   }
+
+  function currentSimData(): SimData {
+    return {
+      position: state.position,
+    }
+  }
+
+  init();
+  if (config.playing) start();
 
   function updateState(deltaMs: number) {
 
@@ -38,34 +49,34 @@ export function createSimulationRunner(config: SimConfig) {
     switch (config.type) {
 
       case "follow":
-        if (simState.distance <= stepDistance) {
+        if (state.distance <= stepDistance) {
           // snap to target
-          simState.current.longitude = targetLongitude;
-          simState.current.latitude = targetLatitude;
-          simState.distance = 0;
+          state.position.longitude = targetLongitude;
+          state.position.latitude = targetLatitude;
+          state.distance = 0;
         } else {
-          simState.distance -= stepDistance;
-          simState.current = getPosition(
+          state.distance -= stepDistance;
+          state.position = getPosition(
             {latitude: config.targetLatitude, longitude: config.targetLongitude},
-            simState.distance, simState.azimuth
+            state.distance, state.azimuth
           )
         }
         break;
 
       case "circle":
 
-        if (simState.distance <= stepDistance) {
+        if (state.distance <= stepDistance) {
           // snap to target
-          simState.current.longitude = targetLongitude;
-          simState.current.latitude = targetLatitude;
-          simState.distance = 0;
+          state.position.longitude = targetLongitude;
+          state.position.latitude = targetLatitude;
+          state.distance = 0;
         } else {
           // get the rotation angle from the step distance and radius distance
-          const angle = (stepDistance / simState.distance) * (180 / Math.PI);
-          simState.azimuth = (simState.azimuth + angle) % 360;
-          simState.current = getPosition(
+          const angle = (stepDistance / state.distance) * (180 / Math.PI);
+          state.azimuth = (state.azimuth + angle) % 360;
+          state.position = getPosition(
             {latitude: config.targetLatitude, longitude: config.targetLongitude},
-            simState.distance, simState.azimuth
+            state.distance, state.azimuth
           )
         }
         break;
@@ -78,7 +89,7 @@ export function createSimulationRunner(config: SimConfig) {
     const deltaMs = now - lastTick;
     lastTick = now;
     updateState(deltaMs);
-    simStateStream.emit(); // reemit the current state
+    simDataStream.emit(); // reemit the current state
   }
 
   function applySimConfig(newConfig: SimConfig) {
@@ -113,7 +124,7 @@ export function createSimulationRunner(config: SimConfig) {
   function start() {
     stop()
     lastTick = Date.now()
-    simState = initialState();
+    init();
 
     if (!interval) {
       tick()
@@ -132,17 +143,17 @@ export function createSimulationRunner(config: SimConfig) {
 
   function dispose() {
     stop()
-    simStateStream.close()
+    simDataStream.close()
   }
 
   return {
-    get simState() {
-      return simState
+    get simData() {
+      return currentSimData()
     },
     get config() {
       return config
     },
-    simStateStream, applySimConfig, start, stop, dispose
+    simDataStream, applySimConfig, start, stop, dispose
   };
 
 }

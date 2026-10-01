@@ -37,13 +37,13 @@ same-origin proxy. The MapTiler key never reaches the browser.
 
 ## Pages
 
-| Route        | Module            | What it does                                      |
-|--------------|-------------------|---------------------------------------------------|
-| `/`          | `index.tsx`       | Login form, or "logged in as …"                   |
-| `/control`   | `control.tsx`     | Simulation workspace: config list + live map      |
-| `/users`     | `users/index.tsx` | User list with add form (admin only)              |
-| `/users/:id` | `users/[id].tsx`  | Edit or delete one user                           |
-| other        | `[...404].tsx`    | Not found                                         |
+| Route        | Module            | What it does                                 |
+|--------------|-------------------|----------------------------------------------|
+| `/`          | `index.tsx`       | Login form, or "logged in as …"              |
+| `/control`   | `control.tsx`     | Simulation workspace: config list + live map |
+| `/users`     | `users/index.tsx` | User list with add form (admin only)         |
+| `/users/:id` | `users/[id].tsx`  | Edit or delete one user                      |
+| other        | `[...404].tsx`    | Not found                                    |
 
 Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 
@@ -55,7 +55,7 @@ WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server 
 and map stay in sync across clients.
 
 **Live position — per-sim WebSocket.** `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)` opens
-one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimState`. Only the map uses it.
+one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`. Only the map uses it.
 
 Both the status socket and the per-sim sockets reconnect with backoff (1 s up to 30 s) when the server closes them,
 e.g. on a backend restart, and the config list is refetched after the status socket reconnects.
@@ -76,8 +76,8 @@ sent as a bearer header by `ky` and by MapLibre's `transformRequest` (the tile p
 
 ## Sharing a simulation
 
-**Share** on a sim card calls `POST /api/configs/:id/share` and shows the 7-day token with a copy button; the unshare
-button revokes it. The token unlocks the server's public `/api/shared/:token[/ws]` endpoints for devices without an
+**Share** on a sim card calls `POST /api/configs/:id/share` and shows the share URL (`<server>/s/<token>`) with a copy button; Unshare
+revokes it. The token unlocks the server's public `/s/:token[/ws]` (alias `/api/shared/…`) endpoints for devices without an
 account.
 
 ## Project shape

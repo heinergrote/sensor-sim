@@ -5,11 +5,7 @@ import {verifyPassword} from "../util/passwords";
 import {sign} from "hono/jwt";
 import {JWTPayload} from "../types";
 import {login} from "@sensor-sim/shared";
-
-const jwtSecret = process.env.JWT_SECRET
-if (!jwtSecret) {
-  throw new Error('JWT_SECRET environment variable is not set')
-}
+import {jwtSecret} from "../util/appSecret";
 
 export const loginApp = new Hono()
 
@@ -30,7 +26,7 @@ export const loginApp = new Hono()
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
       } as JWTPayload
 
-      const token = await sign(payload, jwtSecret, "HS256")
+      const token = await sign(payload, jwtSecret(), "HS256")
       return c.json({token})
     })
 

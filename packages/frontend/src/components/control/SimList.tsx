@@ -10,7 +10,7 @@ export function SimList() {
   return (
     <>
       <form action={addSimConfig} method="post">
-        <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-2 mb-2 w-full">
+        <fieldset class="fieldset bg-base-300 rounded-box shadow-sm p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">
               <label class="label">Label</label>
@@ -32,17 +32,7 @@ export function SimList() {
 
       <For each={simConfigs()} keyed={(config) => config.id}>
         {(config) => (
-
-          <div class="card w-full bg-base-200 card-md shadow-sm mb-2">
-            <div class="card-body">
-              <h2 class="card-title">{config().id} - {config().label}</h2>
-              <div class="flex items-center"/>
-              <div class={"flex-1"}>
-                <SimDetails simConfig={config()}/>
-              </div>
-            </div>
-          </div>
-
+          <SimDetails simConfig={config()}/>
         )}
       </For>
 

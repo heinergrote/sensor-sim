@@ -11,13 +11,16 @@ const positionFields = z.object({
 
 export const positionSchema = z.strictObject(positionFields.shape)
 
+export const configTypeSchema = z.enum(['follow', 'circle'])
+
+
 // all fields
 const simConfigFields = z.object({
   id: z.number().int().positive(),
   ownerId: z.number().int().positive(),
   label: z.string(),
   shareToken: z.string().min(1).max(64),
-  type: z.enum(['follow', 'circle']),
+  type: configTypeSchema,
   targetLatitude: number(),
   targetLongitude: number(),
   initialDistance: number(),

@@ -36,7 +36,7 @@ login/ me/ maptiler/     login.api.ts, me.api.ts, maptiler.api.ts
 status/                  status.service.ts (statusStream, sendStatusMessage), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
-util/                    shareTokens, eventStream, passwords (scrypt), appSecret; geo helpers (incl.
+util/                    eventStream, passwords (scrypt), appSecret (`jwtSecret()`); geo helpers (incl.
                          randomOffset) come from `@sensor-sim/shared/geoUtils`
 ```
 
@@ -67,13 +67,13 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
   rest restart the runner (state rebuilt from config).
 - `SimulationRunner`: 100 ms tick; `follow` moves toward target and snaps at 0; `circle` orbits at the current
   radius. A stopped runner stays in the map and keeps its last state (no `null` state any more).
-- `/api/sims` is read-only: `GET /` (caller's `SimState[]`), `GET /:id`, `GET /:id/ws`.
+- `/api/sims` is read-only: `GET /` (caller's `SimData[]`), `GET /:id`, `GET /:id/ws`.
 - Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
 
 - `syncConfigs` `dispose()`s and drops runners whose config was deleted. `dispose()` = `stop()` + close the
-  runner's `simStateStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
+  runner's `simDataStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
   socket close. `shutdown()` disposes all runners.
-- The runner exposes `simState`/`config` as **getters** — keep it that way; returning the variables directly
+- The runner exposes `simData`/`config` as **getters** — keep it that way; returning the variables directly
   snapshots them and goes stale after `start()`/`applySimConfig`.
 - `runner.config` only tracks runtime-relevant fields (`applySimConfig` returns early otherwise), so e.g. its
   `shareToken`/`label` can be stale. Read those from the DB — `simShareMiddleware` does.
@@ -95,10 +95,11 @@ users.api                    jwtMiddleware + requireRole(true)                  
 
 ## Sharing
 
-`POST /api/configs/:id/share` mints a 7-day HMAC-SHA256 token (`util/shareTokens.ts`, not a JWT; payload sim id +
-owner id + expiry, signed with `JWT_SECRET`) into `sim_configs.share_token`; `unshare` clears it.
-`simShareMiddleware` verifies signature/expiry and that the token equals the DB row's current `share_token` and
-owner, then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`.
+`POST /api/configs/:id/share` writes `<id>!<nanoid(10)>` (`TOKEN_SEP = "!"`, exported from `simShareMiddleware`) to
+`sim_configs.share_token`; `unshare` clears it. No expiry, no signature — the token is an unguessable secret.
+`simShareMiddleware` splits off the id, loads the config and requires `share_token === token` (so revoke is
+immediate), then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`. `sharedApp` is mounted twice
+(`/api/shared` and `/s`); the frontend builds share URLs on `/s`.
 
 ## Gotchas
 

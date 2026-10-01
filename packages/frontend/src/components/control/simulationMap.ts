@@ -3,7 +3,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {useAction} from "@solidjs/router";
 import {addSimulationListener} from "../../service/simulation.service";
 import {updateSimConfig} from "../../service/configs.service";
-import {GeoPosition, SimConfig, SimState} from "@sensor-sim/shared";
+import {GeoPosition, SimConfig, SimData} from "@sensor-sim/shared";
 import {getAzimuth, getDistance} from "@sensor-sim/shared/geoUtils";
 
 setWorkerUrl(workerUrl);
@@ -49,7 +49,7 @@ type TrackedSim = {
   currentOnMap: boolean,
   draggingTarget: boolean,
   draggingCurrent: boolean,
-  updateState: (simState: SimState) => void,
+  updateState: (simState: SimData) => void,
   updateConfig: (simConfig: SimConfig) => void,
   dispose: () => void
 }
@@ -145,15 +145,15 @@ export function createSimulationMap(
           trackedSim.targetMarker.setLngLat([config.targetLongitude, config.targetLatitude]);
       },
 
-      updateState: (simState: SimState) => {
+      updateState: (simState: SimData) => {
         if (!trackedSim.currentOnMap) {
-          trackedSim.currentMarker.setLngLat([simState.current.longitude, simState.current.latitude])
+          trackedSim.currentMarker.setLngLat([simState.position.longitude, simState.position.latitude])
           trackedSim.currentMarker.addTo(map)
           trackedSim.currentOnMap = true
           trackedSim.currentMarker.getElement().style.zIndex = "9999";
         }
         if (!trackedSim.draggingCurrent)
-          trackedSim.currentMarker.setLngLat([simState.current.longitude, simState.current.latitude])
+          trackedSim.currentMarker.setLngLat([simState.position.longitude, simState.position.latitude])
       },
 
       dispose: () => {
