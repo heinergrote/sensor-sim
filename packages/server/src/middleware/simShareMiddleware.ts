@@ -1,8 +1,9 @@
 import {createMiddleware} from "hono/factory";
-import {verifyAndDecode} from "../util/shareTokens";
 import {simulationEngine} from "../index";
 import {HonoSimRunnerVars} from "../types";
 import {getSimConfigById} from "../simconfigs/simconfigs.repository";
+
+export const TOKEN_SEP = "!"
 
 export const simShareMiddleware = createMiddleware<{ Variables: HonoSimRunnerVars }>(async (c, next) => {
 
@@ -11,12 +12,11 @@ export const simShareMiddleware = createMiddleware<{ Variables: HonoSimRunnerVar
     return c.json({error: 'Token required'}, 400);
   }
 
-  const decoded = verifyAndDecode(token);
-  if (!decoded) {
-    return c.json({error: 'Invalid or expired token.'}, 403);
+  const [resourceIdString, _rest] = token.split(TOKEN_SEP)
+  const resourceId = parseInt(resourceIdString)
+  if (!resourceId || isNaN(resourceId) || !_rest) {
+    return c.json({error: 'Invalid token'}, 400);
   }
-
-  const {resourceId, ownerId, expiryTimestamp, expiryDate} = decoded;
 
   const simConfig = await getSimConfigById(resourceId)
   if (!simConfig) {
@@ -25,10 +25,6 @@ export const simShareMiddleware = createMiddleware<{ Variables: HonoSimRunnerVar
 
   if (simConfig.shareToken !== token) {
     return c.json({error: 'Simulation is not shared under this token'}, 403);
-  }
-
-  if (simConfig.ownerId !== ownerId) {
-    return c.json({error: 'You do not have permission to access this simulation.'}, 403);
   }
 
   const simRunner = simulationEngine.get(resourceId);

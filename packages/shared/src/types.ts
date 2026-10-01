@@ -1,19 +1,17 @@
 import {z} from "zod";
 import {createUserSchema, updateUserSchema, userResponseSchema} from "./schemas/users";
 import {
+  configTypeSchema,
   createSimConfigSchema,
   positionSchema,
   simConfigResponseSchema,
   updateSimConfigSchema
 } from "./schemas/simconfigs";
 
-export type SimState = {
-  id: number,
-  start: number,
-  current: GeoPosition,
-  distance: number,
-  azimuth: number,
+export type SimData = {
+  position: GeoPosition,
 }
+
 export type StatusMessage = {
   type: "configUpdate",
   updatedAt: number
@@ -35,3 +33,4 @@ export type UpdateSimConfig = z.infer<typeof updateSimConfigSchema>;
 export type SimConfig = z.infer<typeof simConfigResponseSchema>;
 
 export type GeoPosition = z.infer<typeof positionSchema>;
+export type ConfigType = z.infer<typeof configTypeSchema>;

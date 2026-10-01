@@ -94,11 +94,11 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 
 ### `/api/sims` — running simulations (read-only)
 
-| Method | Path      | Result                                                 |
-|--------|-----------|--------------------------------------------------------|
-| GET    | `/`       | Caller's `SimState[]`                                  |
-| GET    | `/:id`    | `SimState` — `{id, start, current, distance, azimuth}` |
-| GET    | `/:id/ws` | WebSocket, streams `SimState` every tick               |
+| Method | Path      | Result                                                |
+|--------|-----------|-------------------------------------------------------|
+| GET    | `/`       | Caller's `SimState[]`                                 |
+| GET    | `/:id`    | `SimData` — `{id, start, current, distance, azimuth}` |
+| GET    | `/:id/ws` | WebSocket, streams `SimData` every tick               |
 
 ### Others
 
@@ -111,8 +111,8 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 
 | Path                    | Payload         | Auth                           | Emitted                                           |
 |-------------------------|-----------------|--------------------------------|---------------------------------------------------|
-| `/api/sims/:id/ws`      | `SimState`      | bearer / `?token=`, owner only | on connect, then every tick while playing         |
-| `/api/shared/:token/ws` | `SimState`      | valid share token in the path  | same                                              |
+| `/api/sims/:id/ws`      | `SimData`       | bearer / `?token=`, owner only | on connect, then every tick while playing         |
+| `/api/shared/:token/ws` | `SimData`       | valid share token in the path  | same                                              |
 | `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 500 ms on config changes |
 
 All sockets are push-only. The status socket is a "refetch configs" signal, not data. Deleting a config closes

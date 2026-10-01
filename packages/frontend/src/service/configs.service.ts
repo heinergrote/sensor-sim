@@ -1,4 +1,4 @@
-import {SimConfig, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
+import {ConfigType, configTypeSchema, SimConfig, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
 import {createEffect, createRoot} from "solid-js";
 import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
@@ -85,7 +85,7 @@ export const fetchSimConfig = query(async (id: number) => {
 export const addSimConfig = action(async (form: FormData) => {
   return api.post<SimConfig>(`/configs`, {
     json: {
-      type: form.get("type") as "follow" | "circle",
+      type: form.get("type") as ConfigType,
       label: form.get("label") as string
     }
   }).json()
@@ -109,9 +109,11 @@ export const stopSim = action(async (id: number) => {
   return api.put(`/configs/${id}/stop`).json()
 })
 
-export const updateType = action(async (id: number, type: "follow" | "circle") => {
+export const updateType = action(async (id: number, type: ConfigType) => {
+  const parsedType = configTypeSchema.parse(type)
+  
   return api.patch<SimConfig>(`/configs/${id}`, {
-    json: {type}
+    json: {type: parsedType}
   }).json()
 })
 

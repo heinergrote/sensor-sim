@@ -1,9 +1,9 @@
 import {createMiddleware} from 'hono/factory'
 import {jwt, JwtVariables} from 'hono/jwt'
-import {appSecret} from "../util/appSecret";
+import {jwtSecret} from "../util/appSecret";
 import {HonoGlobalVars, JWTPayload} from "../types";
 
-export const builtinJwt = jwt({secret: appSecret(), alg: "HS256"})
+export const builtinJwt = jwt({secret: jwtSecret(), alg: "HS256"})
 
 export const jwtMiddleware = createMiddleware<{ Variables: HonoGlobalVars & JwtVariables }>(async (c, next) => {
 

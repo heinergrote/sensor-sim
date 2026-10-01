@@ -12,16 +12,16 @@ export const sharedApp = new Hono()
     if (!simRunner) {
       return c.json({error: 'Simulation not found'}, 500);
     }
-    return c.json(simRunner.simState);
+    return c.json(simRunner.simData);
   })
 
   .get('/:token/ws', (c) => {
     const simRunner = c.get('simRunner')
     const abort = new AbortController()
-    const simStreamGenerator = simRunner.simStateStream.collect(abort.signal)
+    const generator = simRunner.simDataStream.collect(abort.signal)
     return upgradeWebSocket(c, {
       onOpen: async (_event, ws) => {
-        for await (const data of simStreamGenerator) ws.send(JSON.stringify(data))
+        for await (const data of generator) ws.send(JSON.stringify(data))
         ws.close()
       },
       onClose: () => abort.abort(),

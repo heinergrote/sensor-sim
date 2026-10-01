@@ -22,7 +22,8 @@ import {
   updateSpeed,
   updateType
 } from "../../service/configs.service";
-import {SimConfig} from "@sensor-sim/shared";
+import {ConfigType, SimConfig} from "@sensor-sim/shared";
+import {serverUrl} from "../../api";
 
 export function SimDetails(props: { simConfig: SimConfig }) {
 
@@ -34,80 +35,87 @@ export function SimDetails(props: { simConfig: SimConfig }) {
   const shareAction = useAction(share)
   const unShareAction = useAction(unShare)
 
+  function handleToggleShare() {
+    if (props.simConfig.shareToken) {
+      unShareAction(props.simConfig.id)
+    } else {
+      shareAction(props.simConfig.id)
+    }
+  }
+
+  function handleTogglePlay() {
+    if (props.simConfig.playing) {
+      stopSimAction(props.simConfig.id)
+    } else {
+      startSimAction(props.simConfig.id)
+    }
+  }
+
+  function handleTypeChange(event: Event) {
+    const target = event.target as HTMLSelectElement
+    updateTypeAction(props.simConfig.id, target.value as ConfigType)
+  }
+
   return (
     <>
       <Show fallback={<div>Connecting...</div>} when={props.simConfig}>
         {(config) =>
           <>
 
-            <div class={"flex flex-col gap-1 w-full"}>
+            <div class="card bg-base-300 w-full shadow-sm mb-2">
+              <div class="card-body p-4">
 
-
-              <div class="flex gap-2 items-center">
-                <div class="join">
-                  <input
-                    class={["join-item btn btn-sm", {"btn-primary": config().type === "follow"}]}
-                    type="radio" name="options" value={"follow"}
-                    onClick={() => updateTypeAction(config().id, "follow")}
-                    checked={config().type === "follow"} aria-label="Follow"/>
-                  <input
-                    class={["join-item btn btn-sm", {"btn-primary": config().type === "circle"}]}
-                    type="radio" name="options" value={"circle"}
-                    onClick={() => updateTypeAction(config().id, "circle")}
-                    checked={config().type === "circle"} aria-label="Circle"/>
-                </div>
-                <div class="join">
-                  {config().playing ?
-                    <>
-                      <button class="btn btn-sm join-item" onClick={() => stopSimAction(config().id)}>
-                        <TbFillPlayerStop/>
-                      </button>
-                    </>
-                    :
-                    <>
-                      <button class="btn btn-sm join-item" onClick={() => startSimAction(config().id)}>
-                        <TbFillPlayerPlay/>
-                      </button>
-                    </>
-                  }
-                  <button class="btn btn-sm join-item" onClick={() => deleteSimAction(config().id)}>
+                <div class="flex items-center gap-2">
+                  <span>{config().label}</span>
+                  <button class="btn btn-sm" onClick={handleTogglePlay}>
+                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
+                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
+                  </button>
+                  <select class="select select-sm w-fit" onChange={handleTypeChange}>
+                    <option value={"follow"} selected={config().type === "follow"}>Follow</option>
+                    <option value={"circle"} selected={config().type === "circle"}>Circle</option>
+                  </select>
+                  <div class={"flex-1"}/>
+                  <button class="btn btn-sm" onClick={() => deleteSimAction(config().id)}>
                     <TbFillTrash/>
                   </button>
                 </div>
-              </div>
-              <div class="flex gap-2 items-center">
-                <TbOutlineWorldLatitude/>{config().targetLatitude.toFixed(5)}
-                <TbOutlineWorldLongitude/>{config().targetLongitude.toFixed(5)}
-                <TbOutlineRulerMeasure/> {config().initialDistance.toFixed(2)}m
-                <TbOutlineAngle/> {config().initialAzimuth.toFixed(2)}°
-              </div>
-              <div class="flex gap-1 items-center">
-                <div class="flex gap-1 items-center"><BsSpeedometer/> {config().speed}m/s</div>
-                <div><input type="range" min="0" max="40" value={config().speed}
-                            onChange={(e) => updateSpeedAction(config().id, +e.currentTarget.value)}
-                            class="range range-xs w-60"/></div>
-              </div>
 
-              <div class="flex gap-1 items-center">
-                <button class="btn btn-sm" onClick={() => shareAction(config().id)}>
-                  <TbOutlineShare/> Share
-                </button>
-                <Show when={config().shareToken}>
-                  <button class="btn btn-sm" onClick={() => unShareAction(config().id)}>
-                    <TbOutlineShareOff/>
-                  </button>
-                  <div class="truncate" id="shareToken">{config().shareToken}</div>
-                  <button class="btn btn-sm" onClick={() => {
-                    // copy to clipboard
-                    navigator.clipboard.writeText(config().shareToken);
-                  }}>
-                    <TbOutlineClipboard/>
-                  </button>
-                </Show>
-              </div>
+                <div class={"divider my-0"}/>
 
+                <div class="flex gap-2 items-center">
+                  <TbOutlineWorldLatitude/>{config().targetLatitude.toFixed(5)}
+                  <TbOutlineWorldLongitude/>{config().targetLongitude.toFixed(5)}
+                  <TbOutlineRulerMeasure/> {config().initialDistance.toFixed(2)}m
+                  <TbOutlineAngle/> {config().initialAzimuth.toFixed(2)}°
+                </div>
+                <div class="flex gap-2 items-center">
+                  <BsSpeedometer/><span>{config().speed}m/s</span>
+                  <input type="range" min="0" max="40" value={config().speed}
+                         onChange={(e) => updateSpeedAction(config().id, +e.currentTarget.value)}
+                         class="range range-xs w-full"/>
+                </div>
+
+                <div class={"divider my-0"}/>
+
+                <div class="flex gap-1 items-center">
+                  <button class="btn btn-sm" onClick={handleToggleShare}>
+                    <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
+                    <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
+                  </button>
+                  <Show when={config().shareToken}>
+                    <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
+                    <button class="btn btn-sm" onClick={() => {
+                      // copy to clipboard
+                      navigator.clipboard.writeText(serverUrl + "/s/" + config().shareToken);
+                    }}>
+                      <TbOutlineClipboard/>
+                    </button>
+                  </Show>
+                </div>
+
+              </div>
             </div>
-
 
           </>
         }

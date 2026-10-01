@@ -42,7 +42,7 @@ against a fresh DB. `db:migrate` (drizzle-kit) applies the schema but skips the 
 ## Cross-cutting architecture
 
 **Config and runtime are separate.** A *sim config* (`sim_configs` row, `/api/configs`) is the persisted, editable
-definition; a *simulation* (`/api/sims`) is the read-only in-memory runner derived from it, exposing `SimState`.
+definition; a *simulation* (`/api/sims`) is the read-only in-memory runner derived from it, exposing `SimData`.
 Every write goes through `/api/configs` (start/stop included — they just flip `playing`); the server then resyncs
 the engine from the DB and pings `/api/status/ws` so clients refetch the config list.
 

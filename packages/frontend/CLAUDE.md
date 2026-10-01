@@ -33,7 +33,7 @@ pnpm lint                      # oxlint src
   `label`, `type`), `updateSimConfig(id, UpdateSimConfigDto)` (PATCH), `deleteSimConfig`, `startSim`/`stopSim`,
   `updateType`, `updateSpeed`, `share`, `unShare`. A module-level `createRoot` opens `/api/status/ws?token=` whenever
   `user()` changes and calls `revalidate(fetchSimConfigs.key)` on each newer `configUpdate` message.
-- `src/service/simulation.service.ts` — live `SimState` only. `addSimulationListener(id, cb)` lazily opens one
+- `src/service/simulation.service.ts` — live `SimData` only. `addSimulationListener(id, cb)` lazily opens one
   ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
   store.
 - **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff (1 s → 30
@@ -46,7 +46,7 @@ pnpm lint                      # oxlint src
   no live position.
 - `components/control/SimMap.tsx` — feeds `fetchSimConfigs()` into `createSimulationMap(el, token).updateSimConfigs`.
 - `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
-  Target marker ← config; current marker ← `SimState` via `addSimulationListener`. Dragging the target PATCHes
+  Target marker ← config; current marker ← `SimData` via `addSimulationListener`. Dragging the target PATCHes
   `targetLatitude/Longitude`; dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
   (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6:
   `setWorkerUrl` with a
@@ -60,7 +60,7 @@ query/actions driven by form `action=`. Components in `components/users/` are ty
 
 ### Server types
 
-Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `SimState`, `GeoPosition`,
+Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `SimData`, `GeoPosition`,
 `StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
 **source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
 too (e.g. for client-side validation), but that pulls `zod` into the bundle.

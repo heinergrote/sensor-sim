@@ -7,8 +7,8 @@ point, watch them live on a map, and feed their positions into your own app as i
 
 - **[packages/server](packages/server)** — sim configs, the simulation engine, REST + WebSocket API, users and JWT
   auth, MapTiler proxy; in production it serves the UI too.
-- **[packages/frontend](packages/frontend)** — the management UI: map, simulation controls, user administration
-  (SolidJS 2 + MapLibre).
+- **[packages/frontend](packages/frontend)** — the management UI: map, simulation controls, user administration (SolidJS
+  2 + MapLibre).
 - **[packages/shared](packages/shared)** — the API contract (Zod schemas and DTO types) used by both.
 
 ## Quick start
@@ -42,7 +42,7 @@ A simulation has two halves:
 
 - **Config** — persisted in Postgres, edited via `/api/configs` (target, initial distance/azimuth, type, speed,
   `playing`, share token). All changes, including start/stop, go here.
-- **Runtime** — an in-memory runner per config, ticking every 100 ms and exposing a `SimState` (current position,
+- **Runtime** — an in-memory runner per config, ticking every 100 ms and exposing a `SimData` (current position,
   distance, azimuth) via read-only `/api/sims`.
 
 After every config change the server re-syncs the runners from the database and signals `/api/status/ws`, so clients
@@ -50,7 +50,7 @@ know to refetch the config list.
 
 ## Consuming simulated positions
 
-`ws://<server>/api/sims/:id/ws` streams `SimState` on every tick. It needs a bearer token (header or `?token=`) and
+`ws://<server>/api/sims/:id/ws` streams `SimData` on every tick. It needs a bearer token (header or `?token=`) and
 the caller must own the simulation. `POST /api/login` with `{username, password}` returns a token.
 
 To expose one simulation without an account, its owner calls `POST /api/configs/:id/share`, which returns

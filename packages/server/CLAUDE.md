@@ -71,7 +71,7 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 - Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
 
 - `syncConfigs` `dispose()`s and drops runners whose config was deleted. `dispose()` = `stop()` + close the
-  runner's `simStateStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
+  runner's `simDataStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
   socket close. `shutdown()` disposes all runners.
 - The runner exposes `simState`/`config` as **getters** — keep it that way; returning the variables directly
   snapshots them and goes stale after `start()`/`applySimConfig`.

@@ -1,8 +1,8 @@
 import {serverUrl} from "../api";
 import {jwtToken} from "../auth";
-import {SimState} from "@sensor-sim/shared";
+import {SimData} from "@sensor-sim/shared";
 
-export type SimulationListener = ((simState: SimState) => void)
+export type SimulationListener = ((simState: SimData) => void)
 
 const RECONNECT_MIN_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 30000
@@ -18,7 +18,7 @@ function openSocket(simulationId: number, reconnectDelay = RECONNECT_MIN_DELAY_M
   simSocket.onmessage = (event) => {
     // connection works again, so the next drop starts with the short delay
     reconnectDelay = RECONNECT_MIN_DELAY_MS
-    const receivedSimState = JSON.parse(event.data) as SimState
+    const receivedSimState = JSON.parse(event.data) as SimData
     const listeners = simulationListeners.get(simulationId) || []
     listeners.forEach(l => l(receivedSimState))
   }

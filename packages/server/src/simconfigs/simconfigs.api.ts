@@ -2,7 +2,6 @@ import {Hono} from 'hono'
 import {simulationEngine} from "../index";
 import {zValidator} from "@hono/zod-validator";
 import {jwtMiddleware} from "../middleware/jwtAuth";
-import {generateToken} from "../util/shareTokens";
 import {
   deleteSimConfig,
   getSimConfigById,
@@ -15,7 +14,8 @@ import {createMiddleware} from "hono/factory";
 import {toCreate, toDto, toUpdate} from "./simconfigs.mapping";
 import {sendStatusMessage} from "../status/status.service";
 import {HonoSimConfigsVars} from "../types";
-
+import {customAlphabet} from "nanoid";
+import {TOKEN_SEP} from "../middleware/simShareMiddleware";
 
 const loadOwnedSimConfig = createMiddleware<{
   Variables: HonoSimConfigsVars
@@ -126,15 +126,16 @@ export const simConfigsApp = new Hono<{
 
   .post('/:id/share', async (c) => {
     const simConfig = c.get('simConfig')
-    const user = c.get('user')
 
-    const expiryTimestamp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
-    const {token, expiryDate} = generateToken(simConfig.id, user.id, expiryTimestamp);
+    const nanoIdAlphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nanoid = customAlphabet(nanoIdAlphabet, 10);
+
+    const token = simConfig.id + TOKEN_SEP + nanoid()
     await updateSimConfig(simConfig.id, {
       shareToken: token
     });
     await handleSimConfigsUpdate()
-    return c.json({token, expiryDate});
+    return c.json({token});
   })
 
   .post('/:id/unshare', async (c) => {
