@@ -42,8 +42,8 @@ A simulation has two halves:
 
 - **Config** — persisted in Postgres, edited via `/api/configs` (target, initial distance/azimuth, type, speed,
   `playing`, share token). All changes, including start/stop, go here.
-- **Runtime** — an in-memory runner per config, ticking every 100 ms and exposing a `SimData` (current position,
-  distance, azimuth) via read-only `/api/sims`.
+- **Runtime** — an in-memory runner per config, ticking every 100 ms and exposing a `SimData` (current position) via
+  read-only `/api/sims`.
 
 After every config change the server re-syncs the runners from the database and signals `/api/status/ws`, so clients
 know to refetch the config list.
@@ -54,15 +54,15 @@ know to refetch the config list.
 the caller must own the simulation. `POST /api/login` with `{username, password}` returns a token.
 
 To expose one simulation without an account, its owner calls `POST /api/configs/:id/share`, which returns
-`{token, expiryDate}` (valid 7 days). That token unlocks the public `GET /api/shared/:token` and
-`GET /api/shared/:token/ws`; `POST /api/configs/:id/unshare` revokes it.
+`{token}` (`<id>!<10 chars>`, no expiry). That token unlocks the public `GET /api/shared/:token` and
+`GET /api/shared/:token/ws` (also mounted at `/s/:token[/ws]`); `POST /api/configs/:id/unshare` revokes it.
 
 To make an existing web app believe it's moving, use [sensor-mock](https://www.npmjs.com/package/sensor-mock):
 
 ```ts
 import {enableSensorMock} from "sensor-mock";
 
-enableSensorMock({serverUrl: "http://localhost:4000", simId: "my-sim"});
+enableSensorMock({url: "https://<share_url>"});
 // navigator.geolocation now reports the simulation's position
 ```
 

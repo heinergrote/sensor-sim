@@ -8,7 +8,7 @@ src/schemas/simconfigs.ts  positionSchema, simConfigResponseSchema, createSimCon
                            simConfigIdParam
 src/schemas/users.ts       userResponseSchema, createUserSchema, updateUserSchema, userIdParamSchema
 src/schemas/login.ts       login
-src/types.ts               *Dto types (z.infer), SimState, StatusMessage, Profile
+src/types.ts               *Dto types (z.infer), SimData, StatusMessage, ConfigType, Profile
 src/index.ts               re-exports schemas + types            → import from "@sensor-sim/shared"
 src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset → "@sensor-sim/shared/geoUtils"
 ```

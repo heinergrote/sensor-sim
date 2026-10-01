@@ -76,8 +76,8 @@ sent as a bearer header by `ky` and by MapLibre's `transformRequest` (the tile p
 
 ## Sharing a simulation
 
-**Share** on a sim card calls `POST /api/configs/:id/share` and shows the 7-day token with a copy button; the unshare
-button revokes it. The token unlocks the server's public `/api/shared/:token[/ws]` endpoints for devices without an
+**Share** on a sim card calls `POST /api/configs/:id/share` and shows the share URL (`<server>/s/<token>`) with a copy button; Unshare
+revokes it. The token unlocks the server's public `/s/:token[/ws]` (alias `/api/shared/…`) endpoints for devices without an
 account.
 
 ## Project shape

@@ -30,7 +30,7 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 | Variable                 | Default      | Purpose                                                |
 |--------------------------|--------------|--------------------------------------------------------|
 | `DATABASE_URL`           | — (required) | Postgres connection string                             |
-| `JWT_SECRET`             | — (required) | HS256 secret for login tokens; also signs share tokens |
+| `JWT_SECRET`             | — (required) | HS256 secret for login tokens                          |
 | `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step                      |
 | `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded             |
 | `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)          |
@@ -47,7 +47,7 @@ src/simengine/     SimulationEngine (id → runner) + SimulationRunner (100 ms t
 src/users/         /api/users — admin CRUD (api, repository, mappings)
 src/login/ me/ maptiler/ status/ shared/   remaining subapps
 src/middleware/    jwtAuth, requireRole, withOwnSim, simShareMiddleware
-src/util/          shareTokens, eventStream, passwords, appSecret
+src/util/          eventStream, passwords, appSecret (`jwtSecret()`)
 ```
 
 **Config vs. runtime.** A sim config is the durable row in `sim_configs`; the engine keeps one in-memory runner
@@ -86,7 +86,7 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 | DELETE | `/:id`         | —                 | Deleted config                                                                                                                                                              |
 | PUT    | `/:id/start`   | —                 | Sets `playing: true` → `{success: true}`                                                                                                                                    |
 | PUT    | `/:id/stop`    | —                 | Sets `playing: false` → `{success: true}`                                                                                                                                   |
-| POST   | `/:id/share`   | —                 | 7-day share token → `{token, expiryDate}`                                                                                                                                   |
+| POST   | `/:id/share`   | —                 | Mints share token (`<id>!<nanoid10>`, no expiry) → `{token}`                                                                                                                |
 | POST   | `/:id/unshare` | —                 | Clears the token → `{success: true}`                                                                                                                                        |
 
 `SimConfig`: `{id, ownerId, label, shareToken, type, targetLatitude, targetLongitude, initialDistance,
@@ -96,8 +96,8 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 
 | Method | Path      | Result                                                |
 |--------|-----------|-------------------------------------------------------|
-| GET    | `/`       | Caller's `SimState[]`                                 |
-| GET    | `/:id`    | `SimData` — `{id, start, current, distance, azimuth}` |
+| GET    | `/`       | Caller's `SimData[]`                                  |
+| GET    | `/:id`    | `SimData` — `{position: {latitude, longitude}}`     |
 | GET    | `/:id/ws` | WebSocket, streams `SimData` every tick               |
 
 ### Others
@@ -120,9 +120,9 @@ every open socket for that simulation from the server side.
 
 ## Sharing
 
-The share token is **not** a JWT: `util/shareTokens.ts` packs sim id + owner id + expiry and signs it with a
-truncated HMAC-SHA256 (base64url). `simShareMiddleware` checks signature, expiry, and that it still matches the
-sim's stored `shareToken` and owner — so `unshare` revokes immediately.
+The share token is **not** a JWT: `<sim id>!<10 random alphanumerics>` (nanoid), stored in `sim_configs.share_token`.
+It is an unguessable bearer secret with no expiry. `simShareMiddleware` parses the id, loads the config and requires
+an exact match with the stored `shareToken` — so `unshare` revokes immediately. Also served under `/s/:token[/ws]`.
 
 ## Database & migrations
 
@@ -149,14 +149,11 @@ client `key` params, and rewrites absolute MapTiler URLs in JSON to the proxy (h
 
 Built from the repo-root `Dockerfile` (**context must be the repo root**). `.github/workflows/publish.yml` publishes
 `ghcr.io/<owner>/sensor-sim` on releases (`1.2.3`, `1.2`, `latest`, `sha-<short>`) and POSTs the version to the
-Portainer stack webhook (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=…`.
+Portainer webhook (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=…`.
 
-`compose.yaml` pins that version and starts `db` (healthy) → `migrate` (same image, `node dist/migrate.js`,
-`restart: "no"`, must exit 0) → `server`. A failed migration means a failed deploy, not a crash loop. Notes:
+`compose.yaml` pins that version and starts `db` (healthy) → `migrate` (`node dist/migrate.js`, must exit 0) →
+`server`. A failed migration means a failed deploy, not a crash loop.
 
-- `DATABASE_URL` is assembled from `POSTGRES_*` in `.env` and points at host `db`; keep the password URL-safe.
-- Migrations are forward-only; a rolled-back image runs silently against a newer schema — bump the pinned tag
-  deliberately.
-- `depends_on` gates only hold on standalone Docker, not Swarm.
-- The `db` volume mounts at `/var/lib/postgresql` (Postgres 18+ layout). The app container needs no volume.
-- `drizzle/` ships in the image (`package.json#files`), so a committed migration is applied on the next deploy.
+- `DATABASE_URL` is assembled from `POSTGRES_*` in `.env` (host `db`); keep the password URL-safe.
+- Migrations are forward-only — bump the pinned tag deliberately. `depends_on` gates don't hold on Swarm.
+- `db` volume mounts at `/var/lib/postgresql` (Postgres 18+ layout); `drizzle/` ships in the image.

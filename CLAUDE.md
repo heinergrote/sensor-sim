@@ -9,7 +9,7 @@ broadcast their position in real time over WebSockets. Access is gated by JWT au
 store.
 
 ```
-packages/shared      – network contract: Zod request/response schemas + DTO types, SimState, StatusMessage, Profile
+packages/shared      – network contract: Zod request/response schemas + DTO types, SimData, StatusMessage, Profile
 packages/server      – Hono + ws: sim configs (Postgres/Drizzle), in-memory simulation engine, users, JWT auth,
                        MapTiler proxy; serves the built frontend in prod
 packages/frontend    – SolidJS 2.x management UI (MapLibre map, sim controls, login, user admin)
@@ -61,8 +61,8 @@ server's `tsup.config.ts` bundles it (`noExternal`) — the prod `node dist/inde
 fallback. In dev Vite (`:3000`) talks cross-origin to `:4000`; CORS is `origin: '*'` unconditionally.
 
 **Each subapp declares its own auth** — mount order in `index.ts` is not a security boundary. Configs and sims are
-owner-scoped; a share link (HMAC token, not a JWT) is the only way to expose a sim to someone else. Details:
-`packages/server/CLAUDE.md`.
+owner-scoped; a share link (`<id>!<nanoid>` token in `sim_configs.share_token`, no expiry, not a JWT) is the only way
+to expose a sim to someone else. Details: `packages/server/CLAUDE.md`.
 
 **The JWT travels three ways on the client:** `Authorization: Bearer` on REST (`src/api.ts`), the same header via
 MapLibre `transformRequest` (the MapTiler proxy is authenticated), and `?token=` on WebSockets. MapTiler keys never
