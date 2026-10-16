@@ -9,7 +9,7 @@ Throws at import without `DATABASE_URL` / `JWT_SECRET`. Endpoint tables and env 
 ```bash
 pnpm dev          # tsx watch src/index.ts
 pnpm typecheck    # tsc --noEmit
-pnpm build        # frontend build → typecheck → tsup (index + migrate) → copy frontend to dist/public
+pnpm build        # frontend build → typecheck → tsdown (index + migrate) → copy frontend to dist/public
 pnpm start        # node dist/index.js
 pnpm migrate:dev  # tsx src/migrate.ts — migrations + admin seed
 pnpm migrate      # node dist/migrate.js (same, built)
@@ -104,7 +104,7 @@ immediate), then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`.
 ## Gotchas
 
 - Route modules import `simulationEngine` from `../index` — circular import, load-order sensitive.
-- `migrate.ts` is a second tsup entry; `tsup.config.ts` must list both and `build` must call plain `tsup`.
+- `migrate.ts` is a second tsdown entry; `tsdown.config.ts` must list both and `build` must call plain `tsdown`.
 - Schema change: edit `db/schema.ts` → `pnpm db:generate` → commit `drizzle/` → `pnpm migrate:dev` → restart.
   Hand-edited SQL is fine (0007 contains a `DELETE FROM sim_configs`).
 - `util/eventStream.ts`: `emit(() => v)` stores a producer re-evaluated per read; `.collect(signal)` is the async

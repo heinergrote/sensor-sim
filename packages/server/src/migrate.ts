@@ -3,7 +3,7 @@
 // no longer migrates on boot, so a failed migration is a failed deploy that never
 // starts the app, rather than a server that crash-loops.
 //
-// Built by tsup alongside the server; run it with "node dist/migrate.js" (the
+// Built by tsdown alongside the server; run it with "node dist/migrate.js" (the
 // "migrate" package script). In Docker Compose it runs as a one-shot service that
 // the server waits on via "condition: service_completed_successfully".
 //
@@ -17,7 +17,8 @@ try {
   await dbInit();
 } catch (error) {
   console.error("Migration failed:", error);
-  await db.$client.end().catch(() => {});
+  await db.$client.end().catch(() => {
+  });
   process.exit(1);
 }
 

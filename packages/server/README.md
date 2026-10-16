@@ -19,7 +19,7 @@ MAPTILER_KEY=your-maptiler-key
 pnpm migrate:dev  # apply migrations + seed admin (the server never migrates itself)
 pnpm dev          # tsx watch, http://localhost:4000
 pnpm typecheck
-pnpm build        # frontend build → typecheck → tsup → dist/ (frontend copied to dist/public)
+pnpm build        # frontend build → typecheck → tsdown → dist/ (frontend copied to dist/public)
 pnpm start        # node dist/index.js
 ```
 
@@ -27,15 +27,15 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 
 ## Environment variables
 
-| Variable                 | Default      | Purpose                                                |
-|--------------------------|--------------|--------------------------------------------------------|
-| `DATABASE_URL`           | — (required) | Postgres connection string                             |
-| `JWT_SECRET`             | — (required) | HS256 secret for login tokens                          |
-| `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step                      |
-| `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded             |
-| `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)          |
-| `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files        |
-| `NODE_ENV`               | —            | Only logged; CORS is open for all origins              |
+| Variable                 | Default      | Purpose                                         |
+|--------------------------|--------------|-------------------------------------------------|
+| `DATABASE_URL`           | — (required) | Postgres connection string                      |
+| `JWT_SECRET`             | — (required) | HS256 secret for login tokens                   |
+| `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step               |
+| `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded      |
+| `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)   |
+| `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files |
+| `NODE_ENV`               | —            | Only logged; CORS is open for all origins       |
 
 ## Architecture
 
@@ -94,11 +94,11 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 
 ### `/api/sims` — running simulations (read-only)
 
-| Method | Path      | Result                                                |
-|--------|-----------|-------------------------------------------------------|
-| GET    | `/`       | Caller's `SimData[]`                                  |
-| GET    | `/:id`    | `SimData` — `{position: {latitude, longitude}}`     |
-| GET    | `/:id/ws` | WebSocket, streams `SimData` every tick               |
+| Method | Path      | Result                                          |
+|--------|-----------|-------------------------------------------------|
+| GET    | `/`       | Caller's `SimData[]`                            |
+| GET    | `/:id`    | `SimData` — `{position: {latitude, longitude}}` |
+| GET    | `/:id/ws` | WebSocket, streams `SimData` every tick         |
 
 ### Others
 

@@ -55,7 +55,7 @@ live there too (`@sensor-sim/shared/geoUtils`, a subpath export so the frontend 
 **Types cross the package boundary through source, not an RPC client.** `@sensor-sim/shared`'s `exports` points at
 `src/index.ts` (no build step); server and frontend both depend on it, the frontend calls endpoints with plain `ky`.
 A schema change breaks `tsc` on both sides; a renamed route only fails at runtime. Because it ships `.ts`, the
-server's `tsup.config.ts` bundles it (`noExternal`) — the prod `node dist/index.js` never loads it from node_modules.
+server's `tsdown.config.ts` bundles it (`noExternal`) — the prod `node dist/index.js` never loads it from node_modules.
 
 **One origin in prod, two in dev.** The server serves `dist/public` (else `../../frontend/dist/client`) with SPA
 fallback. In dev Vite (`:3000`) talks cross-origin to `:4000`; CORS is `origin: '*'` unconditionally.
