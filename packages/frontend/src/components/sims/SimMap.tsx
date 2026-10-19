@@ -1,24 +1,27 @@
 import {createEffect, createMemo, createSignal, onSettled} from "solid-js";
-import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {jwtToken} from "../../auth";
-import {fetchSimConfigs} from "../../service/configs.service";
+import {fetchSimConfig} from "../../service/configs.service";
+import {createSimulationMap, SimulationMap} from "./simulationMap";
 
-export default function SimMap() {
+export default function SimMap(props: { simId: number | null }) {
 
-  const simConfigs = createMemo(() => fetchSimConfigs());
+  const simConfig = createMemo(() => {
+    if (props.simId === null) return null
+    return fetchSimConfig(props.simId)
+  });
 
   const [mapReady, setMapReady] = createSignal(false);
 
   // oxlint-disable-next-line no-unassigned-vars
   let mapEl!: HTMLDivElement
-  let map: SimulationMap | undefined;
+  let map: SimulationMap | undefined
 
   createEffect(() => ({
       ready: mapReady(),
-      configs: simConfigs()
+      config: simConfig()
     }),
     (c) => {
-      if (c.ready) map?.updateSimConfigs(c.configs)
+      if (c.ready) map?.attachSimConfig(c.config)
     }
   )
 

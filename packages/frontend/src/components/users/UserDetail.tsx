@@ -23,7 +23,7 @@ export function UserDetail(props: {
         <button type="submit" form="userDetailForm" class="btn btn-primary">
           <TbOutlineDeviceFloppy size={24}/> Save
         </button>
-        <button type="button" class="btn btn-error" onClick={() => deleteUserAction(String(props.user.id))}>
+        <button type="button" class="btn btn-error" onClick={() => deleteUserAction(Number(props.user.id))}>
           <TbOutlineTrash size={16}/> Delete
         </button>
 

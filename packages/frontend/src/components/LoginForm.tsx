@@ -23,7 +23,7 @@ export default function LoginForm() {
         }
       }).json()
       login(response.token)
-      navigate(paths.control())
+      navigate(paths.sims())
 
     } catch {
       setError('Login failed')

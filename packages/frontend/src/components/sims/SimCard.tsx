@@ -12,7 +12,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {useAction} from "@solidjs/router";
+import {useAction, useMatch, useNavigate} from "@solidjs/router";
 import {
   deleteSimConfig,
   share,
@@ -24,8 +24,12 @@ import {
 } from "../../service/configs.service";
 import {ConfigType, SimConfig} from "@sensor-sim/shared";
 import {serverUrl} from "../../api";
+import {paths} from "../../router";
 
-export function SimDetails(props: { simConfig: SimConfig }) {
+export function SimCard(props: { simConfig: SimConfig }) {
+
+  const navigate = useNavigate()
+  const selected = useMatch(() => paths.sims(props.simConfig.id));
 
   const updateTypeAction = useAction(updateType)
   const deleteSimAction = useAction(deleteSimConfig)
@@ -56,13 +60,18 @@ export function SimDetails(props: { simConfig: SimConfig }) {
     updateTypeAction(props.simConfig.id, target.value as ConfigType)
   }
 
+
+  function handleSelect() {
+    navigate(selected() ? `/sims` : `/sims/${props.simConfig.id}`)
+  }
+
   return (
     <>
       <Show fallback={<div>Connecting...</div>} when={props.simConfig}>
         {(config) =>
           <>
 
-            <div class="card bg-base-300 w-full shadow-sm mb-2">
+            <div class={["card w-full shadow-sm mb-2", selected() ? "bg-base-300" : "bg-base-200"]}>
               <div class="card-body p-4">
 
                 <div class="flex items-center gap-2">
@@ -113,7 +122,9 @@ export function SimDetails(props: { simConfig: SimConfig }) {
                     </button>
                   </Show>
                 </div>
-
+                <div class="card-actions justify-end">
+                  <button class="btn btn-primary" onClick={handleSelect}>Select</button>
+                </div>
               </div>
             </div>
 

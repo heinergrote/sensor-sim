@@ -6,9 +6,10 @@ import {Loading, Show} from "solid-js";
 
 export default function Nav() {
 
+
   const isHome = useMatch(() => paths());
-  const isControl = useMatch(() => paths.control());
-  const isUsers = useMatch(() => paths.users());
+  const isSims = useMatch(() => "/sims/*");
+  const isUsers = useMatch(() => "/users/*");
 
   const {logout, user} = useAuth()
   const navigate = useNavigate()
@@ -21,8 +22,8 @@ export default function Nav() {
             <TbOutlineHome size={24}/>
           </a>
           <Show when={user()}>
-            <a class={["btn", {"btn-primary": Boolean(isControl())}]} href={paths.control}>
-              <TbOutlineMapPinCog size={24}/> Control
+            <a class={["btn", {"btn-primary": Boolean(isSims())}]} href={paths.sims}>
+              <TbOutlineMapPinCog size={24}/> Simulations
             </a>
           </Show>
           <Show when={user()?.admin}>
@@ -43,6 +44,7 @@ export default function Nav() {
             }
           </Show>
         </ul>
+
       </nav>
 
     </Loading>

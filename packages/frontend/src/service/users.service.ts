@@ -6,7 +6,7 @@ export const fetchUsers = query(async () => {
   return api.get<User[]>(`/users`).json();
 }, "users");
 
-export const fetchUser = query(async (id: string) => {
+export const fetchUser = query(async (id: number) => {
   return api.get<User>(`/users/${id}`).json();
 }, "user");
 
@@ -20,7 +20,7 @@ export const addUser = action(async (form: FormData) => {
   }).json();
 })
 
-export const deleteUser = action(async (id: string) => {
+export const deleteUser = action(async (id: number) => {
   return api.delete(`/users/${id}`).json();
 });
 

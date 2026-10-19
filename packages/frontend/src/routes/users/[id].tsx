@@ -8,12 +8,12 @@ import {UserDetail} from "../../components/users/UserDetail";
 
 export const route = defineFileRoute("/users/:id", {
   matchFilters: {id: int},
-  preload: ({params}) => void fetchUser(params.id),
+  preload: ({params}) => void fetchUser(Number(params.id)),
 });
 
 export default function User(props: RouteProps<typeof route>) {
 
-  const user = createMemo(() => fetchUser(props.params.id));
+  const user = createMemo(() => fetchUser(Number(props.params.id)));
 
   return (
     <>

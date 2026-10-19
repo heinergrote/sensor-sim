@@ -42,7 +42,7 @@ pnpm lint                      # oxlint src
   socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
   retrying once the revalidated config list drops its map listener — which depends on the status socket being up.
 - `components/control/SimList.tsx` — create form + one card per `fetchSimConfigs()` entry; passes the config as a
-  prop to `SimDetails.tsx` (no per-sim query). `SimDetails` shows config/share token and calls the actions; it shows
+  prop to `SimCard.tsx` (no per-sim query). `SimCard` shows config/share token and calls the actions; it shows
   no live position.
 - `components/control/SimMap.tsx` — feeds `fetchSimConfigs()` into `createSimulationMap(el, token).updateSimConfigs`.
 - `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
