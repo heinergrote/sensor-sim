@@ -7,3 +7,7 @@ injectWorkspacePackages: true
 minimumReleaseAgeExclude:
   - '@solidjs/vite-plugin@3.0.0-next.41 || 3.0.0-next.42'
   - '@rolldown/binding-openharmony-arm64@1.2.8'
+  - '@vitest/mocker@5.0.5'
+  - '@vitest/spy@5.0.5'
+  - jsdom@30.1.3
+  - vitest@5.0.5

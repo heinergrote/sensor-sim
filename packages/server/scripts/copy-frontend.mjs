@@ -2,7 +2,7 @@
 // Copies the built frontend static bundle into the server's own dist folder
 // (dist/public) so that "packages/server/dist" is a fully self-contained
 // deployable artifact - no sibling "packages/frontend" checkout required at
-// runtime. Runs as the last step of the server's "build" script, after tsup
+// runtime. Runs as the last step of the server's "build" script, after tsdown
 // and after the frontend itself has been built.
 import {cp, rm} from "node:fs/promises";
 import {existsSync} from "node:fs";

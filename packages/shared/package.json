@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@turf/turf": "7.3.5",
-    "zod": "^4.4.3"
+    "@turf/turf": "7.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
