@@ -10,7 +10,7 @@ export default function Users() {
 
   return (
     <>
-      <Title>Users</Title>
+      <Title>Sensor Sim - Users</Title>
       <UserAddForm/>
       <Loading fallback={<p>Loading users…</p>}>
         <UserList users={users()}/>

@@ -72,8 +72,7 @@ leave the server.
 
 ## Frontend: SolidJS 2.x, not React
 
-Components run once; reactivity is signals. Filesystem routing over `src/routes` (`file-routes.d.ts` is generated —
-don't edit). Tailwind 4 + DaisyUI. See `packages/frontend/CLAUDE.md`.
+Components run once; reactivity is signals. Explicit route tree in `src/routes.ts` (lazy pages under `src/pages`). Tailwind 4 + DaisyUI. See `packages/frontend/CLAUDE.md`.
 
 ## Env vars
 

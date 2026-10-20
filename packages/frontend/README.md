@@ -21,7 +21,7 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 ## Key dependencies
 
-- **SolidJS 2.0** + **@solidjs/router** (filesystem routing, `query`/`action` data APIs)
+- **SolidJS 2.0** + **@solidjs/router** (explicit route tree, `query`/`action` data APIs)
 - **MapLibre GL 6** — map rendering; `@sensor-sim/shared/geoUtils` (turf) — distance/bearing when dragging markers
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
@@ -37,15 +37,19 @@ same-origin proxy. The MapTiler key never reaches the browser.
 
 ## Pages
 
-| Route        | Module            | What it does                                              |
-|--------------|-------------------|-----------------------------------------------------------|
-| `/`          | `index.tsx`       | Login form, or "logged in as …"                           |
-| `/sims/:id?` | `sims/[[id]].tsx` | Config list + map; `:id` selects the sim shown on the map |
-| `/users`     | `users/index.tsx` | User list with add form (admin only)                      |
-| `/users/:id` | `users/[id].tsx`  | Edit or delete one user                                   |
-| other        | `[...404].tsx`    | Not found                                                 |
+Routes are declared in `src/routes.ts`; pages live in `src/pages` and each loads as its own chunk.
 
-Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
+| Route        | Page                   | What it does                                              |
+|--------------|------------------------|-----------------------------------------------------------|
+| `/`          | `Home.tsx`             | Login form, or "logged in as …"                           |
+| `/sims/:id?` | `sims/Sims.tsx`        | Config list + map; `:id` selects the sim shown on the map |
+| `/users`     | `users/Users.tsx`      | User list with add form (admin only)                      |
+| `/users/:id` | `users/User.tsx`       | Edit or delete one user                                   |
+| other        | `NotFound.tsx`         | Not found                                                 |
+
+A route's path, param filters and preload sit next to its page in a `*.route.ts` file (`sims/sims.route.ts`,
+`users/users.route.ts`). `routes.ts` adds the component; the route file must not import the page, or the page
+loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 
 ## Data flow
 
@@ -85,9 +89,7 @@ account.
 ## Project shape
 
 No `index.html` or mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`) generates entries around
-`src/App.tsx` (router, nav, boundaries) and `src/Document.tsx` (document shell, site-wide head tags). `fileRoutes()`
-scans `src/routes`; `foo.tsx` + `foo/` makes a layout, only default exports are pages, and `file-routes.d.ts` is
-regenerated automatically. Streaming SSR is `ssr: true` in `vite.config.ts` away, but `src/auth.ts` reads
+`src/App.tsx` (router, nav, boundaries) and `src/Document.tsx` (document shell, site-wide head tags). Streaming SSR is `ssr: true` in `vite.config.ts` away, but `src/auth.ts` reads
 `localStorage` at module scope and would need guarding.
 
 ## Testing

@@ -1,23 +1,17 @@
 import {Title} from "@solidjs/meta";
 import {createMemo, Loading} from "solid-js";
-import {int, RouteProps} from "@solidjs/router";
-import {defineFileRoute} from "@solidjs/router/fs";
 import {fetchUser} from "../../service/users.service";
 import {UserDetail} from "../../components/users/UserDetail";
+import {RouteProps} from "@solidjs/router";
+import type {userRoute} from "./users.route";
 
-
-export const route = defineFileRoute("/users/:id", {
-  matchFilters: {id: int},
-  preload: ({params}) => void fetchUser(Number(params.id)),
-});
-
-export default function User(props: RouteProps<typeof route>) {
+export default function User(props: RouteProps<typeof userRoute.path>) {
 
   const user = createMemo(() => fetchUser(Number(props.params.id)));
 
   return (
     <>
-      <Title>User</Title>
+      <Title>Sensor Sim - User</Title>
       <Loading fallback={<p>Loading user…</p>}>
         <UserDetail user={user()}/>
       </Loading>

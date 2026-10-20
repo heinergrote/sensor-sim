@@ -18,11 +18,17 @@ pnpm lint                      # oxlint src
 
 - `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Errored`/`Loading`) and HTML document. No
   `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`) generates entries.
-- `src/router.ts` — typed `paths` derived from the file routes (`paths()`, `paths.sims(id?)`, `paths.users(id)`); use
-  them for links. Pages with params declare `export const route = defineFileRoute(path, {matchFilters: {id: int},
-  preload})` and read `props.params` via `RouteProps<typeof route>`; params still arrive as strings → `Number(...)`.
-- `src/routes/` — filesystem pages: `index.tsx`, `sims/[[id]].tsx` (optional param), `users/index.tsx`,
-  `users/[id].tsx`, `[...404].tsx`. `file-routes.d.ts` is generated — never edit.
+- `src/routes.ts` — the explicit route tree (`defineRoutes`): `/`, `/sims/:id?`, `/users`, `/users/:id`, `*404`.
+  Every page is a `lazy(() => import(...))` chunk under `src/pages/`.
+- `src/pages/<area>/<area>.route.ts` — `defineRoute({path, matchFilters: {id: int}, preload})` **without**
+  `component`; `routes.ts` adds it as `defineRoute({...simsRoute, component: Sims})` (a plain object rejects
+  components with required params). The page reads `props.params` via `RouteProps<typeof simsRoute.path>` (pass
+  `.path`: `RouteProps` doesn't understand a `defineRoute` result) with an `import type`; params still arrive as
+  strings → `Number(...)`. **A `*.route.ts` must never import its page:** `routes.ts` imports it statically, so that
+  would pull the page into the main chunk and defeat `lazy()`. Typing a page from `Router.paths.*` causes TS2502
+  (circular: `Router` → `routes` → page → props).
+- `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
+  `paths.sims(id?)`, `paths.users(id)`) — use them for links.
 - `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
   `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
@@ -43,7 +49,7 @@ pnpm lint                      # oxlint src
   so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
   socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
   retrying once the revalidated list drops it and the page redirects, detaching its map listener.
-- `routes/sims/[[id]].tsx` — the selection lives in the URL. The selected config is **derived from
+- `pages/sims/Sims.tsx` — the selection lives in the URL. The selected config is **derived from
   `fetchSimConfigs()`** (no separate `fetchSimConfig` query), so status-socket revalidation keeps the map current. If
   the id isn't in the list (deleted here or remotely, or bogus), an effect redirects to `/sims` (`replace`). Renders
   `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
