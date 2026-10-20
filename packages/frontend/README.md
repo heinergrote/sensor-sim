@@ -52,7 +52,8 @@ Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 **Sim configs — REST + status signal.** `src/service/configs.service.ts` wraps `/api/configs` in router
 `query()`/`action()`s (`fetchSimConfigs`, `addSimConfig`, `updateSimConfig`, `startSim`, `stopSim`, `share`, …). A
 WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server reports a config change, so the list
-stays in sync across clients. The selected sim is loaded separately via `fetchSimConfig(id)`.
+and the map stay in sync across clients. The selected sim is taken from that list; if it disappears, the page
+redirects to `/sims`.
 
 **Live position — per-sim WebSocket.** `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)` opens
 one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`. Only the map uses it.

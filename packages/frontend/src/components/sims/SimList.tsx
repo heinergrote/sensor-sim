@@ -25,7 +25,7 @@ export default function SimList(props: { simConfigs: SimConfig[], simConfig: Sim
 
           </div>
           <div class="flex-1 min-h-0">
-            <SimMap simId={props.simConfig?.id || null}/>
+            <SimMap simConfig={props.simConfig}/>
           </div>
         </div>
       </Show>

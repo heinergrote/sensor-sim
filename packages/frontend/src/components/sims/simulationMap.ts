@@ -147,7 +147,16 @@ export function createSimulationMap(
 
   function attachSimConfig(newSimConfig: SimConfig | null) {
 
+    // same sim, new config values: keep the live subscription, just move the target
+    if (newSimConfig && simConfig && detachSimConfig && newSimConfig.id === simConfig.id) {
+      simConfig = newSimConfig
+      targetMarker.setLngLat([newSimConfig.targetLongitude, newSimConfig.targetLatitude]);
+      return
+    }
+
     detachSimConfig?.()
+    detachSimConfig = null
+    simConfig = null
 
     if (!newSimConfig) return
 

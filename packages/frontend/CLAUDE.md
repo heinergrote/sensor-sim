@@ -42,23 +42,22 @@ pnpm lint                      # oxlint src
   s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
   so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
   socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
-  retrying once its map listener is detached (another sim selected / page left).
-- `routes/sims/[[id]].tsx` — the selection lives in the URL. Preloads `fetchSimConfigs()` and, with an id,
-  `fetchSimConfig(id)`; passes both to `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
+  retrying once the revalidated list drops it and the page redirects, detaching its map listener.
+- `routes/sims/[[id]].tsx` — the selection lives in the URL. The selected config is **derived from
+  `fetchSimConfigs()`** (no separate `fetchSimConfig` query), so status-socket revalidation keeps the map current. If
+  the id isn't in the list (deleted here or remotely, or bogus), an effect redirects to `/sims` (`replace`). Renders
+  `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
 - `SimCard.tsx` — config/share token and the actions; no live position. **Select** toggles `/sims` ↔ `/sims/:id`
-  (highlight via `useMatch`). Deleting the selected sim does not navigate away.
-- `SimMap.tsx` — feeds the selected config (`fetchSimConfig(simId)`, or `null`) into
-  `createSimulationMap(el, token).attachSimConfig`. Only one sim is on the map at a time.
-- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. `attachSimConfig(cfg)` detaches the
-  previous sim (removes markers + its `addSimulationListener`) and attaches the new one. Target marker ← config;
-  current marker ← `SimData`. Dragging the target PATCHes `targetLatitude/Longitude` (+ recomputed distance/azimuth);
-  dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
-  (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. MapLibre 6: `setWorkerUrl`
-  with a `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
-  `transformRequest` (read once at map creation).
-- Gotcha: the status socket only revalidates `fetchSimConfigs` (key `"simConfigs"`), not the selected
-  `fetchSimConfig` (`"simConfig"`) — the map picks up remote edits of the selected sim only after a local action
-  revalidates.
+  (highlight via `useMatch`).
+- `SimMap.tsx` — passes a copy of the selected config (or `null`) to `createSimulationMap(el, token).attachSimConfig`;
+  copying makes the effect track every field. Only one sim is on the map at a time.
+- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. `attachSimConfig(cfg)` with the same id
+  only moves the target marker (keeps the live subscription); a different id/`null` detaches the previous sim
+  (markers + its `addSimulationListener`) first. Target marker ← config; current marker ← `SimData`. Dragging the
+  target PATCHes `targetLatitude/Longitude` (+ recomputed distance/azimuth); dragging the current marker computes
+  `initialDistance`/`initialAzimuth` from the target (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no
+  `updateCurrent` endpoint. MapLibre 6: `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
+  adds a transparent pixel. JWT goes out via `transformRequest` (read once at map creation).
 
 ### Users
 

@@ -1,14 +1,9 @@
-import {createEffect, createMemo, createSignal, onSettled} from "solid-js";
+import {createEffect, createSignal, onSettled} from "solid-js";
 import {jwtToken} from "../../auth";
-import {fetchSimConfig} from "../../service/configs.service";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
+import {SimConfig} from "@sensor-sim/shared";
 
-export default function SimMap(props: { simId: number | null }) {
-
-  const simConfig = createMemo(() => {
-    if (props.simId === null) return null
-    return fetchSimConfig(props.simId)
-  });
+export default function SimMap(props: { simConfig: SimConfig | undefined }) {
 
   const [mapReady, setMapReady] = createSignal(false);
 
@@ -18,7 +13,8 @@ export default function SimMap(props: { simId: number | null }) {
 
   createEffect(() => ({
       ready: mapReady(),
-      config: simConfig()
+      // copy, so a field change re-runs the effect even if the config object is updated in place
+      config: props.simConfig ? {...props.simConfig} : null
     }),
     (c) => {
       if (c.ready) map?.attachSimConfig(c.config)
