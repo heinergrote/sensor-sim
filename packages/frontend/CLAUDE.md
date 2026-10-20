@@ -18,9 +18,11 @@ pnpm lint                      # oxlint src
 
 - `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Errored`/`Loading`) and HTML document. No
   `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`) generates entries.
-- `src/router.ts` — typed `paths` helpers (`paths()`, `paths.control()`, `paths.users(id)`); use them for all links.
-- `src/routes/` — filesystem pages: `index.tsx`, `control.tsx`, `users/index.tsx`, `users/[id].tsx`,
-  `[...404].tsx`. `file-routes.d.ts` is generated — never edit.
+- `src/router.ts` — typed `paths` derived from the file routes (`paths()`, `paths.sims(id?)`, `paths.users(id)`); use
+  them for links. Pages with params declare `export const route = defineFileRoute(path, {matchFilters: {id: int},
+  preload})` and read `props.params` via `RouteProps<typeof route>`; params still arrive as strings → `Number(...)`.
+- `src/routes/` — filesystem pages: `index.tsx`, `sims/[[id]].tsx` (optional param), `users/index.tsx`,
+  `users/[id].tsx`, `[...404].tsx`. `file-routes.d.ts` is generated — never edit.
 - `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
   `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
@@ -40,22 +42,27 @@ pnpm lint                      # oxlint src
   s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
   so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
   socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
-  retrying once the revalidated config list drops its map listener — which depends on the status socket being up.
-- `components/control/SimList.tsx` — create form + one card per `fetchSimConfigs()` entry; passes the config as a
-  prop to `SimCard.tsx` (no per-sim query). `SimCard` shows config/share token and calls the actions; it shows
-  no live position.
-- `components/control/SimMap.tsx` — feeds `fetchSimConfigs()` into `createSimulationMap(el, token).updateSimConfigs`.
-- `components/control/simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity, keyed by numeric id.
-  Target marker ← config; current marker ← `SimData` via `addSimulationListener`. Dragging the target PATCHes
-  `targetLatitude/Longitude`; dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
-  (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. Uses MapLibre 6:
-  `setWorkerUrl` with a
-  `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
+  retrying once its map listener is detached (another sim selected / page left).
+- `routes/sims/[[id]].tsx` — the selection lives in the URL. Preloads `fetchSimConfigs()` and, with an id,
+  `fetchSimConfig(id)`; passes both to `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
+- `SimCard.tsx` — config/share token and the actions; no live position. **Select** toggles `/sims` ↔ `/sims/:id`
+  (highlight via `useMatch`). Deleting the selected sim does not navigate away.
+- `SimMap.tsx` — feeds the selected config (`fetchSimConfig(simId)`, or `null`) into
+  `createSimulationMap(el, token).attachSimConfig`. Only one sim is on the map at a time.
+- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. `attachSimConfig(cfg)` detaches the
+  previous sim (removes markers + its `addSimulationListener`) and attaches the new one. Target marker ← config;
+  current marker ← `SimData`. Dragging the target PATCHes `targetLatitude/Longitude` (+ recomputed distance/azimuth);
+  dragging the current marker computes `initialDistance`/`initialAzimuth` from the target
+  (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no `updateCurrent` endpoint. MapLibre 6: `setWorkerUrl`
+  with a `?worker&url` import, and a missing-image resolver that adds a transparent pixel. JWT goes out via
   `transformRequest` (read once at map creation).
+- Gotcha: the status socket only revalidates `fetchSimConfigs` (key `"simConfigs"`), not the selected
+  `fetchSimConfig` (`"simConfig"`) — the map picks up remote edits of the selected sim only after a local action
+  revalidates.
 
 ### Users
 
-`src/service/users.service.ts` — `fetchUsers`, `fetchUser`, `addUser`, `updateUser`, `deleteUser` as router
+`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)`, `addUser`, `updateUser`, `deleteUser` as router
 query/actions driven by form `action=`. Components in `components/users/` are typed on `User`.
 
 ### Server types
@@ -64,8 +71,6 @@ Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `Sim
 `StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
 **source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
 too (e.g. for client-side validation), but that pulls `zod` into the bundle.
-
-`Nav.tsx` currently has a temporary "X" button that force-revalidates `fetchSimConfigs` (debug aid).
 
 ## Env vars
 

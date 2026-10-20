@@ -31,8 +31,8 @@ pnpm dev                                       # server on :4000, UI on :3000
 The server does **not** migrate on boot — run `migrate:dev` on a fresh database and after every schema change.
 (`db:migrate` applies the schema but skips the admin seed, leaving no way to log in.)
 
-Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation and drag its
-markers on the map. Admins can add further users under **Users**.
+Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation under **Simulations**,
+**Select** it and drag its markers on the map. Admins can add further users under **Users**.
 
 Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm typecheck`.
 

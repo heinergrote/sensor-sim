@@ -37,13 +37,13 @@ same-origin proxy. The MapTiler key never reaches the browser.
 
 ## Pages
 
-| Route        | Module            | What it does                                 |
-|--------------|-------------------|----------------------------------------------|
-| `/`          | `index.tsx`       | Login form, or "logged in as …"              |
-| `/control`   | `control.tsx`     | Simulation workspace: config list + live map |
-| `/users`     | `users/index.tsx` | User list with add form (admin only)         |
-| `/users/:id` | `users/[id].tsx`  | Edit or delete one user                      |
-| other        | `[...404].tsx`    | Not found                                    |
+| Route        | Module            | What it does                                              |
+|--------------|-------------------|-----------------------------------------------------------|
+| `/`          | `index.tsx`       | Login form, or "logged in as …"                           |
+| `/sims/:id?` | `sims/[[id]].tsx` | Config list + map; `:id` selects the sim shown on the map |
+| `/users`     | `users/index.tsx` | User list with add form (admin only)                      |
+| `/users/:id` | `users/[id].tsx`  | Edit or delete one user                                   |
+| other        | `[...404].tsx`    | Not found                                                 |
 
 Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 
@@ -52,7 +52,7 @@ Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 **Sim configs — REST + status signal.** `src/service/configs.service.ts` wraps `/api/configs` in router
 `query()`/`action()`s (`fetchSimConfigs`, `addSimConfig`, `updateSimConfig`, `startSim`, `stopSim`, `share`, …). A
 WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server reports a config change, so the list
-and map stay in sync across clients.
+stays in sync across clients. The selected sim is loaded separately via `fetchSimConfig(id)`.
 
 **Live position — per-sim WebSocket.** `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)` opens
 one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`. Only the map uses it.
@@ -60,8 +60,9 @@ one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`
 Both the status socket and the per-sim sockets reconnect with backoff (1 s up to 30 s) when the server closes them,
 e.g. on a backend restart, and the config list is refetched after the status socket reconnects.
 
-**The map** (`components/control/simulationMap.ts`, imperative MapLibre outside Solid's reactivity) draws a target
-marker from each config and a current-position marker from its live state. Dragging the target updates the config's
+**The map** (`components/sims/simulationMap.ts`, imperative MapLibre outside Solid's reactivity) shows only the
+selected sim (**Select** on a card toggles `/sims/:id`): a target marker from its config and a current-position marker
+from its live state. Dragging the target updates the config's
 target; dragging the current marker recomputes `initialDistance`/`initialAzimuth` relative to the target and saves
 those, which restarts the sim from there.
 
