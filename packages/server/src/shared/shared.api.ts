@@ -1,7 +1,7 @@
 import {Hono} from "hono";
 import {simShareMiddleware} from "../middleware/simShareMiddleware";
 import {upgradeWebSocket} from "@hono/node-server";
-import {SimulationRunner} from "../simengine/simulationRunner";
+import {SimulationRunner} from "../simulation/simulationRunner";
 
 export const sharedApp = new Hono()
 

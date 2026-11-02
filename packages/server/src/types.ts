@@ -1,4 +1,4 @@
-import {SimulationRunner} from "./simengine/simulationRunner";
+import {SimulationRunner} from "./simulation/simulationRunner";
 import {SimConfig, User} from "@sensor-sim/shared";
 
 

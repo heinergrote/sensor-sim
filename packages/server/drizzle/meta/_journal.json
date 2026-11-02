@@ -57,6 +57,20 @@
       "when": 1790601066291,
       "tag": "0007_reflective_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793646472503,
+      "tag": "0008_tricky_lizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793697194168,
+      "tag": "0009_married_serpent_society",
+      "breakpoints": true
     }
   ]
 }

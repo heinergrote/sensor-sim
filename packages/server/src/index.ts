@@ -13,10 +13,10 @@ import {WebSocketServer} from "ws";
 import {serve} from "@hono/node-server";
 import {serveStatic} from "@hono/node-server/serve-static";
 import {db} from "./db";
-import {simsApp} from "./simengine/sims.api";
+import {simsApp} from "./sims/sims.api";
 import {statusApp} from "./status/status.api";
 import {simConfigsApp} from "./simconfigs/simconfigs.api";
-import {createSimulationEngine} from "./simengine/simulationEngine";
+import {createSimulationEngine} from "./simulation/simulationEngine";
 
 console.log("Starting server -", process.env.NODE_ENV);
 
