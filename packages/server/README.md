@@ -42,8 +42,9 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 ```
 src/index.ts       bootstrap, mounts subapps, serves frontend, graceful shutdown
 src/db/            Drizzle schema (row types), client, migrate + admin seed
-src/simconfigs/    /api/configs — persisted sim configs (api, repository, mappings)
-src/simengine/     SimulationEngine (id → runner) + SimulationRunner (100 ms tick) + /api/sims (read-only)
+src/simconfigs/    /api/configs — persisted sim configs (api, repository, mapping)
+src/simulation/    SimulationEngine (id → runner), SimulationRunner (100 ms tick), per-type definitions
+src/sims/          /api/sims (read-only)
 src/users/         /api/users — admin CRUD (api, repository, mappings)
 src/login/ me/ maptiler/ status/ shared/   remaining subapps
 src/middleware/    jwtAuth, requireRole, withOwnSim, simShareMiddleware
@@ -51,10 +52,21 @@ src/util/          eventStream, passwords, appSecret (`jwtSecret()`)
 ```
 
 **Config vs. runtime.** A sim config is the durable row in `sim_configs`; the engine keeps one in-memory runner
-per config. Each config mutation re-syncs the engine from the database: new configs get a runner, runners of
-deleted configs are disposed, existing runners apply the change (`type`/`speed` live, anything else restarts from the
-config's initial position). Movement is
-geodesic (`@turf/turf`): `follow` moves toward the target and stops there, `circle` orbits it.
+per config **that has a valid spec**. Each config mutation re-syncs the engine from the database: new configs get
+a runner, runners of deleted or spec-less configs are disposed, and any `spec`/`playing` change restarts a runner
+from its spec.
+
+**Specs.** What a sim does is a JSON `spec` (jsonb column, nullable), discriminated by `type`:
+
+| `type`  | Fields                                                                  | Behaviour                         |
+|---------|-------------------------------------------------------------------------|-----------------------------------|
+| `fixed` | `latitude, longitude`                                                   | stays put                         |
+| `path`  | `startLatitude, startLongitude, targetLatitude, targetLongitude, speed` | moves start → target, stops there |
+| `orbit` | `centerLatitude, centerLongitude, radius, startAngle, speed`            | circles the center                |
+
+Distances in m, angles in °, speed in m/s; movement is geodesic (`@turf/turf`). Each type is a
+`SimulationDefinition` (default spec, anchor location, `init`, pure `step`) registered in
+`src/simulation/simulationDefinitions.ts`.
 
 **Layered types.** Repositories speak Drizzle row types; handlers validate input with Zod and return DTOs built by
 each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are exported to the frontend.
@@ -81,22 +93,23 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 |--------|----------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | GET    | `/`            | —                 | Caller's `SimConfigDto[]`                                                                                                                                                   |
 | GET    | `/:id`         | —                 | `SimConfig`                                                                                                                                                                 |
-| POST   | `/`            | `CreateSimConfig` | Created config. All fields optional — defaults: target random within 500 m of central Braunschweig, `follow`, random 50–200 m / 0–360° / 5–20 m/s, playing, label `sim-<n>` |
-| PATCH  | `/:id`         | `UpdateSimConfig` | Updated config (any subset of label, type, target, initial distance/azimuth, speed, playing)                                                                                |
+| POST   | `/`            | `CreateSimConfig` | Created config. All fields optional — defaults: `spec: null`, playing, label `sim-<n>`                                                                                       |
+| PATCH  | `/:id`         | `UpdateSimConfig` | Updated config (any subset of `label`, `spec` — full object or `null`, `playing`)                                                                                            |
+| PUT    | `/:id/type`    | `{type}`          | Replaces the spec with randomized defaults of that type, anchored at the old spec's location (else near Braunschweig); no-op if unchanged                                    |
 | DELETE | `/:id`         | —                 | Deleted config                                                                                                                                                              |
 | PUT    | `/:id/start`   | —                 | Sets `playing: true` → `{success: true}`                                                                                                                                    |
 | PUT    | `/:id/stop`    | —                 | Sets `playing: false` → `{success: true}`                                                                                                                                   |
 | POST   | `/:id/share`   | —                 | Mints share token (`<id>!<nanoid10>`, no expiry) → `{token}`                                                                                                                |
 | POST   | `/:id/unshare` | —                 | Clears the token → `{success: true}`                                                                                                                                        |
 
-`SimConfig`: `{id, ownerId, label, shareToken, type, targetLatitude, targetLongitude, initialDistance,
-initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` when not shared.
+`SimConfig`: `{id, ownerId, label, shareToken, spec: Spec | null, playing}`. `id` is a serial int; `shareToken` is
+`""` when not shared. A stored spec that fails validation is returned as `null`.
 
 ### `/api/sims` — running simulations (read-only)
 
 | Method | Path      | Result                                          |
 |--------|-----------|-------------------------------------------------|
-| GET    | `/`       | Caller's `SimData[]`                            |
+| GET    | `/`       | Caller's `SimData[]` (sims with a spec only)    |
 | GET    | `/:id`    | `SimData` — `{position: {latitude, longitude}}` |
 | GET    | `/:id/ws` | WebSocket, streams `SimData` every tick         |
 
@@ -113,16 +126,15 @@ initialAzimuth, speed, playing}`. `id` is a serial int; `shareToken` is `""` whe
 |-------------------------|-----------------|--------------------------------|---------------------------------------------------|
 | `/api/sims/:id/ws`      | `SimData`       | bearer / `?token=`, owner only | on connect, then every tick while playing         |
 | `/api/shared/:token/ws` | `SimData`       | valid share token in the path  | same                                              |
-| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 500 ms on config changes |
+| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 200 ms on config changes |
 
 All sockets are push-only. The status socket is a "refetch configs" signal, not data. Deleting a config closes
 every open socket for that simulation from the server side.
 
 ## Sharing
 
-The share token is **not** a JWT: `<sim id>!<10 random alphanumerics>` (nanoid), stored in `sim_configs.share_token`.
-It is an unguessable bearer secret with no expiry. `simShareMiddleware` parses the id, loads the config and requires
-an exact match with the stored `shareToken` — so `unshare` revokes immediately. Also served under `/s/:token[/ws]`.
+The share token is **not** a JWT but an unguessable `<sim id>!<nanoid10>` with no expiry, matched exactly against
+`sim_configs.share_token` on every request — `unshare` revokes immediately. Also served under `/s/:token[/ws]`.
 
 ## Database & migrations
 
@@ -137,7 +149,8 @@ pnpm db:studio
 ```
 
 Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`). **Migration `0007` deletes all sim configs**
-(id changed from text to serial; the old text id became `label`).
+(id changed from text to serial; the old text id became `label`). **Migrations `0008`/`0009` drop the old
+`type`/`speed`/target/initial columns** in favour of `spec` — existing configs survive with `spec: null`.
 
 ## Serving the frontend & map proxy
 
@@ -147,12 +160,9 @@ client `key` params, and rewrites absolute MapTiler URLs in JSON to the proxy (h
 
 ## Deployment
 
-Built from the repo-root `Dockerfile` (**context must be the repo root**). `.github/workflows/publish.yml` publishes
-`ghcr.io/<owner>/sensor-sim` on releases (`1.2.3`, `1.2`, `latest`, `sha-<short>`) and POSTs the version to the
-Portainer webhook (`PORTAINER_WEBHOOK_URL` secret) as `?SENSOR_SIM_VERSION=…`.
-
-`compose.yaml` pins that version and starts `db` (healthy) → `migrate` (`node dist/migrate.js`, must exit 0) →
-`server`. A failed migration means a failed deploy, not a crash loop.
+Repo-root `Dockerfile` (**context must be the repo root**). `publish.yml` pushes `ghcr.io/<owner>/sensor-sim` on
+releases (`1.2.3`, `1.2`, `latest`, `sha-<short>`) and POSTs `?SENSOR_SIM_VERSION=…` to `PORTAINER_WEBHOOK_URL`.
+`compose.yaml` pins that version: `db` (healthy) → `migrate` (`node dist/migrate.js`, must exit 0) → `server`.
 
 - `DATABASE_URL` is assembled from `POSTGRES_*` in `.env` (host `db`); keep the password URL-safe.
 - Migrations are forward-only — bump the pinned tag deliberately. `depends_on` gates don't hold on Swarm.

@@ -1,4 +1,4 @@
-import {Show} from "solid-js";
+import {Match, Show, Switch} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
@@ -19,10 +19,10 @@ import {
   startSim,
   stopSim,
   unShare,
-  updateSpeed,
+  updateSimConfig,
   updateType
 } from "../../service/configs.service";
-import {ConfigType, SimConfig} from "@sensor-sim/shared";
+import {SimConfig, SpecFixed, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/shared";
 import {serverUrl} from "../../api";
 import {paths} from "../../router";
 
@@ -35,9 +35,13 @@ export function SimCard(props: { simConfig: SimConfig }) {
   const deleteSimAction = useAction(deleteSimConfig)
   const startSimAction = useAction(startSim)
   const stopSimAction = useAction(stopSim)
-  const updateSpeedAction = useAction(updateSpeed)
+  const updateSimConfigAction = useAction(updateSimConfig)
   const shareAction = useAction(share)
   const unShareAction = useAction(unShare)
+
+  const specPath = () => props.simConfig.spec?.type === "path" ? props.simConfig.spec as SpecPath : null
+  const specOrbit = () => props.simConfig.spec?.type === "orbit" ? props.simConfig.spec as SpecOrbit : null
+  const specFixed = () => props.simConfig.spec?.type === "fixed" ? props.simConfig.spec as SpecFixed : null
 
   function handleToggleShare() {
     if (props.simConfig.shareToken) {
@@ -57,7 +61,11 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
   function handleTypeChange(event: Event) {
     const target = event.target as HTMLSelectElement
-    updateTypeAction(props.simConfig.id, target.value as ConfigType)
+    if (target.value === "_none") {
+      updateTypeAction(props.simConfig.id, null)
+    } else {
+      updateTypeAction(props.simConfig.id, target.value as SpecType)
+    }
   }
 
 
@@ -80,10 +88,6 @@ export function SimCard(props: { simConfig: SimConfig }) {
                     <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
                     <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                   </button>
-                  <select class="select select-sm w-fit" onChange={handleTypeChange}>
-                    <option value={"follow"} selected={config().type === "follow"}>Follow</option>
-                    <option value={"circle"} selected={config().type === "circle"}>Circle</option>
-                  </select>
                   <div class={"flex-1"}/>
                   <button class="btn btn-sm" onClick={() => deleteSimAction(config().id)}>
                     <TbFillTrash/>
@@ -92,18 +96,86 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
                 <div class={"divider my-0"}/>
 
-                <div class="flex gap-2 items-center">
-                  <TbOutlineWorldLatitude/>{config().targetLatitude.toFixed(5)}
-                  <TbOutlineWorldLongitude/>{config().targetLongitude.toFixed(5)}
-                  <TbOutlineRulerMeasure/> {config().initialDistance.toFixed(2)}m
-                  <TbOutlineAngle/> {config().initialAzimuth.toFixed(2)}°
+                <div class="flex flex-row gap-2">
+
+                  <select class="select select-sm w-fit" onChange={handleTypeChange}>
+                    <option value={"_none"} selected={!config().spec}>None</option>
+                    <option value={"fixed"} selected={config().spec?.type === "fixed"}>Fixed</option>
+                    <option value={"path"} selected={config().spec?.type === "path"}>Path</option>
+                    <option value={"orbit"} selected={config().spec?.type === "orbit"}>Orbit</option>
+                  </select>
+
+                  <div class={"divider divider-horizontal mx-0"}/>
+
+                  <div class="flex-1">
+
+                    <Switch fallback={<>Select Simulation Type</>}>
+                      <Match when={specFixed()}>
+                        {(spec) =>
+                          <>
+                            <div class="flex gap-2 items-center">
+                              <TbOutlineWorldLatitude/>{spec().latitude.toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().longitude.toFixed(5)}
+                            </div>
+                          </>
+                        }
+                      </Match>
+                      <Match when={specPath()}>
+                        {(spec) =>
+                          <>
+                            <div class="flex gap-2 items-center">
+                              From: <TbOutlineWorldLatitude/>{spec().startLatitude.toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().startLongitude.toFixed(5)}
+                            </div>
+                            <div class="flex gap-2 items-center">
+                              To: <TbOutlineWorldLatitude/>{spec().targetLatitude.toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().targetLongitude.toFixed(5)}
+                            </div>
+                            <div class="flex gap-2 items-center">
+                              <BsSpeedometer/><span>{spec().speed}m/s</span>
+                              <input type="range" min="0" max="40" value={spec().speed}
+                                     onChange={(e) => updateSimConfigAction(config().id, {
+                                       spec: {
+                                         ...spec(),
+                                         speed: +e.currentTarget.value
+                                       }
+                                     })}
+                                     class="range range-xs w-full"
+                              />
+                            </div>
+                          </>
+                        }
+                      </Match>
+                      <Match when={specOrbit()}>
+                        {(spec) =>
+                          <>
+                            <div class="flex gap-2 items-center">
+                              <TbOutlineWorldLatitude/>{spec().centerLatitude.toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().centerLongitude.toFixed(5)}
+                            </div>
+                            <div class="flex gap-2 items-center">
+                              <TbOutlineRulerMeasure/> {spec().radius.toFixed(2)}m
+                              <TbOutlineAngle/> {spec().startAngle.toFixed(2)}°
+                            </div>
+                            <div class="flex gap-2 items-center">
+                              <BsSpeedometer/><span>{spec().speed}m/s</span>
+                              <input type="range" min="0" max="40" value={spec().speed}
+                                     onChange={(e) => updateSimConfigAction(config().id, {
+                                       spec: {
+                                         ...spec(),
+                                         speed: +e.currentTarget.value
+                                       }
+                                     })}
+                                     class="range range-xs w-full"
+                              />
+                            </div>
+                          </>
+                        }
+                      </Match>
+                    </Switch>
+                  </div>
                 </div>
-                <div class="flex gap-2 items-center">
-                  <BsSpeedometer/><span>{config().speed}m/s</span>
-                  <input type="range" min="0" max="40" value={config().speed}
-                         onChange={(e) => updateSpeedAction(config().id, +e.currentTarget.value)}
-                         class="range range-xs w-full"/>
-                </div>
+
 
                 <div class={"divider my-0"}/>
 

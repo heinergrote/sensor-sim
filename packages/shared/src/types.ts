@@ -1,10 +1,13 @@
 import {z} from "zod";
 import {createUserSchema, updateUserSchema, userResponseSchema} from "./schemas/users";
 import {
-  configTypeSchema,
   createSimConfigSchema,
-  positionSchema,
   simConfigResponseSchema,
+  specFixedSchema,
+  specOrbitSchema,
+  specPathSchema,
+  specSchema,
+  specTypesSchema,
   updateSimConfigSchema
 } from "./schemas/simconfigs";
 
@@ -32,5 +35,12 @@ export type CreateSimConfig = z.infer<typeof createSimConfigSchema>;
 export type UpdateSimConfig = z.infer<typeof updateSimConfigSchema>;
 export type SimConfig = z.infer<typeof simConfigResponseSchema>;
 
-export type GeoPosition = z.infer<typeof positionSchema>;
-export type ConfigType = z.infer<typeof configTypeSchema>;
+export type GeoPosition = {
+  latitude: number,
+  longitude: number
+};
+export type SpecType = z.infer<typeof specTypesSchema>;
+export type SpecFixed = z.infer<typeof specFixedSchema>
+export type SpecPath = z.infer<typeof specPathSchema>
+export type SpecOrbit = z.infer<typeof specOrbitSchema>
+export type Spec = z.infer<typeof specSchema>

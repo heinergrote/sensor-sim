@@ -1,36 +1,12 @@
 import {NewSimConfigRow, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
-import {CreateSimConfig, SimConfig, UpdateSimConfig} from "@sensor-sim/shared";
-import {randomOffset} from "@sensor-sim/shared/geoUtils";
-
-
-const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
-
-function randomBetween(min: number, max: number) {
-  return min + Math.random() * (max - min);
-}
-
-/** Defaults for a new config, randomized so new sims don't all start on top of each other. */
-function createDefaults() {
-  const target = randomOffset(defaultTarget, 0, 500);
-  return {
-    label: undefined,
-    targetLatitude: target.latitude,
-    targetLongitude: target.longitude,
-    type: "follow",
-    initialDistance: randomBetween(50, 200),
-    initialAzimuth: randomBetween(0, 360),
-    speed: Math.round(randomBetween(5, 20)), // whole m/s, matching the UI's speed slider steps
-    playing: true
-  } as const;
-}
-
+import {CreateSimConfig, SimConfig, specSchema, UpdateSimConfig} from "@sensor-sim/shared";
 
 // --- helpers ---
 
 type Defined<T> = { [K in keyof T]?: Exclude<T[K], undefined> };
 
-/** Drops `undefined` keys but keeps `null` — that's the whole PATCH trick. */
+/** Drops `undefined` keys but keeps `null` — for use in PATCH updates. */
 function stripUndefined<T extends object>(obj: T): Defined<T> {
   return Object.fromEntries(
     Object.entries(obj).filter(([, v]) => v !== undefined),
@@ -52,7 +28,8 @@ export function toCreate(dto: CreateSimConfig, ownerId: number) {
   }
 
   return {
-    ...createDefaults(),
+    spec: null,
+    playing: true,
     ...dto,
     ownerId,
     shareToken: ""
@@ -71,17 +48,20 @@ export function toUpdate(dto: UpdateSimConfig) {
 }
 
 export function toDto(row: SimConfigRow): SimConfig {
+
+  const validatedSpec = row.spec && (specSchema.safeParse(row.spec).data ?? null)
+  if (row.spec && !validatedSpec) {
+    // log error, when spec is got discarded
+    console.log("discarding invalid spec for simulation config ", row.id)
+    console.log(row.spec)
+  }
+
   return {
     id: row.id,
     label: row.label,
     ownerId: row.ownerId,
-    type: row.type,
     shareToken: row.shareToken,
-    targetLatitude: row.targetLatitude,
-    targetLongitude: row.targetLongitude,
-    initialDistance: row.initialDistance,
-    initialAzimuth: row.initialAzimuth,
-    speed: row.speed,
+    spec: validatedSpec,
     playing: row.playing,
   };
 }

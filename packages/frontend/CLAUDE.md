@@ -38,8 +38,9 @@ pnpm lint                      # oxlint src
 
 - `src/service/configs.service.ts` — everything config-side, as `@solidjs/router` `query()`/`action()`:
   `fetchSimConfigs` (`GET /configs`, key `"simConfigs"`), `fetchSimConfig(id)`, and actions `addSimConfig` (form:
-  `label`, `type`), `updateSimConfig(id, UpdateSimConfigDto)` (PATCH), `deleteSimConfig`, `startSim`/`stopSim`,
-  `updateType`, `updateSpeed`, `share`, `unShare`. A module-level `createRoot` opens `/api/status/ws?token=` whenever
+  `label` only — new configs have `spec: null`), `updateSimConfig(id, UpdateSimConfig)` (PATCH; spec edits send
+  the **whole** spec), `deleteSimConfig`, `startSim`/`stopSim`, `updateType(id, SpecType | null)` (`PUT
+  /configs/:id/type`, or `PATCH {spec: null}` for none), `share`, `unShare`. A module-level `createRoot` opens `/api/status/ws?token=` whenever
   `user()` changes and calls `revalidate(fetchSimConfigs.key)` on each newer `configUpdate` message.
 - `src/service/simulation.service.ts` — live `SimData` only. `addSimulationListener(id, cb)` lazily opens one
   ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
@@ -53,16 +54,17 @@ pnpm lint                      # oxlint src
   `fetchSimConfigs()`** (no separate `fetchSimConfig` query), so status-socket revalidation keeps the map current. If
   the id isn't in the list (deleted here or remotely, or bogus), an effect redirects to `/sims` (`replace`). Renders
   `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
-- `SimCard.tsx` — config/share token and the actions; no live position. **Select** toggles `/sims` ↔ `/sims/:id`
-  (highlight via `useMatch`).
+- `SimCard.tsx` — config/share token and the actions; no live position. Type `<select>` (None/Fixed/Path/Orbit)
+  → `updateType`; per-type spec summary via `<Switch>/<Match>` on `spec.type`, speed slider for `path`/`orbit`
+  (PATCHes `{spec: {...spec, speed}}`). **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`).
 - `SimMap.tsx` — passes a copy of the selected config (or `null`) to `createSimulationMap(el, token).attachSimConfig`;
   copying makes the effect track every field. Only one sim is on the map at a time.
-- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. `attachSimConfig(cfg)` with the same id
-  only moves the target marker (keeps the live subscription); a different id/`null` detaches the previous sim
-  (markers + its `addSimulationListener`) first. Target marker ← config; current marker ← `SimData`. Dragging the
-  target PATCHes `targetLatitude/Longitude` (+ recomputed distance/azimuth); dragging the current marker computes
-  `initialDistance`/`initialAzimuth` from the target (`@sensor-sim/shared/geoUtils`) and PATCHes those — there is no
-  `updateCurrent` endpoint. MapLibre 6: `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
+- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. Every `attachSimConfig(cfg)` tears
+  down the previous sim (live listener, current marker, spec renderer) and rebuilds; the current marker (← `SimData`,
+  not draggable) is shared. Spec editing is delegated to a `ConfigSpecRenderer<T>` (`{updateSpec, dispose}`) picked
+  by `spec.type`: `simulationFixed.ts` (one marker), `simulationPath.ts` (start + target), `simulationOrbit.ts`
+  (center + start point; radius/`startAngle` recomputed via `@sensor-sim/shared/geoUtils`). On `dragend` a renderer
+  emits a full new spec → `PATCH {spec}`. No spec → no markers to edit. MapLibre 6 (`MapLibreMap` export): `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
   adds a transparent pixel. JWT goes out via `transformRequest` (read once at map creation).
 
 ### Users
@@ -72,8 +74,8 @@ query/actions driven by form `action=`. Components in `components/users/` are ty
 
 ### Server types
 
-Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `SimData`, `GeoPosition`,
-`StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
+Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `Spec`, `SpecType`,
+`SpecFixed`/`SpecPath`/`SpecOrbit`, `SimData`, `GeoPosition`, `StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
 **source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
 too (e.g. for client-side validation), but that pulls `zod` into the bundle.
 

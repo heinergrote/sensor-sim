@@ -2,8 +2,9 @@
 
 (Work in progress, but should work)
 
-GPS simulation for testing location-aware apps. Create simulated devices that move toward a target or orbit a
-point, watch them live on a map, and feed their positions into your own app as if they came from a real GPS.
+GPS simulation for testing location-aware apps. Create simulated devices that stand still (`fixed`), travel from a
+start to a target (`path`) or circle a point (`orbit`), watch them live on a map, and feed their positions into your
+own app as if they came from a real GPS.
 
 - **[packages/server](packages/server)** — sim configs, the simulation engine, REST + WebSocket API, users and JWT
   auth, MapTiler proxy; in production it serves the UI too.
@@ -32,7 +33,7 @@ The server does **not** migrate on boot — run `migrate:dev` on a fresh databas
 (`db:migrate` applies the schema but skips the admin seed, leaving no way to log in.)
 
 Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation under **Simulations**,
-**Select** it and drag its markers on the map. Admins can add further users under **Users**.
+pick its type, **Select** it and drag its markers on the map. Admins can add further users under **Users**.
 
 Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm typecheck`.
 
@@ -40,10 +41,10 @@ Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm 
 
 A simulation has two halves:
 
-- **Config** — persisted in Postgres, edited via `/api/configs` (target, initial distance/azimuth, type, speed,
-  `playing`, share token). All changes, including start/stop, go here.
-- **Runtime** — an in-memory runner per config, ticking every 100 ms and exposing a `SimData` (current position) via
-  read-only `/api/sims`.
+- **Config** — persisted in Postgres, edited via `/api/configs`: `label`, `playing`, share token and a typed JSON
+  `spec` (`fixed` / `path` / `orbit`, or `null` = not configured yet). All changes, including start/stop, go here.
+- **Runtime** — an in-memory runner per config with a spec, ticking every 100 ms and exposing a `SimData` (current
+  position) via read-only `/api/sims`.
 
 After every config change the server re-syncs the runners from the database and signals `/api/status/ws`, so clients
 know to refetch the config list.
@@ -86,13 +87,16 @@ container needs no volume.
 
 > **Upgrading to the config/runtime split** (PR [#10](https://github.com/heinergrote/sensor-sim/pull/10)):
 > migration `0007` deletes all existing sim configs — sim ids are now integers with a separate `label`.
+>
+> **Upgrading to JSON specs:** migrations `0008`/`0009` replace the target/initial/type/speed columns with `spec`;
+> existing configs keep their id and label but come back with `spec: null` — pick a type again.
 
 ## Environment variables
 
 | Variable                 | Default        | Purpose                                       |
 |--------------------------|----------------|-----------------------------------------------|
 | `DATABASE_URL`           | — (required)   | Postgres connection string                    |
-| `JWT_SECRET`             | — (required)   | Signs login and share tokens                  |
+| `JWT_SECRET`             | — (required)   | Signs login tokens                            |
 | `DEFAULT_ADMIN_USERNAME` | `admin`        | Admin account seeded by the migrate step      |
 | `DEFAULT_ADMIN_PASSWORD` | —              | Its password; without it nothing is seeded    |
 | `MAPTILER_KEY`           | —              | Required for the `/api/maptiler` tile proxy   |

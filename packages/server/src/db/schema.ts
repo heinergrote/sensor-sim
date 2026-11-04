@@ -1,5 +1,6 @@
-import {boolean, integer, numeric, pgEnum, pgSequence, pgTable, serial, text} from "drizzle-orm/pg-core";
+import {boolean, integer, jsonb, pgSequence, pgTable, serial, text} from "drizzle-orm/pg-core";
 import {relations, sql} from "drizzle-orm";
+import {Spec} from "@sensor-sim/shared";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -7,8 +8,6 @@ export const users = pgTable("users", {
   password: text("password").notNull().default(""),
   admin: boolean("admin").notNull().default(false),
 });
-
-export const typeEnum = pgEnum('type', ['follow', 'circle']);
 
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
@@ -29,12 +28,7 @@ export const simConfigs = pgTable("sim_configs", {
     .default(sql.raw(`'sim-' || nextval('sim_config_label_seq')`)),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   shareToken: text("share_token").notNull().default(""),
-  targetLatitude: numeric("target_latitude", {mode: 'number'}).notNull(),
-  targetLongitude: numeric("target_longitude", {mode: 'number'}).notNull(),
-  initialDistance: numeric("initial_distance", {mode: 'number'}).notNull(),
-  initialAzimuth: numeric("initial_azimuth", {mode: 'number'}).notNull(),
-  type: typeEnum("type").notNull().default('follow'),
-  speed: numeric("speed", {mode: 'number'}).notNull(),
+  spec: jsonb("spec").$type<Spec>(),
   playing: boolean("playing").notNull().default(false),
 });
 

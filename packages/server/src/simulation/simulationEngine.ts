@@ -1,5 +1,6 @@
 import {createSimulationRunner, SimulationRunner} from "./simulationRunner";
 import {getSimConfigs} from "../simconfigs/simconfigs.repository";
+import {specSchema} from "@sensor-sim/shared";
 
 export interface SimulationEngine {
   get: (id: number) => SimulationRunner | undefined;
@@ -27,8 +28,13 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
   async function doSyncConfigs() {
     const configs = await getSimConfigs();
 
+    // filter out configs without (valid) spec
+    const configsWithValidSpec = configs.filter(
+      config => config.spec && specSchema.validate(config.spec)
+    )
+
     // add or update simulationRunners
-    configs.forEach(config => {
+    configsWithValidSpec.forEach(config => {
       const simRunner = get(config.id)
 
       if (!simRunner) {
@@ -41,7 +47,7 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
 
     // delete old simulationRunners not present in configs
     simulationRunners.forEach(simRunner => {
-      if (!configs.find(config => config.id === simRunner.config.id)) {
+      if (!configsWithValidSpec.find(config => config.id === simRunner.config.id)) {
         simRunner.dispose()
         simulationRunners.delete(simRunner.config.id)
       }
