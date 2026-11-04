@@ -116,7 +116,8 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 ### Others
 
 - `GET /api/me` → `{id, username, admin}` from the token (no DB hit).
-- `GET /api/status` → current `StatusMessage`: `{type: "configUpdate", updatedAt}` or `{type: "ping"}`.
+- `GET /api/status` → the caller's current `StatusMessage`: `{type: "configUpdate", revision}` or `{type: "ping"}`.
+  `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can skip refetches they don't need.
 - `/api/users` (admin): `GET /`, `GET /:id`, `POST /` `{username, password, admin}`, `PUT /:id` (same body; password
   re-hashed), `DELETE /:id`. Passwords are scrypt-hashed (`salt:hash`).
 
@@ -126,7 +127,7 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 |-------------------------|-----------------|--------------------------------|---------------------------------------------------|
 | `/api/sims/:id/ws`      | `SimData`       | bearer / `?token=`, owner only | on connect, then every tick while playing         |
 | `/api/shared/:token/ws` | `SimData`       | valid share token in the path  | same                                              |
-| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 200 ms on config changes |
+| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 200 ms on own config changes |
 
 All sockets are push-only. The status socket is a "refetch configs" signal, not data. Deleting a config closes
 every open socket for that simulation from the server side.

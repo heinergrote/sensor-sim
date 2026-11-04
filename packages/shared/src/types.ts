@@ -17,10 +17,13 @@ export type SimData = {
 
 export type StatusMessage = {
   type: "configUpdate",
-  updatedAt: number
+  /** the owner's config revision after the change; compare with `CONFIG_REVISION_HEADER` of `GET /api/configs` */
+  revision: number
 } | {
   type: "ping"
 }
+/** Response header of `GET /api/configs`: the owner's config revision the returned list is at least as new as. */
+export const CONFIG_REVISION_HEADER = "X-Config-Revision";
 export type StatusMessageTypes = StatusMessage['type'];
 export type Profile = {
   id: number,
