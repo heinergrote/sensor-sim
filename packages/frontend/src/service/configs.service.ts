@@ -109,12 +109,20 @@ export const stopSim = action(async (id: number) => {
   return api.put(`/configs/${id}/stop`).json()
 })
 
-export const updateType = action(async (id: number, type: SpecType) => {
-  const parsedType = specTypesSchema.parse(type)
+export const updateType = action(async (id: number, type: SpecType | null) => {
+  const parsedType = specTypesSchema.safeParse(type).data ?? null
 
-  return api.put<SimConfig>(`/configs/${id}/type`, {
-    json: {type: parsedType}
-  }).json()
+  if (parsedType) {
+    // type valid: update using type endpoint
+    return api.put<SimConfig>(`/configs/${id}/type`, {
+      json: {type: parsedType}
+    }).json()
+  } else {
+    // type invalid: remove spec
+    return api.patch<SimConfig>(`/configs/${id}`, {
+      json: {spec: null}
+    }).json()
+  }
 })
 
 export const share = action(async (id: number) => {

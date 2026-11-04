@@ -1,7 +1,6 @@
 import {NewSimConfigRow, SimConfigRow} from "../db/schema";
 import {PatchSimConfig} from "./simconfigs.repository";
-import {CreateSimConfig, SimConfig, UpdateSimConfig} from "@sensor-sim/shared";
-import {simulationDefinitions} from "../simulation/simulationDefinitions";
+import {CreateSimConfig, SimConfig, specSchema, UpdateSimConfig} from "@sensor-sim/shared";
 
 // --- helpers ---
 
@@ -29,7 +28,7 @@ export function toCreate(dto: CreateSimConfig, ownerId: number) {
   }
 
   return {
-    spec: simulationDefinitions.getDefaultSpec("fixed"),
+    spec: null,
     playing: true,
     ...dto,
     ownerId,
@@ -49,12 +48,20 @@ export function toUpdate(dto: UpdateSimConfig) {
 }
 
 export function toDto(row: SimConfigRow): SimConfig {
+
+  const validatedSpec = row.spec && (specSchema.safeParse(row.spec).data ?? null)
+  if (row.spec && !validatedSpec) {
+    // log error, when spec is got discarded
+    console.log("discarding invalid spec for simulation config ", row.id)
+    console.log(row.spec)
+  }
+
   return {
     id: row.id,
     label: row.label,
     ownerId: row.ownerId,
     shareToken: row.shareToken,
-    spec: row.spec,
+    spec: validatedSpec,
     playing: row.playing,
   };
 }
