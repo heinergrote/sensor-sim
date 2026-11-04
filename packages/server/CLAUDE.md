@@ -29,8 +29,10 @@ index.ts                 bootstrap; creates + exports `simulationEngine` (top-le
 types.ts                 server-internal: JWTPayload, HonoGlobalVars {user}, HonoSimRunnerVars {+simRunner},
                          HonoSimConfigsVars {+simConfig}
 db/                      schema.ts (tables + *Row types), index.ts (client), dbInit.ts (migrate + seed; migrate.ts only)
-simconfigs/              simconfigs.api.ts (/api/configs), .repository.ts, mappings.ts
-simengine/               simulationEngine.ts (Map<id, runner>), simulationRunner.ts (tick loop), sims.api.ts (/api/sims)
+simconfigs/              simconfigs.api.ts (/api/configs), .repository.ts, .mapping.ts
+simulation/              simulationEngine.ts (Map<id, runner>), simulationRunner.ts (tick loop),
+                         simulationDefinitions.ts (registry + polymorphic API), definitions/{fixed,path,orbit}.ts
+sims/                    sims.api.ts (/api/sims, read-only)
 users/                   users.api.ts (/api/users), user.repository.ts, users.mappings.ts
 login/ me/ maptiler/     login.api.ts, me.api.ts, maptiler.api.ts
 status/                  status.service.ts (statusStream, sendStatusMessage), status.api.ts
@@ -50,23 +52,27 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 - **Network layer:** Zod schemas (`create*`, `update*`, `*Response`, id params, `login`) and their `z.infer`'d DTO
   types live in `@sensor-sim/shared`. Handlers validate with `zValidator` and **return `toDto(row)`, never a raw row** —
   `toDto` is where `password` is stripped.
-- **Mappings** (`toInsert`/`toUpdate`/`toDto`) bridge the two. `simconfigs/mappings.ts` holds create defaults and
-  `stripUndefined` (PATCH semantics: `undefined` dropped, `null` kept) plus a compile-time `NoExtraKeys` check.
+- **Mappings** (`toCreate`/`toUpdate`/`toDto`) bridge the two. `simconfigs.mapping.ts` holds create defaults
+  (`spec: null`, `playing: true`), `stripUndefined` (PATCH semantics: `undefined` dropped, `null` kept) and a
+  compile-time `NoExtraKeys` check. `toDto` re-validates `spec` with `specSchema` and returns `null` (logged) for
+  an invalid stored spec.
 - Row types must not appear in `@sensor-sim/shared`.
 
 ## Config vs. runtime
 
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
-  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced (500
+  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced (200
   ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
 - `syncConfigs` is **serialized** through a promise queue (`syncQueue`) — concurrent requests would otherwise apply
   an older DB snapshot after a newer one and dispose a just-created runner. Always go through `syncConfigs()`,
   never call the inner `doSyncConfigs()` directly.
-- A sync creates a runner for new ids and calls `runner.applySimConfig(config)` on existing ones.
-  `applySimConfig` ignores changes outside `type/playing/target*/initial*/speed`; `type`/`speed` apply live, the
-  rest restart the runner (state rebuilt from config).
-- `SimulationRunner`: 100 ms tick; `follow` moves toward target and snaps at 0; `circle` orbits at the current
-  radius. A stopped runner stays in the map and keeps its last state (no `null` state any more).
+- A sync only keeps configs with a **valid, non-null `spec`**: those get a runner (new id) or
+  `runner.applySimConfig(config)`; runners of deleted *or spec-less* configs are disposed. So a config without spec
+  has no runner and `/api/sims/:id` answers 404 for it.
+- `applySimConfig` deep-compares (`isDeepStrictEqual`) only `spec` and `playing`; any change stops the runner and,
+  if playing, restarts it with state rebuilt from the spec (no live-applied fields any more).
+- `SimulationRunner`: 100 ms tick, `state = simulationDefinitions.step(spec, state, deltaMs)`. A stopped runner
+  stays in the map and keeps its last state.
 - `/api/sims` is read-only: `GET /` (caller's `SimData[]`), `GET /:id`, `GET /:id/ws`.
 - Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
 
@@ -77,6 +83,28 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
   snapshots them and goes stale after `start()`/`applySimConfig`.
 - `runner.config` only tracks runtime-relevant fields (`applySimConfig` returns early otherwise), so e.g. its
   `shareToken`/`label` can be stale. Read those from the DB — `simShareMiddleware` does.
+
+## Simulation specs (`sim_configs.spec`, jsonb, nullable)
+
+A spec is a Zod discriminated union on `type` (`specSchema` in `@sensor-sim/shared`): `fixed` (lat/lon), `path`
+(start → target, `speed`, stops at target), `orbit` (center, `radius`, `startAngle`, `speed`). Movement is
+geodesic via `@sensor-sim/shared/geoUtils`. Each type has a `SimulationDefinition<T>` in `simulation/definitions/`:
+
+```
+createDefaultSpec(pos?)  random defaults around pos (else within 500 m of `defaultTarget`, Braunschweig)
+getLocation(spec)        anchor point (fixed position / path target / orbit center)
+init(spec)               initial state — `SimulationStateMap[T]`, always has `position`
+step(state, spec, dt)    pure reducer, returns the next state
+```
+
+Callers use only the type-erased `simulationDefinitions` facade (`getDefaultSpec`, `getLocation`, `init`, `step`,
+`getCurrentPosition`). `PUT /api/configs/:id/type {type}` replaces the spec with `getDefaultSpec(type,
+getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is `PATCH {spec: null}`.
+
+**New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its
+`Spec*` type in `types.ts` → state entry in `SimulationStateMap` → `definitions/<type>.ts` → register in
+`definitionRegistry`. Frontend: a renderer in `components/sims/` + cases in `simulationMap.ts` and `SimCard.tsx`.
+Specs are `strictObject`s — stored JSON with extra/missing keys is treated as no spec.
 
 ## Auth — each subapp declares its own
 
@@ -106,6 +134,7 @@ immediate), then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`.
 - Route modules import `simulationEngine` from `../index` — circular import, load-order sensitive.
 - `migrate.ts` is a second tsdown entry; `tsdown.config.ts` must list both and `build` must call plain `tsdown`.
 - Schema change: edit `db/schema.ts` → `pnpm db:generate` → commit `drizzle/` → `pnpm migrate:dev` → restart.
-  Hand-edited SQL is fine (0007 contains a `DELETE FROM sim_configs`).
+  Hand-edited SQL is fine (0007 contains a `DELETE FROM sim_configs`). Changing a spec's shape needs no
+  migration, but old rows then fail validation and read as `spec: null`.
 - `util/eventStream.ts`: `emit(() => v)` stores a producer re-evaluated per read; `.collect(signal)` is the async
   generator each WS iterates until closed.

@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-GPS simulation monorepo (pnpm workspaces). Simulations move toward a target (`follow`) or orbit it (`circle`) and
-broadcast their position in real time over WebSockets. Access is gated by JWT auth against a Postgres-backed user
+GPS simulation monorepo (pnpm workspaces). Each simulation has a typed JSON spec — `fixed`, `path` (start → target)
+or `orbit` — and broadcasts its position in real time over WebSockets. Access is gated by JWT auth against a Postgres-backed user
 store.
 
 ```
@@ -45,6 +45,13 @@ against a fresh DB. `db:migrate` (drizzle-kit) applies the schema but skips the 
 definition; a *simulation* (`/api/sims`) is the read-only in-memory runner derived from it, exposing `SimData`.
 Every write goes through `/api/configs` (start/stop included — they just flip `playing`); the server then resyncs
 the engine from the DB and pings `/api/status/ws` so clients refetch the config list.
+
+**Specs are one jsonb column, validated by Zod on both sides.** `sim_configs.spec` holds a `specSchema`
+discriminated union (`type`: `fixed`/`path`/`orbit`) or `null`; only configs with a valid spec get a runner.
+Behaviour per type is a `SimulationDefinition` (default spec, location, `init`, pure `step`) behind the
+`simulationDefinitions` facade on the server, and a map renderer on the frontend. Adding a type touches shared,
+server and frontend — checklist in `packages/server/CLAUDE.md`. Spec shape changes need no migration; old rows
+that no longer validate read as `spec: null`.
 
 **Two type layers, one shared surface.** DB row types come from Drizzle (`packages/server/src/db/schema.ts`);
 network DTOs are `z.infer`'d from the Zod schemas in `@sensor-sim/shared` and converted by the server's
@@ -86,4 +93,5 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 `ghcr.io/<owner>/sensor-sim` on GitHub releases (version, `latest`, `sha-<short>`) and pings a Portainer webhook.
 `compose.yaml` runs `db` → `migrate` (one-shot, must exit 0) → `server` (standalone Docker only; Swarm ignores
 `depends_on`) and **pins an explicit version tag** — migrations are forward-only. Migration `0007` **deletes all
-existing `sim_configs` rows** (id became a serial int). Deployment detail: `packages/server/README.md`.
+existing `sim_configs` rows** (id became a serial int); `0008`/`0009` drop the old per-field columns, so
+existing configs come back with `spec: null`. Deployment detail: `packages/server/README.md`.

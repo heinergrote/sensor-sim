@@ -54,7 +54,8 @@ loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` ins
 ## Data flow
 
 **Sim configs — REST + status signal.** `src/service/configs.service.ts` wraps `/api/configs` in router
-`query()`/`action()`s (`fetchSimConfigs`, `addSimConfig`, `updateSimConfig`, `startSim`, `stopSim`, `share`, …). A
+`query()`/`action()`s (`fetchSimConfigs`, `addSimConfig`, `updateSimConfig`, `updateType`, `startSim`, `stopSim`,
+`share`, …). A
 WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server reports a config change, so the list
 and the map stay in sync across clients. The selected sim is taken from that list; if it disappears, the page
 redirects to `/sims`.
@@ -65,11 +66,13 @@ one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`
 Both the status socket and the per-sim sockets reconnect with backoff (1 s up to 30 s) when the server closes them,
 e.g. on a backend restart, and the config list is refetched after the status socket reconnects.
 
+**Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card (the server fills
+in defaults near the previous location). Path and orbit get a speed slider.
+
 **The map** (`components/sims/simulationMap.ts`, imperative MapLibre outside Solid's reactivity) shows only the
-selected sim (**Select** on a card toggles `/sims/:id`): a target marker from its config and a current-position marker
-from its live state. Dragging the target updates the config's
-target; dragging the current marker recomputes `initialDistance`/`initialAzimuth` relative to the target and saves
-those, which restarts the sim from there.
+selected sim (**Select** on a card toggles `/sims/:id`): a red current-position marker from its live state plus
+draggable markers per spec type — fixed: position; path: start (green) and target (blue); orbit: center and start
+point (sets radius and start angle). Dropping a marker saves the whole spec, which restarts the sim.
 
 **Users — plain REST** via `src/service/users.service.ts` router queries/actions, driven by form submissions.
 
