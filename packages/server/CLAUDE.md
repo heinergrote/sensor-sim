@@ -35,7 +35,7 @@ simulation/              simulationEngine.ts (Map<id, runner>), simulationRunner
 sims/                    sims.api.ts (/api/sims, read-only)
 users/                   users.api.ts (/api/users), user.repository.ts, users.mappings.ts
 login/ me/ maptiler/     login.api.ts, me.api.ts, maptiler.api.ts
-status/                  status.service.ts (statusStream, sendStatusMessage), status.api.ts
+status/                  status.service.ts (getStatusStream, sendStatusMessage — one stream per user), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
 util/                    eventStream, passwords (scrypt), appSecret (`jwtSecret()`); geo helpers (incl.
@@ -61,8 +61,9 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 ## Config vs. runtime
 
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
-  `handleSimConfigsUpdate()` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a debounced (200
-  ms) `{type: "configUpdate", updatedAt}` on `statusStream`.
+  `handleSimConfigsUpdate(userId)` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a
+  per-user debounced (200 ms) `{type: "configUpdate", updatedAt}` on that user's status stream only. Clients of
+  other users never see it; `/api/status[/ws]` subscribes to the caller's own stream.
 - `syncConfigs` is **serialized** through a promise queue (`syncQueue`) — concurrent requests would otherwise apply
   an older DB snapshot after a newer one and dispose a just-created runner. Always go through `syncConfigs()`,
   never call the inner `doSyncConfigs()` directly.

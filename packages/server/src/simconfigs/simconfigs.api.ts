@@ -44,18 +44,18 @@ const loadOwnedSimConfig = createMiddleware<{
 })
 
 
-let messageTimeout: NodeJS.Timeout | undefined
+// per user: a pending message for one user must not be delayed or swallowed by another user's changes
+const messageTimeouts = new Map<number, NodeJS.Timeout>()
 
-async function handleSimConfigsUpdate() {
+async function handleSimConfigsUpdate(userId: number) {
   await simulationEngine.syncConfigs()
-  // send the status update message, with a 200ms delay
+  // send the status update message to the owner's clients, with a 200ms delay
   // if there is already one waiting, clear and reschedule
-  if (messageTimeout) {
-    clearTimeout(messageTimeout)
-  }
-  messageTimeout = setTimeout(() => {
-    sendStatusMessage({type: "configUpdate", updatedAt: Date.now()})
-  }, 200)
+  clearTimeout(messageTimeouts.get(userId))
+  messageTimeouts.set(userId, setTimeout(() => {
+    messageTimeouts.delete(userId)
+    sendStatusMessage(userId, {type: "configUpdate", updatedAt: Date.now()})
+  }, 200))
 }
 
 export const simConfigsApp = new Hono<{
@@ -85,7 +85,7 @@ export const simConfigsApp = new Hono<{
       const newSimConfig = toCreate(json, user.id)
 
       const result = await insertSimConfig(user.id, newSimConfig)
-      await handleSimConfigsUpdate()
+      await handleSimConfigsUpdate(c.var.user.id)
 
       return c.json(toDto(result))
     })
@@ -97,7 +97,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     const result = await updateSimConfig(simConfig.id, updateInput)
 
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json(toDto(result))
   })
 
@@ -105,7 +105,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     const [deletedConfig] = await deleteSimConfig(simConfig.id)
 
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json(toDto(deletedConfig))
   })
 
@@ -123,7 +123,7 @@ export const simConfigsApp = new Hono<{
     const updateInput = toUpdate({spec: newSpec})
     const result = await updateSimConfig(simConfig.id, updateInput)
 
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json(toDto(result))
   })
 
@@ -131,7 +131,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     await updateSimConfig(simConfig.id, {playing: true})
 
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json({success: true})
   })
 
@@ -139,7 +139,7 @@ export const simConfigsApp = new Hono<{
     const simConfig = c.get('simConfig')
     await updateSimConfig(simConfig.id, {playing: false})
 
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json({success: true})
   })
 
@@ -153,7 +153,7 @@ export const simConfigsApp = new Hono<{
     await updateSimConfig(simConfig.id, {
       shareToken: token
     });
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json({token});
   })
 
@@ -162,6 +162,6 @@ export const simConfigsApp = new Hono<{
     await updateSimConfig(simConfig.id, {
       shareToken: ""
     });
-    await handleSimConfigsUpdate()
+    await handleSimConfigsUpdate(c.var.user.id)
     return c.json({success: true});
   })
