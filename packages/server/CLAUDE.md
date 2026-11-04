@@ -62,7 +62,7 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
   `handleSimConfigsUpdate(userId)` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a
-  per-user debounced (200 ms) `{type: "configUpdate", revision}` on that user's status stream only. Clients of
+  per-user debounced (500 ms) `{type: "configUpdate", revision}` on that user's status stream only. Clients of
   other users never see it; `/api/status[/ws]` subscribes to the caller's own stream.
 - **Config revision** (in memory, per user, `max(Date.now(), prev + 1)`): bumped *after* the write;
   `GET /api/configs` reads it *before* the DB query and returns it as `X-Config-Revision` (`CONFIG_REVISION_HEADER`,

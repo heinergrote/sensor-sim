@@ -42,7 +42,7 @@ const simConfigFields = z.object({
   id: z.number().int().positive(),
   ownerId: z.number().int().positive(),
   label: z.string(),
-  shareToken: z.string().min(1).max(64),
+  shareToken: z.string().min(0).max(64),
   spec: specSchema.nullable(),
   playing: z.boolean()
 });
@@ -52,7 +52,7 @@ export const simConfigResponseSchema = z.strictObject(simConfigFields.shape);
 // POST /api/simconfigs
 export const createSimConfigSchema =
   z.strictObject(simConfigFields.shape)
-    .omit({id: true})
+    .omit({id: true, ownerId: true, shareToken: true})
     .partial()
 
 // PUT/PATCH /api/simconfigs

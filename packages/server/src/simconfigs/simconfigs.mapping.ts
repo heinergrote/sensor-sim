@@ -28,10 +28,10 @@ export function toCreate(dto: CreateSimConfig, ownerId: number) {
   }
 
   return {
-    spec: null,
-    playing: true,
     ...dto,
     ownerId,
+    spec: null,
+    playing: false,
     shareToken: ""
   } satisfies NewSimConfigRow;
 }
