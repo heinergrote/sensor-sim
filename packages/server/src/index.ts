@@ -4,6 +4,7 @@ import {readFile} from "node:fs/promises";
 import path from "node:path";
 import {Hono} from "hono";
 import {cors} from "hono/cors";
+import {CONFIG_REVISION_HEADER} from "@sensor-sim/shared";
 import {loginApp} from "./login/login.api";
 import {maptilerApp} from "./maptiler/maptiler.api";
 import {usersApp} from "./users/users.api";
@@ -25,7 +26,7 @@ const port = Number(process.env.PORT) || 4000;
 export const simulationEngine = await createSimulationEngine()
 
 const app = new Hono()
-  .use('*', cors({origin: '*',}))
+  .use('*', cors({origin: '*', exposeHeaders: [CONFIG_REVISION_HEADER]}))
   .route("/api/login", loginApp)
   .route("/api/status", statusApp)
   .route("/api/shared", sharedApp)

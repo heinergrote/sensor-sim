@@ -1,4 +1,4 @@
-import {SimConfig, SpecType, specTypesSchema, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
+import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
 import {createEffect, createRoot} from "solid-js";
 import {api, serverUrl} from "../api";
 import {action, query, revalidate} from "@solidjs/router";
@@ -7,9 +7,11 @@ import {jwtToken, useAuth} from "../auth";
 const RECONNECT_MIN_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 30000
 
+// highest config revision this client has fetched the list at (or been told about); see CONFIG_REVISION_HEADER
+let knownConfigRevision = 0
+
 const _dispose = createRoot(dispose => {
   const {user} = useAuth()
-  let lastConfigListUpdatedAt = 0
   let wss: WebSocket | undefined
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -35,9 +37,10 @@ const _dispose = createRoot(dispose => {
       const statusMessage = JSON.parse(event.data) as StatusMessage
 
       if (statusMessage.type === "configUpdate") {
-        // always refetch configs, when configs status changes
-        if (statusMessage.updatedAt > lastConfigListUpdatedAt) {
-          lastConfigListUpdatedAt = statusMessage.updatedAt
+        // refetch only if the list is older than the change, e.g. not after this tab's own mutation
+        // (the action already revalidated, and that fetch carried the new revision)
+        if (statusMessage.revision > knownConfigRevision) {
+          knownConfigRevision = statusMessage.revision
           revalidate(fetchSimConfigs.key)
         }
 
@@ -73,7 +76,10 @@ const _dispose = createRoot(dispose => {
 
 
 export const fetchSimConfigs = query(async () => {
-  return api.get<SimConfig[]>(`/configs`).json()
+  const response = await api.get<SimConfig[]>(`/configs`)
+  const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
+  if (revision > knownConfigRevision) knownConfigRevision = revision
+  return response.json()
 }, "simConfigs");
 
 

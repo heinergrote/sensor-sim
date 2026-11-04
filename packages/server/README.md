@@ -116,7 +116,8 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 ### Others
 
 - `GET /api/me` → `{id, username, admin}` from the token (no DB hit).
-- `GET /api/status` → the caller's current `StatusMessage`: `{type: "configUpdate", updatedAt}` or `{type: "ping"}`.
+- `GET /api/status` → the caller's current `StatusMessage`: `{type: "configUpdate", revision}` or `{type: "ping"}`.
+  `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can skip refetches they don't need.
 - `/api/users` (admin): `GET /`, `GET /:id`, `POST /` `{username, password, admin}`, `PUT /:id` (same body; password
   re-hashed), `DELETE /:id`. Passwords are scrypt-hashed (`salt:hash`).
 

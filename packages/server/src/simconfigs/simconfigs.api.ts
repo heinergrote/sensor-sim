@@ -9,7 +9,13 @@ import {
   insertSimConfig,
   updateSimConfig
 } from "./simconfigs.repository";
-import {createSimConfigSchema, simConfigIdParam, updateSimConfigSchema, updateTypeSchema} from "@sensor-sim/shared";
+import {
+  CONFIG_REVISION_HEADER,
+  createSimConfigSchema,
+  simConfigIdParam,
+  updateSimConfigSchema,
+  updateTypeSchema
+} from "@sensor-sim/shared";
 import {createMiddleware} from "hono/factory";
 import {toCreate, toDto, toUpdate} from "./simconfigs.mapping";
 import {sendStatusMessage} from "../status/status.service";
@@ -44,18 +50,31 @@ const loadOwnedSimConfig = createMiddleware<{
 })
 
 
+// Per-user config revision: bumped after every write, sent with the status message and as a header on
+// `GET /`, so clients can skip refetching a list they already have. Kept in memory; time-based so it keeps
+// increasing across server restarts (clients also revalidate on reconnect).
+const revisions = new Map<number, number>()
+
+function bumpRevision(userId: number) {
+  const revision = Math.max(Date.now(), (revisions.get(userId) ?? 0) + 1)
+  revisions.set(userId, revision)
+  return revision
+}
+
 // per user: a pending message for one user must not be delayed or swallowed by another user's changes
 const messageTimeouts = new Map<number, NodeJS.Timeout>()
 
 async function handleSimConfigsUpdate(userId: number) {
   await simulationEngine.syncConfigs()
-  // send the status update message to the owner's clients, with a 200ms delay
-  // if there is already one waiting, clear and reschedule
+  // bump only after the write, so a list read after this revision is visible already contains the change
+  const revision = bumpRevision(userId)
+  // send the status update message to the owner's clients, with a 500ms delay
+  // if there is already one waiting, clear and reschedule (the latest revision wins)
   clearTimeout(messageTimeouts.get(userId))
   messageTimeouts.set(userId, setTimeout(() => {
     messageTimeouts.delete(userId)
-    sendStatusMessage(userId, {type: "configUpdate", updatedAt: Date.now()})
-  }, 200))
+    sendStatusMessage(userId, {type: "configUpdate", revision})
+  }, 500))
 }
 
 export const simConfigsApp = new Hono<{
@@ -67,7 +86,10 @@ export const simConfigsApp = new Hono<{
 
   .get('/', async (c) => {
     const user = c.get('user')
+    // read the revision *before* the DB: the list is then at least that new (at worst one extra refetch)
+    const revision = revisions.get(user.id) ?? 0
     const configs = await getSimConfigsOfUser(user.id)
+    c.header(CONFIG_REVISION_HEADER, String(revision))
     return c.json(configs.map(toDto));
   })
 
