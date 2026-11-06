@@ -59,6 +59,9 @@ network DTOs are `z.infer`'d from the Zod schemas in `@sensor-sim/shared` and co
 never put row types or server-only code (Drizzle, Hono, node APIs) in it. Pure helpers used on both sides
 live there too (`@sensor-sim/shared/geoUtils`, a subpath export so the frontend doesn't pull in the Zod schemas).
 
+**Coordinates are `GeoPosition = readonly [lng, lat]`** (GeoJSON/MapLibre/turf order) in specs, geoUtils and engine
+state. The one exception is the streamed `SimData.position`, still `{latitude, longitude}` — the runner converts.
+
 **Types cross the package boundary through source, not an RPC client.** `@sensor-sim/shared`'s `exports` points at
 `src/index.ts` (no build step); server and frontend both depend on it, the frontend calls endpoints with plain `ky`.
 A schema change breaks `tsc` on both sides; a renamed route only fails at runtime. Because it ships `.ts`, the
@@ -94,4 +97,5 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 `compose.yaml` runs `db` → `migrate` (one-shot, must exit 0) → `server` (standalone Docker only; Swarm ignores
 `depends_on`) and **pins an explicit version tag** — migrations are forward-only. Migration `0007` **deletes all
 existing `sim_configs` rows** (id became a serial int); `0008`/`0009` drop the old per-field columns, so
-existing configs come back with `spec: null`. Deployment detail: `packages/server/README.md`.
+existing configs come back with `spec: null`. Specs stored before the `[lng, lat]` tuple fields (`latitude`/
+`longitude`, `start*`/`target*`/`center*`) no longer validate and read as `spec: null` too. Deployment detail: `packages/server/README.md`.

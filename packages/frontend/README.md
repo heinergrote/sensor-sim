@@ -54,8 +54,9 @@ loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` ins
 ## Data flow
 
 **Sim configs — REST + status signal.** `src/service/configs.service.ts` wraps `/api/configs` in router
-`query()`/`action()`s (`fetchSimConfigs`, `addSimConfig`, `updateSimConfig`, `updateType`, `startSim`, `stopSim`,
-`share`, …). A
+`query()`s and mutations: button/form-driven ones are router `formAction()`s (`addSimConfig`, `startSim`, `stopSim`,
+`deleteSimConfig`, `share`, `unShare`); code-driven ones (`updateSimConfig`, `updateType`) are core Solid
+`action()`s that revalidate the list themselves. A
 WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server reports a config change, so the list
 and the map stay in sync across clients. The selected sim is taken from that list; if it disappears, the page
 redirects to `/sims`.

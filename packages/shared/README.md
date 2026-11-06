@@ -17,8 +17,10 @@ src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, r
 ```
 
 `SimConfig.spec` is `Spec | null`. Spec schemas are `strictObject`s; a new spec type is added to both
-`specTypesSchema` and `specSchema` (server side: see `packages/server/CLAUDE.md`). `getPosition` returns the origin
-for a distance ≤ 0.
+`specTypesSchema` and `specSchema` (server side: see `packages/server/CLAUDE.md`). `GeoPosition` is
+`readonly [lng, lat]` (spec points are `tuple([number(), number()]).readonly()`); geoUtils take and return it, and
+`getPosition` returns the origin for a distance ≤ 0. `SimData.position` is deliberately still `{latitude,
+longitude}` (wire format of the live sockets).
 
 `geoUtils` is a separate subpath export so a runtime import of it doesn't drag the Zod schemas into the frontend
 bundle (type-only imports from the root are erased anyway).

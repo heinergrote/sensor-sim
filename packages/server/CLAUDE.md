@@ -91,19 +91,21 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 
 ## Simulation specs (`sim_configs.spec`, jsonb, nullable)
 
-A spec is a Zod discriminated union on `type` (`specSchema` in `@sensor-sim/shared`): `fixed` (lat/lon), `path`
-(start → target, `speed`, stops at target), `orbit` (center, `radius`, `startAngle`, `speed`). Movement is
+A spec is a Zod discriminated union on `type` (`specSchema` in `@sensor-sim/shared`): `fixed` (`position`), `path`
+(`start` → `target`, `speed`, stops at target), `orbit` (`center`, `radius`, `startAngle`, `speed`). All points are
+`GeoPosition` tuples `[lng, lat]`; `defaultTarget` too. Movement is
 geodesic via `@sensor-sim/shared/geoUtils`. Each type has a `SimulationDefinition<T>` in `simulation/definitions/`:
 
 ```
 createDefaultSpec(pos?)  random defaults around pos (else within 500 m of `defaultTarget`, Braunschweig)
-getLocation(spec)        anchor point (fixed position / path target / orbit center)
+getLocation(spec)        anchor point (fixed position / path start / orbit center)
 init(spec)               initial state — `SimulationStateMap[T]`, always has `position`
 step(state, spec, dt)    pure reducer, returns the next state
 ```
 
 Callers use only the type-erased `simulationDefinitions` facade (`getDefaultSpec`, `getLocation`, `init`, `step`,
-`getCurrentPosition`). `PUT /api/configs/:id/type {type}` replaces the spec with `getDefaultSpec(type,
+`getCurrentPosition`). `simulationRunner.currentSimData()` converts the state's tuple to
+`SimData.position` `{latitude, longitude}` — the only object-shaped coordinate. `PUT /api/configs/:id/type {type}` replaces the spec with `getDefaultSpec(type,
 getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is `PATCH {spec: null}`.
 
 **New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its

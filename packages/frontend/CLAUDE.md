@@ -57,9 +57,11 @@ pnpm lint                      # oxlint src
   `fetchSimConfigs()`** (no separate `fetchSimConfig` query), so status-socket revalidation keeps the map current. If
   the id isn't in the list (deleted here or remotely, or bogus), an effect redirects to `/sims` (`replace`). Renders
   `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
-- `SimCard.tsx` — config/share token and the actions; no live position. Type `<select>` (None/Fixed/Path/Orbit)
-  → `updateType`; per-type spec summary via `<Switch>/<Match>` on `spec.type`, speed slider for `path`/`orbit`
-  (PATCHes `{spec: {...spec, speed}}`). **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`).
+- `SimCard.tsx` — config/share token and the actions; no live position. Play/Stop, Delete, Share/Unshare are
+  `<form action={…with(id)}>` buttons. Type `<select>` (None/Fixed/Path/Orbit) → `updateType`; per-type spec
+  summary via `<Switch>/<Match>` on `spec.type`; `SpeedSlider` for `path`/`orbit` (live label on `input`, PATCHes
+  `{spec: {...spec, speed}}` on `change`). Select and slider keep a **draft signal** (`createSignal(() => prop)`)
+  so the `selected`/`value` binding doesn't write the old value back mid-request; reset to the prop on rejection. **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`).
 - `SimMap.tsx` — passes a copy of the selected config (or `null`) to `createSimulationMap(el, token).attachSimConfig`;
   copying makes the effect track every field. Only one sim is on the map at a time.
 - `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. Every `attachSimConfig(cfg)` tears
@@ -67,13 +69,14 @@ pnpm lint                      # oxlint src
   not draggable) is shared. Spec editing is delegated to a `ConfigSpecRenderer<T>` (`{updateSpec, dispose}`) picked
   by `spec.type`: `simulationFixed.ts` (one marker), `simulationPath.ts` (start + target), `simulationOrbit.ts`
   (center + start point; radius/`startAngle` recomputed via `@sensor-sim/shared/geoUtils`). On `dragend` a renderer
-  emits a full new spec → `PATCH {spec}`. No spec → no markers to edit. MapLibre 6 (`MapLibreMap` export): `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
+  emits a full new spec (`getLngLat().toArray()` → `[lng, lat]`; spread `[...pos]` back into `setLngLat`, the
+  tuples are readonly) → `updateSimConfig`. The current marker reads `SimData.position.{longitude,latitude}`. No spec → no markers to edit. MapLibre 6 (`MapLibreMap` export): `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
   adds a transparent pixel. JWT goes out via `transformRequest` (read once at map creation).
 
 ### Users
 
-`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)`, `addUser`, `updateUser`, `deleteUser` as router
-query/actions driven by form `action=`. Components in `components/users/` are typed on `User`.
+`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` queries; `addUser`, `updateUser`, `deleteUser`
+router `formAction()`s driven by form `action=` (`UserDetail` deletes via the button's `formaction={deleteUser.with(id)}`). Components in `components/users/` are typed on `User`.
 
 ### Server types
 

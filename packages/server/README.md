@@ -58,13 +58,14 @@ from its spec.
 
 **Specs.** What a sim does is a JSON `spec` (jsonb column, nullable), discriminated by `type`:
 
-| `type`  | Fields                                                                  | Behaviour                         |
-|---------|-------------------------------------------------------------------------|-----------------------------------|
-| `fixed` | `latitude, longitude`                                                   | stays put                         |
-| `path`  | `startLatitude, startLongitude, targetLatitude, targetLongitude, speed` | moves start → target, stops there |
-| `orbit` | `centerLatitude, centerLongitude, radius, startAngle, speed`            | circles the center                |
+| `type`  | Fields                                 | Behaviour                         |
+|---------|----------------------------------------|-----------------------------------|
+| `fixed` | `position`                             | stays put                         |
+| `path`  | `start, target, speed`                 | moves start → target, stops there |
+| `orbit` | `center, radius, startAngle, speed`    | circles the center                |
 
-Distances in m, angles in °, speed in m/s; movement is geodesic (`@turf/turf`). Each type is a
+Points are `[longitude, latitude]` tuples (GeoJSON order), e.g. `{"type": "fixed", "position": [10.52, 52.26]}`;
+the live `SimData` keeps `{latitude, longitude}`. Distances in m, angles in °, speed in m/s; movement is geodesic (`@turf/turf`). Each type is a
 `SimulationDefinition` (default spec, anchor location, `init`, pure `step`) registered in
 `src/simulation/simulationDefinitions.ts`.
 
