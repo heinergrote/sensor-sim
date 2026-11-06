@@ -17,10 +17,12 @@ export function createSimulationRunner(config: SimConfig) {
   if (config.spec) state = simulationDefinitions.init(config.spec)
 
   function currentSimData(): SimData {
+
+    const current = state ? simulationDefinitions.getCurrentPosition(state) : [0, 0]
     return {
-      position: state ? simulationDefinitions.getCurrentPosition(state) : {
-        latitude: 0,
-        longitude: 0,
+      position: {
+        latitude: current[1],
+        longitude: current[0]
       },
     }
   }

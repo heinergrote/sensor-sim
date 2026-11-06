@@ -114,15 +114,15 @@ export function createSimulationMap(
     simConfig = newSimConfig
 
     removeSimulationListener = addSimulationListener(simConfig.id,
-      (simState) => {
+      (simData) => {
 
         if (!currentOnMap) {
-          currentMarker.setLngLat([simState.position.longitude, simState.position.latitude])
+          currentMarker.setLngLat([simData.position.longitude, simData.position.latitude])
           currentMarker.addTo(map)
           currentOnMap = true
           currentMarker.getElement().style.zIndex = "9999";
         }
-        currentMarker.setLngLat([simState.position.longitude, simState.position.latitude])
+        currentMarker.setLngLat([simData.position.longitude, simData.position.latitude])
       }
     )
 

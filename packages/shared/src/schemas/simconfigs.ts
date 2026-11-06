@@ -1,4 +1,4 @@
-import {literal, number, z} from "zod";
+import {literal, number, tuple, z} from "zod";
 
 export const simConfigIdParam = z.object({
   id: z.coerce.number().int().positive()
@@ -8,24 +8,20 @@ export const specTypesSchema = z.enum(['fixed', 'path', 'orbit'])
 
 export const specFixedSchema = z.strictObject({
   type: literal("fixed"),
-  latitude: number(),
-  longitude: number(),
+  position: tuple([number(), number()]).readonly(),
 });
 
 export const specPathSchema = z.strictObject({
   type: literal("path"),
-  targetLatitude: number(),
-  targetLongitude: number(),
-  startLatitude: number(),
-  startLongitude: number(),
+  target: tuple([number(), number()]).readonly(),
+  start: tuple([number(), number()]).readonly(),
   speed: z.number(),
 });
 
 
 export const specOrbitSchema = z.strictObject({
   type: literal("orbit"),
-  centerLatitude: number(),
-  centerLongitude: number(),
+  center: tuple([number(), number()]).readonly(),
   radius: number(),
   startAngle: number(),
   speed: z.number(),

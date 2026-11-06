@@ -1,5 +1,5 @@
 import {MapLibreMap, Marker} from "maplibre-gl";
-import {GeoPosition, SpecOrbit} from "@sensor-sim/shared";
+import {SpecOrbit} from "@sensor-sim/shared";
 import {getAzimuth, getDistance, getPosition} from "@sensor-sim/shared/geoUtils";
 import {ConfigSpecRenderer} from "./simulationMap";
 
@@ -54,15 +54,13 @@ export function createSimulationOrbit(
   async function handleUpdate() {
 
     // calculate new initial distance and azimuth
-    const {lng: centerLongitude, lat: centerLatitude} = centerMarker.getLngLat()
-    const centerPosition: GeoPosition = {longitude: centerLongitude, latitude: centerLatitude}
-    const {lng: currentLongitude, lat: currentLatitude} = startMarker.getLngLat()
-    const currentPosition: GeoPosition = {longitude: currentLongitude, latitude: currentLatitude}
-    const radius = getDistance(centerPosition, currentPosition)
-    const startAngle = getAzimuth(centerPosition, currentPosition)
+    const center = centerMarker.getLngLat().toArray()
+    const current = startMarker.getLngLat().toArray()
+    const radius = getDistance(center, current)
+    const startAngle = getAzimuth(center, current)
     handleSpecChange({
       ...spec,
-      centerLatitude, centerLongitude, radius, startAngle,
+      center, radius, startAngle,
     })
   }
 
@@ -70,12 +68,9 @@ export function createSimulationOrbit(
   startMarker.on('dragend', handleUpdate);
 
   function updateSpec(spec: SpecOrbit) {
-    centerMarker.setLngLat([spec.centerLongitude, spec.centerLatitude])
-    const startPosition = getPosition({
-      latitude: spec.centerLatitude,
-      longitude: spec.centerLongitude
-    }, spec.radius, spec.startAngle)
-    startMarker.setLngLat([startPosition.longitude, startPosition.latitude])
+    centerMarker.setLngLat([...spec.center])
+    const startPosition = getPosition(spec.center, spec.radius, spec.startAngle)
+    startMarker.setLngLat([...startPosition])
   }
 
   function dispose() {

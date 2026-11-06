@@ -10,24 +10,18 @@ export const orbitDefinition: SimulationDefinition<'orbit'> = {
 
     return {
       type: 'orbit',
-      centerLatitude: initialPosition.latitude,
-      centerLongitude: initialPosition.longitude,
+      center: initialPosition,
       radius: randomBetween(50, 200),
       startAngle: randomBetween(0, 360),
       speed: Math.round(randomBetween(5, 20)),
     }
   },
 
-  getLocation: (spec) => ({
-    latitude: spec.centerLatitude,
-    longitude: spec.centerLongitude
-  }),
+  getLocation: spec => spec.center,
 
   init: (spec) => ({
     currentAngle: spec.startAngle,
-    position: getPosition(
-      {latitude: spec.centerLatitude, longitude: spec.centerLongitude},
-      spec.radius, spec.startAngle)
+    position: getPosition(spec.center, spec.radius, spec.startAngle)
   }),
 
   step: (state, spec, deltaMs) => {
@@ -36,10 +30,7 @@ export const orbitDefinition: SimulationDefinition<'orbit'> = {
     // get the rotation angle from the step distance and radius distance
     const angle = (stepDistance / spec.radius) * (180 / Math.PI);
     const nextAngle = (state.currentAngle + angle) % 360;
-    const nextPosition = getPosition(
-      {latitude: spec.centerLatitude, longitude: spec.centerLongitude},
-      spec.radius, nextAngle
-    )
+    const nextPosition = getPosition(spec.center, spec.radius, nextAngle)
 
     return {
       currentAngle: nextAngle,

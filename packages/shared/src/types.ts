@@ -12,7 +12,7 @@ import {
 } from "./schemas/simconfigs";
 
 export type SimData = {
-  position: GeoPosition,
+  position: { latitude: number, longitude: number },
 }
 
 export type StatusMessage = {
@@ -38,10 +38,7 @@ export type CreateSimConfig = z.infer<typeof createSimConfigSchema>;
 export type UpdateSimConfig = z.infer<typeof updateSimConfigSchema>;
 export type SimConfig = z.infer<typeof simConfigResponseSchema>;
 
-export type GeoPosition = {
-  latitude: number,
-  longitude: number
-};
+export type GeoPosition = readonly [number, number]
 export type SpecType = z.infer<typeof specTypesSchema>;
 export type SpecFixed = z.infer<typeof specFixedSchema>
 export type SpecPath = z.infer<typeof specPathSchema>

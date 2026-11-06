@@ -3,7 +3,7 @@ import {fixedDefinition} from "./definitions/fixed";
 import {orbitDefinition} from "./definitions/orbit";
 import {pathDefinition} from "./definitions/path";
 
-export const defaultTarget = {latitude: 52.264683, longitude: 10.523783};
+export const defaultTarget = [10.523783, 52.264683] as const;
 
 
 // Map SpecType -> Specific Internal State

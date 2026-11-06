@@ -114,8 +114,8 @@ export function SimCard(props: { simConfig: SimConfig }) {
                         {(spec) =>
                           <>
                             <div class="flex gap-2 items-center">
-                              <TbOutlineWorldLatitude/>{spec().latitude.toFixed(5)}
-                              <TbOutlineWorldLongitude/>{spec().longitude.toFixed(5)}
+                              <TbOutlineWorldLatitude/>{spec().position[1].toFixed(5)},
+                              <TbOutlineWorldLongitude/>{spec().position[0].toFixed(5)}
                             </div>
                           </>
                         }
@@ -124,12 +124,12 @@ export function SimCard(props: { simConfig: SimConfig }) {
                         {(spec) =>
                           <>
                             <div class="flex gap-2 items-center">
-                              From: <TbOutlineWorldLatitude/>{spec().startLatitude.toFixed(5)}
-                              <TbOutlineWorldLongitude/>{spec().startLongitude.toFixed(5)}
+                              From: <TbOutlineWorldLongitude/>{spec().start[0].toFixed(5)},
+                              <TbOutlineWorldLatitude/>{spec().start[1].toFixed(5)}
                             </div>
                             <div class="flex gap-2 items-center">
-                              To: <TbOutlineWorldLatitude/>{spec().targetLatitude.toFixed(5)}
-                              <TbOutlineWorldLongitude/>{spec().targetLongitude.toFixed(5)}
+                              To: <TbOutlineWorldLongitude/>{spec().target[0].toFixed(5)},
+                              <TbOutlineWorldLatitude/>{spec().target[1].toFixed(5)}
                             </div>
                             <div class="flex gap-2 items-center">
                               <BsSpeedometer/><span>{spec().speed}m/s</span>
@@ -150,8 +150,8 @@ export function SimCard(props: { simConfig: SimConfig }) {
                         {(spec) =>
                           <>
                             <div class="flex gap-2 items-center">
-                              <TbOutlineWorldLatitude/>{spec().centerLatitude.toFixed(5)}
-                              <TbOutlineWorldLongitude/>{spec().centerLongitude.toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().center[0].toFixed(5)},
+                              <TbOutlineWorldLatitude/>{spec().center[1].toFixed(5)}
                             </div>
                             <div class="flex gap-2 items-center">
                               <TbOutlineRulerMeasure/> {spec().radius.toFixed(2)}m

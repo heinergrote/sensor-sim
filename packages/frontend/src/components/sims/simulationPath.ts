@@ -36,11 +36,10 @@ export function createSimulationPath(
 ): ConfigSpecRenderer<SpecPath> {
 
   async function handleUpdate() {
-    const {lng: startLongitude, lat: startLatitude} = startMarker.getLngLat()
-    const {lng: targetLongitude, lat: targetLatitude} = targetMarker.getLngLat()
+    const start = startMarker.getLngLat().toArray()
+    const target = targetMarker.getLngLat().toArray()
     handleSpecChange({
-      ...spec,
-      targetLatitude, targetLongitude, startLatitude, startLongitude
+      ...spec, target, start
     })
   }
 
@@ -64,8 +63,8 @@ export function createSimulationPath(
   startMarker.addTo(map)
 
   function updateSpec(spec: SpecPath) {
-    targetMarker.setLngLat([spec.targetLongitude, spec.targetLatitude])
-    startMarker.setLngLat([spec.startLongitude, spec.startLatitude])
+    targetMarker.setLngLat([...spec.target])
+    startMarker.setLngLat([...spec.start])
   }
 
   function dispose() {

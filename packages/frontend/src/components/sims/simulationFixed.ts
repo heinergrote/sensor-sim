@@ -31,17 +31,16 @@ export function createSimulationFixed(
   marker.addTo(map)
 
   async function handleUpdate() {
-    const {lng, lat} = marker.getLngLat()
+    const position = marker.getLngLat().toArray()
     handleSpecChange({
-      ...spec,
-      latitude: lat, longitude: lng
+      ...spec, position
     })
   }
 
   marker.on('dragend', handleUpdate);
 
   function updateSpec(spec: SpecFixed) {
-    marker.setLngLat([spec.longitude, spec.latitude])
+    marker.setLngLat([...spec.position])
   }
 
   function dispose() {

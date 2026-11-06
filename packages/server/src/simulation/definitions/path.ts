@@ -11,39 +11,24 @@ export const pathDefinition: SimulationDefinition<'path'> = {
 
     return {
       type: "path",
-      targetLatitude: initialPosition.latitude,
-      targetLongitude: initialPosition.longitude,
-      startLatitude: randomStart.latitude,
-      startLongitude: randomStart.longitude,
+      target: initialPosition,
+      start: randomStart,
       speed: Math.round(randomBetween(5, 20)),
     };
   },
 
-  getLocation: (spec) => ({
-    latitude: spec.targetLatitude,
-    longitude: spec.targetLongitude
-  }),
+  getLocation: spec => spec.start,
 
   init: (spec) => ({
-    currentDistance: getDistance(
-      {latitude: spec.targetLatitude, longitude: spec.targetLongitude},
-      {latitude: spec.startLatitude, longitude: spec.startLongitude},
-    ),
-    position: {latitude: spec.startLatitude, longitude: spec.startLongitude}
+    currentDistance: getDistance(spec.target, spec.start,),
+    position: spec.start
   }),
 
   step: (state, spec, deltaMs) => {
     const stepDistance = spec.speed * deltaMs / 1000;
-    const azimuth = getAzimuth(
-      {latitude: spec.targetLatitude, longitude: spec.targetLongitude},
-      {latitude: spec.startLatitude, longitude: spec.startLongitude},
-    )
+    const azimuth = getAzimuth(spec.target, spec.start,)
     const nextDistance = Math.max(0, state.currentDistance - stepDistance);
-    const nextPosition = getPosition(
-      {latitude: spec.targetLatitude, longitude: spec.targetLongitude},
-      nextDistance, azimuth
-    )
-
+    const nextPosition = getPosition(spec.target, nextDistance, azimuth)
     return {
       currentDistance: nextDistance,
       position: nextPosition

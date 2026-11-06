@@ -4,24 +4,20 @@ import {defaultTarget, SimulationDefinition} from "../simulationDefinitions";
 
 export const fixedDefinition: SimulationDefinition<'fixed'> = {
 
-  createDefaultSpec: (initialPosition?: GeoPosition) => {
-    if (!initialPosition)
-      initialPosition = randomOffset(defaultTarget, 0, 500);
+  createDefaultSpec: (position?: GeoPosition) => {
+    if (!position)
+      position = randomOffset(defaultTarget, 0, 500);
 
     return {
       type: "fixed",
-      latitude: initialPosition.latitude,
-      longitude: initialPosition.longitude,
+      position: position
     };
   },
 
-  getLocation: (spec) => ({
-    latitude: spec.latitude,
-    longitude: spec.longitude
-  }),
+  getLocation: spec => spec.position,
 
   init: (spec) => ({
-    position: {latitude: spec.latitude, longitude: spec.longitude}
+    position: spec.position
   }),
 
   step: (state, _spec, _deltaMs) => {
