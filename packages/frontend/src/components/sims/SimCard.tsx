@@ -1,4 +1,4 @@
-import {Match, Show, Switch} from "solid-js";
+import {createSignal, Match, Show, Switch} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
@@ -12,7 +12,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {useAction, useMatch, useNavigate} from "@solidjs/router";
+import {useMatch, useNavigate} from "@solidjs/router";
 import {
   deleteSimConfig,
   share,
@@ -31,40 +31,32 @@ export function SimCard(props: { simConfig: SimConfig }) {
   const navigate = useNavigate()
   const selected = useMatch(() => paths.sims(props.simConfig.id));
 
-  const updateTypeAction = useAction(updateType)
-  const deleteSimAction = useAction(deleteSimConfig)
-  const startSimAction = useAction(startSim)
-  const stopSimAction = useAction(stopSim)
-  const updateSimConfigAction = useAction(updateSimConfig)
-  const shareAction = useAction(share)
-  const unShareAction = useAction(unShare)
-
   const specPath = () => props.simConfig.spec?.type === "path" ? props.simConfig.spec as SpecPath : null
   const specOrbit = () => props.simConfig.spec?.type === "orbit" ? props.simConfig.spec as SpecOrbit : null
   const specFixed = () => props.simConfig.spec?.type === "fixed" ? props.simConfig.spec as SpecFixed : null
 
-  function handleToggleShare() {
-    if (props.simConfig.shareToken) {
-      unShareAction(props.simConfig.id)
-    } else {
-      shareAction(props.simConfig.id)
-    }
-  }
+  // form actions for the buttons, bound to this config's id
+  const toggleShareAction = () => props.simConfig.shareToken
+    ? unShare.with(props.simConfig.id)
+    : share.with(props.simConfig.id)
+  const togglePlayAction = () => props.simConfig.playing
+    ? stopSim.with(props.simConfig.id)
+    : startSim.with(props.simConfig.id)
+  const deleteAction = () => deleteSimConfig.with(props.simConfig.id)
 
-  function handleTogglePlay() {
-    if (props.simConfig.playing) {
-      stopSimAction(props.simConfig.id)
-    } else {
-      startSimAction(props.simConfig.id)
-    }
-  }
+  // draft of the select: follows the config, but takes the user's pick immediately so the `selected`
+  // bindings don't write the old type back while the update is in flight
+  const committedType = () => props.simConfig.spec?.type ?? "_none"
+  const [selectedType, setSelectedType] = createSignal<SpecType | "_none">(committedType)
 
-  function handleTypeChange(event: Event) {
-    const target = event.target as HTMLSelectElement
-    if (target.value === "_none") {
-      updateTypeAction(props.simConfig.id, null)
-    } else {
-      updateTypeAction(props.simConfig.id, target.value as SpecType)
+  async function handleTypeChange(event: Event & { currentTarget: HTMLSelectElement }) {
+    const type = event.currentTarget.value as SpecType | "_none"
+    setSelectedType(type)
+    try {
+      await updateType(props.simConfig.id, type === "_none" ? null : type)
+    } catch (error) {
+      setSelectedType(committedType()) // rejected: show the committed type again
+      throw error
     }
   }
 
@@ -84,14 +76,18 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
                 <div class="flex items-center gap-2">
                   <span>{config().label}</span>
-                  <button class="btn btn-sm" onClick={handleTogglePlay}>
-                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
-                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
-                  </button>
+                  <form method="post" action={togglePlayAction()} class="contents">
+                    <button class="btn btn-sm">
+                      <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
+                      <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
+                    </button>
+                  </form>
                   <div class={"flex-1"}/>
-                  <button class="btn btn-sm" onClick={() => deleteSimAction(config().id)}>
-                    <TbFillTrash/>
-                  </button>
+                  <form method="post" action={deleteAction()} class="contents">
+                    <button class="btn btn-sm">
+                      <TbFillTrash/>
+                    </button>
+                  </form>
                 </div>
 
                 <div class={"divider my-0"}/>
@@ -99,10 +95,10 @@ export function SimCard(props: { simConfig: SimConfig }) {
                 <div class="flex flex-row gap-2">
 
                   <select class="select select-sm w-fit" onChange={handleTypeChange}>
-                    <option value={"_none"} selected={!config().spec}>None</option>
-                    <option value={"fixed"} selected={config().spec?.type === "fixed"}>Fixed</option>
-                    <option value={"path"} selected={config().spec?.type === "path"}>Path</option>
-                    <option value={"orbit"} selected={config().spec?.type === "orbit"}>Orbit</option>
+                    <option value={"_none"} selected={selectedType() === "_none"}>None</option>
+                    <option value={"fixed"} selected={selectedType() === "fixed"}>Fixed</option>
+                    <option value={"path"} selected={selectedType() === "path"}>Path</option>
+                    <option value={"orbit"} selected={selectedType() === "orbit"}>Orbit</option>
                   </select>
 
                   <div class={"divider divider-horizontal mx-0"}/>
@@ -132,16 +128,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
                               <TbOutlineWorldLatitude/>{spec().target[1].toFixed(5)}
                             </div>
                             <div class="flex gap-2 items-center">
-                              <BsSpeedometer/><span>{spec().speed}m/s</span>
-                              <input type="range" min="0" max="40" value={spec().speed}
-                                     onChange={(e) => updateSimConfigAction(config().id, {
-                                       spec: {
-                                         ...spec(),
-                                         speed: +e.currentTarget.value
-                                       }
-                                     })}
-                                     class="range range-xs w-full"
-                              />
+                              <SpeedSlider id={config().id} spec={spec()}/>
                             </div>
                           </>
                         }
@@ -158,16 +145,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
                               <TbOutlineAngle/> {spec().startAngle.toFixed(2)}°
                             </div>
                             <div class="flex gap-2 items-center">
-                              <BsSpeedometer/><span>{spec().speed}m/s</span>
-                              <input type="range" min="0" max="40" value={spec().speed}
-                                     onChange={(e) => updateSimConfigAction(config().id, {
-                                       spec: {
-                                         ...spec(),
-                                         speed: +e.currentTarget.value
-                                       }
-                                     })}
-                                     class="range range-xs w-full"
-                              />
+                              <SpeedSlider id={config().id} spec={spec()}/>
                             </div>
                           </>
                         }
@@ -180,10 +158,12 @@ export function SimCard(props: { simConfig: SimConfig }) {
                 <div class={"divider my-0"}/>
 
                 <div class="flex gap-1 items-center">
-                  <button class="btn btn-sm" onClick={handleToggleShare}>
-                    <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
-                    <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
-                  </button>
+                  <form method="post" action={toggleShareAction()} class="contents">
+                    <button class="btn btn-sm">
+                      <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
+                      <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
+                    </button>
+                  </form>
                   <Show when={config().shareToken}>
                     <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
                     <button class="btn btn-sm" onClick={() => {
@@ -205,4 +185,30 @@ export function SimCard(props: { simConfig: SimConfig }) {
       </Show>
     </>
   )
+}
+
+
+// Draft of the speed: follows the spec, takes every slider move immediately (live m/s label) and commits on release,
+// so the `value` binding doesn't write the old speed back while the update is in flight.
+function SpeedSlider(props: { id: number, spec: SpecPath | SpecOrbit }) {
+  const [speed, setSpeed] = createSignal(() => props.spec.speed)
+
+  async function commit(value: number) {
+    setSpeed(value)
+    try {
+      await updateSimConfig(props.id, {spec: {...props.spec, speed: value}})
+    } catch (error) {
+      setSpeed(props.spec.speed) // rejected: show the committed speed again
+      throw error
+    }
+  }
+
+  return <>
+    <BsSpeedometer/><span>{speed()}m/s</span>
+    <input type="range" min="0" max="40" value={speed()}
+           onInput={(e) => setSpeed(+e.currentTarget.value)}
+           onChange={(e) => commit(+e.currentTarget.value)}
+           class="range range-xs w-full"
+    />
+  </>
 }

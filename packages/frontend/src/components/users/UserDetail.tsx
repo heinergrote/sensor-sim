@@ -1,5 +1,5 @@
 import {TbOutlineArrowLeft, TbOutlineDeviceFloppy, TbOutlineTrash} from "solid-icons/tb";
-import {useAction, useNavigate} from "@solidjs/router";
+import {useNavigate} from "@solidjs/router";
 import {User} from "@sensor-sim/shared";
 import {deleteUser, updateUser} from "../../service/users.service";
 
@@ -8,10 +8,8 @@ export function UserDetail(props: {
 }) {
 
   const navigate = useNavigate()
-  const deleteUserAction = useAction(deleteUser)
 
   deleteUser.onSettled(() => navigate(-1));
-
 
   return (
     <>
@@ -23,7 +21,8 @@ export function UserDetail(props: {
         <button type="submit" form="userDetailForm" class="btn btn-primary">
           <TbOutlineDeviceFloppy size={24}/> Save
         </button>
-        <button type="button" class="btn btn-error" onClick={() => deleteUserAction(Number(props.user.id))}>
+        <button type="submit" form="userDetailForm" formaction={deleteUser.with(Number(props.user.id))}
+                class="btn btn-error">
           <TbOutlineTrash size={16}/> Delete
         </button>
 

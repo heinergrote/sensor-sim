@@ -1,7 +1,7 @@
 import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
-import {createEffect, createRoot} from "solid-js";
+import {action, createEffect, createRoot} from "solid-js";
 import {api, serverUrl} from "../api";
-import {action, query, revalidate} from "@solidjs/router";
+import {formAction, query, revalidate} from "@solidjs/router";
 import {jwtToken, useAuth} from "../auth";
 
 const RECONNECT_MIN_DELAY_MS = 1000
@@ -88,7 +88,10 @@ export const fetchSimConfig = query(async (id: number) => {
 }, "simConfig");
 
 
-export const addSimConfig = action(async (form: FormData) => {
+// Button-triggered mutations are router form actions, bound via <form action={...}> / formaction.
+// The router revalidates queries after each one.
+
+export const addSimConfig = formAction(async (form: FormData) => {
 
   return api.post<SimConfig>(`/configs`, {
     json: {
@@ -97,46 +100,51 @@ export const addSimConfig = action(async (form: FormData) => {
   }).json()
 })
 
-export const updateSimConfig = action(async (id: number, config: UpdateSimConfig) => {
-  return api.patch<SimConfig>(`/configs/${id}`, {
-    json: config
-  }).json()
-})
-
-export const deleteSimConfig = action(async (id: number) => {
+export const deleteSimConfig = formAction(async (id: number) => {
   return api.delete<SimConfig>(`/configs/${id}`).json()
 })
 
-export const startSim = action(async (id: number) => {
+export const startSim = formAction(async (id: number) => {
   return api.put(`/configs/${id}/start`).json()
 })
 
-export const stopSim = action(async (id: number) => {
+export const stopSim = formAction(async (id: number) => {
   return api.put(`/configs/${id}/stop`).json()
 })
 
-export const updateType = action(async (id: number, type: SpecType | null) => {
-  const parsedType = specTypesSchema.safeParse(type).data ?? null
-
-  if (parsedType) {
-    // type valid: update using type endpoint
-    return api.put<SimConfig>(`/configs/${id}/type`, {
-      json: {type: parsedType}
-    }).json()
-  } else {
-    // type invalid: remove spec
-    return api.patch<SimConfig>(`/configs/${id}`, {
-      json: {spec: null}
-    }).json()
-  }
-})
-
-export const share = action(async (id: number) => {
+export const share = formAction(async (id: number) => {
   return api.post<{ token: string, expiryDate: Date }>(`/configs/${id}/share`).json()
 })
 
-export const unShare = action(async (id: number) => {
+export const unShare = formAction(async (id: number) => {
   return api.post<{ success: boolean }>(`/configs/${id}/unshare`).json()
 })
 
+// Mutations called from code (map drags, sliders, selects) are core actions: plain callables that know
+// nothing about the router, so they revalidate the config list themselves.
 
+export const updateSimConfig = action(async function* (id: number, config: UpdateSimConfig) {
+  const result = await api.patch<SimConfig>(`/configs/${id}`, {
+    json: config
+  }).json()
+  yield // re-enter the transaction before touching reactive state
+  revalidate(fetchSimConfigs.key)
+  return result
+})
+
+export const updateType = action(async function* (id: number, type: SpecType | null) {
+  const parsedType = specTypesSchema.safeParse(type).data ?? null
+
+  const result = parsedType
+    // type valid: update using type endpoint
+    ? await api.put<SimConfig>(`/configs/${id}/type`, {
+      json: {type: parsedType}
+    }).json()
+    // type invalid: remove spec
+    : await api.patch<SimConfig>(`/configs/${id}`, {
+      json: {spec: null}
+    }).json()
+  yield // re-enter the transaction before touching reactive state
+  revalidate(fetchSimConfigs.key)
+  return result
+})

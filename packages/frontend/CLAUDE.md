@@ -36,7 +36,10 @@ pnpm lint                      # oxlint src
 
 ### Simulations: configs vs. live state
 
-- `src/service/configs.service.ts` — everything config-side, as `@solidjs/router` `query()`/`action()`:
+- `src/service/configs.service.ts` — everything config-side: `@solidjs/router` `query()`s; button-driven mutations
+  are router `formAction()`s (bound via mini `<form method="post" action={x.with(id)} class="contents">` — a
+  `FormAction` can't be called directly, its `this` must come from the router), code-driven ones (`updateSimConfig`,
+  `updateType`) are core solid-js `action(async function* …)`s that `revalidate(fetchSimConfigs.key)` themselves:
   `fetchSimConfigs` (`GET /configs`, key `"simConfigs"`), `fetchSimConfig(id)`, and actions `addSimConfig` (form:
   `label` only — new configs have `spec: null`), `updateSimConfig(id, UpdateSimConfig)` (PATCH; spec edits send
   the **whole** spec), `deleteSimConfig`, `startSim`/`stopSim`, `updateType(id, SpecType | null)` (`PUT

@@ -1,5 +1,5 @@
 import {api} from "../api";
-import {action, query} from "@solidjs/router";
+import {formAction, query} from "@solidjs/router";
 import {User} from "@sensor-sim/shared";
 
 export const fetchUsers = query(async () => {
@@ -10,7 +10,7 @@ export const fetchUser = query(async (id: number) => {
   return api.get<User>(`/users/${id}`).json();
 }, "user");
 
-export const addUser = action(async (form: FormData) => {
+export const addUser = formAction(async (form: FormData) => {
   return api.post("/users", {
     json: {
       username: form.get("username") as string,
@@ -20,12 +20,12 @@ export const addUser = action(async (form: FormData) => {
   }).json();
 })
 
-export const deleteUser = action(async (id: number) => {
+export const deleteUser = formAction(async (id: number) => {
   return api.delete(`/users/${id}`).json();
 });
 
 
-export const updateUser = action(async (id: number, form: FormData) => {
+export const updateUser = formAction(async (id: number, form: FormData) => {
   return api.put(`/users/${id}`, {
     json: {
       username: form.get("username") as string || undefined,

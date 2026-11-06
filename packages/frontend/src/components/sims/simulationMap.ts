@@ -5,7 +5,6 @@ import {SimConfig, Spec, SpecOrbit, SpecPath} from "@sensor-sim/shared";
 import {createSimulationOrbit} from "./simulationOrbit";
 import {createSimulationPath} from "./simulationPath";
 import {updateSimConfig} from "../../service/configs.service";
-import {useAction} from "@solidjs/router";
 import {createSimulationFixed} from "./simulationFixed";
 
 setWorkerUrl(workerUrl);
@@ -42,12 +41,8 @@ export function createSimulationMap(
   jwtToken: string | null
 ) {
 
-  const updateSimConfigAction = useAction(updateSimConfig);
-
   const onSpecUpdate = async (id: number, spec: Spec) => {
-    await updateSimConfigAction(id, {
-      spec
-    })
+    await updateSimConfig(id, {spec})
   }
 
   let configSpecRenderer: ConfigSpecRenderer<any> | null = null;
