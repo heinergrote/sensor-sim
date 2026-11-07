@@ -95,10 +95,10 @@ export function SimCard(props: { simConfig: SimConfig }) {
                 <div class="flex flex-row gap-2">
 
                   <select class="select select-sm w-fit" onChange={handleTypeChange}>
-                    <option value={"_none"} selected={selectedType() === "_none"}>None</option>
-                    <option value={"fixed"} selected={selectedType() === "fixed"}>Fixed</option>
-                    <option value={"path"} selected={selectedType() === "path"}>Path</option>
-                    <option value={"orbit"} selected={selectedType() === "orbit"}>Orbit</option>
+                    <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
+                    <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
+                    <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
+                    <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
                   </select>
 
                   <div class={"divider divider-horizontal mx-0"}/>
