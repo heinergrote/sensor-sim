@@ -1,6 +1,8 @@
 import {MapLibreMap, Marker} from "maplibre-gl";
 import {SpecPath} from "@sensor-sim/shared";
 import {ConfigSpecRenderer} from "./simulationMap";
+import {MaplibreTerradrawControl} from "@watergis/maplibre-gl-terradraw";
+import '@watergis/maplibre-gl-terradraw/dist/maplibre-gl-terradraw.css'
 
 function createTargetMarkerElement(): HTMLElement {
   const svgMarker = `<svg width="48" height="96" viewBox="0 0 48 96" xmlns="http://w3.org">
@@ -43,6 +45,17 @@ export function createSimulationPath(
     })
   }
 
+
+  const drawControl = new MaplibreTerradrawControl({
+    modes: ['render', 'point', 'marker', 'linestring', 'freehand', 'freehand-linestring', 'select', 'delete-selection', 'delete', 'undo', 'redo', 'download'],
+    open: true,
+    showDeleteConfirmation: false,
+  });
+  map.addControl(drawControl, 'top-left');
+
+  const draw = drawControl.getTerraDrawInstance()
+
+
   const targetMarker = new Marker({
     draggable: true,
     element: createTargetMarkerElement(),
@@ -63,13 +76,43 @@ export function createSimulationPath(
   startMarker.addTo(map)
 
   function updateSpec(spec: SpecPath) {
+    console.log("updateSpec", spec)
+
     targetMarker.setLngLat([...spec.target])
     startMarker.setLngLat([...spec.start])
+
+    if (draw) {
+      drawControl.activate()
+      draw.clear()
+
+      const coordinates = [
+        spec.start.map((coord) => +coord.toPrecision(9)),
+        spec.target.map((coord) => +coord.toPrecision(9))
+      ]
+
+      const result = draw.addFeatures(
+        [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates
+            },
+            properties: {
+              mode: "linestring",
+            },
+          },
+        ]
+      )
+    }
+
+
   }
 
   function dispose() {
     targetMarker.remove()
     startMarker.remove()
+    map.removeControl(drawControl)
   }
 
   return {

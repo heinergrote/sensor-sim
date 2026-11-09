@@ -9,7 +9,7 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
 
   // oxlint-disable-next-line no-unassigned-vars
   let mapEl!: HTMLDivElement
-  let map: SimulationMap | undefined
+  let simulationMap: SimulationMap | undefined
 
   createEffect(() => ({
       ready: mapReady(),
@@ -17,16 +17,17 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
       config: props.simConfig ? {...props.simConfig} : null
     }),
     (c) => {
-      if (c.ready) map?.attachSimConfig(c.config)
+      if (c.ready) simulationMap?.attachSimConfig(c.config)
     }
   )
 
   onSettled(
     () => {
-      map = createSimulationMap(mapEl, jwtToken());
-      setMapReady(true);
+      simulationMap = createSimulationMap(mapEl, jwtToken(), () => {
+        setMapReady(true);
+      });
       return () => {
-        map?.dispose()
+        simulationMap?.dispose()
       }
     }
   )

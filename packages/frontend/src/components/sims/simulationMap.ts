@@ -38,7 +38,8 @@ export type ConfigSpecRenderer<T extends Spec> = {
 
 export function createSimulationMap(
   element: HTMLDivElement,
-  jwtToken: string | null
+  jwtToken: string | null,
+  onReady: () => void
 ) {
 
   const onSpecUpdate = async (id: number, spec: Spec) => {
@@ -87,12 +88,17 @@ export function createSimulationMap(
     trackUserLocation: true,
   }), 'bottom-right');
 
+  map.once('load', () => {
+    onReady()
+  })
+
   const currentMarker = new Marker({
     element: createCurrentMarkerElement(),
     anchor: 'center',
   })
 
   function attachSimConfig(newSimConfig: SimConfig | null) {
+    if (!map.loaded()) return;
 
     removeSimulationListener?.()
     removeSimulationListener = null

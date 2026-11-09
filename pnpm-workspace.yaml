@@ -38,3 +38,10 @@ minimumReleaseAgeExclude:
   - oxlint@1.91.0
   - solid-js@2.0.0-rc.21
   - tsdown@0.23.5
+permissions:
+  '@solidjs/diagnostics':
+    skills: true
+  '@solidjs/web':
+    skills: true
+  solid-js:
+    skills: true

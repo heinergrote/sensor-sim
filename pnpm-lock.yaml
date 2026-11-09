@@ -30,6 +30,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
+      '@watergis/maplibre-gl-terradraw':
+        specifier: ^1.17.0
+        version: 1.17.0(maplibre-gl@6.16.0)(terra-draw-maplibre-gl-adapter@1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0))(terra-draw@1.39.0)
       daisyui:
         specifier: ^5.7.50
         version: 5.7.50
@@ -2066,6 +2069,20 @@ packages:
   '@vitest/spy@5.1.0':
     resolution: {integrity: sha512-2DPO5OMHWKrBngC+fCmTQqemNF0gidRhp3lxbBmRhW+M1XJrfgPpqNqWVevXtn2f2ufD5ZaR1B6B641aAlcX5A==}
 
+  '@watergis/maplibre-gl-terradraw@1.17.0':
+    resolution: {integrity: sha512-2KMRSJQJgA3cuFbjxzEjswvzn0gRpU5JWI0UL8lJri5gOJUoejIk2CE+SkQOyrSPt4bX2Ki4DTbEYgtw7u63BA==}
+    engines: {pnpm: ^12.0.0}
+    peerDependencies:
+      maplibre-gl: ^4.0.0 || ^5.0.0 || ^6.0.0
+      terra-draw: ^1.0.0
+      terra-draw-maplibre-gl-adapter: ^1.0.0
+      terradraw: '*'
+    peerDependenciesMeta:
+      terra-draw-maplibre-gl-adapter:
+        optional: true
+      terradraw:
+        optional: true
+
   '@yuku-toolchain/darwin-arm64@0.25.0':
     resolution: {integrity: sha512-21QMCgP74cgSrgxIgw/SS5uMnn7cFHwgjNEBZYgO1HxpdjG4ULenXyUY92xRReuAJZdbRyz6OGwtYi6lDKumSw==}
     cpu: [arm64]
@@ -3200,6 +3217,15 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  terra-draw-maplibre-gl-adapter@1.5.0:
+    resolution: {integrity: sha512-wUv7WDIKln+cWkJOJZ68cOLwFhcBXlSN3GF56Dx8GLnmTTnQEZbIyzWRHjsxhn+TOXvxBOlCDl5JmCghIW3L4g==}
+    peerDependencies:
+      maplibre-gl: '>=4'
+      terra-draw: ^1.0.0
+
+  terra-draw@1.39.0:
+    resolution: {integrity: sha512-W9myUqAlxTQYydNM6cI1kmaU3/i9IlNUfzbfjr7sZVfE5YrJ1ogEpMTKKXdlXdON7tB/nMd3sPL26u7CAzCxKA==}
 
   tinybench@6.2.2:
     resolution: {integrity: sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==}
@@ -5792,6 +5818,13 @@ snapshots:
 
   '@vitest/spy@5.1.0': {}
 
+  '@watergis/maplibre-gl-terradraw@1.17.0(maplibre-gl@6.16.0)(terra-draw-maplibre-gl-adapter@1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0))(terra-draw@1.39.0)':
+    dependencies:
+      maplibre-gl: 6.16.0
+      terra-draw: 1.39.0
+    optionalDependencies:
+      terra-draw-maplibre-gl-adapter: 1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0)
+
   '@yuku-toolchain/darwin-arm64@0.25.0':
     optional: true
 
@@ -6827,6 +6860,14 @@ snapshots:
   tailwindcss@4.3.4: {}
 
   tapable@2.3.3: {}
+
+  terra-draw-maplibre-gl-adapter@1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0):
+    dependencies:
+      maplibre-gl: 6.16.0
+      terra-draw: 1.39.0
+    optional: true
+
+  terra-draw@1.39.0: {}
 
   tinybench@6.2.2: {}
 
