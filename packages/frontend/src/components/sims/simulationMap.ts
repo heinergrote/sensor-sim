@@ -1,5 +1,4 @@
 import {GeolocateControl, MapLibreMap, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {addSimulationListener} from "../../service/simulation.service";
 import {SimConfig, Spec, SpecOrbit, SpecPath} from "@sensor-sim/shared";
 import {createSimulationOrbit} from "./simulationOrbit";
@@ -7,7 +6,15 @@ import {createSimulationPath} from "./simulationPath";
 import {updateSimConfig} from "../../service/configs.service";
 import {createSimulationFixed} from "./simulationFixed";
 
-setWorkerUrl(workerUrl);
+// In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
+// client inside the worker and throws `document is not defined` on every CSS hot update. Load the untransformed
+// source as a blob instead; the build keeps the hashed asset URL. Both branches are dead-code-eliminated per mode.
+setWorkerUrl(import.meta.env.DEV
+  ? URL.createObjectURL(new Blob(
+    [(await import('maplibre-gl/dist/maplibre-gl-worker.mjs?raw')).default],
+    {type: 'text/javascript'},
+  ))
+  : (await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')).default);
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
