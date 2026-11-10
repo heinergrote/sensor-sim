@@ -63,5 +63,7 @@ export function toDto(row: SimConfigRow): SimConfig {
     shareToken: row.shareToken,
     spec: validatedSpec,
     playing: row.playing,
+    updatedAt: row.updatedAt,
+    createdAt: row.createdAt,
   };
 }

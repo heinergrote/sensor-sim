@@ -68,13 +68,13 @@ async function handleSimConfigsUpdate(userId: number) {
   await simulationEngine.syncConfigs()
   // bump only after the write, so a list read after this revision is visible already contains the change
   const revision = bumpRevision(userId)
-  // send the status update message to the owner's clients, with a 500ms delay
+  // send the status update message to the owner's clients, with a short delay
   // if there is already one waiting, clear and reschedule (the latest revision wins)
   clearTimeout(messageTimeouts.get(userId))
   messageTimeouts.set(userId, setTimeout(() => {
     messageTimeouts.delete(userId)
-    sendStatusMessage(userId, {type: "configUpdate", revision})
-  }, 500))
+    sendStatusMessage(userId, {configsRevision: revision})
+  }, 100))
 }
 
 export const simConfigsApp = new Hono<{

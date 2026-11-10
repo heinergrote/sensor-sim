@@ -10,7 +10,6 @@ export function getStatusStream(userId: number): EventStream<StatusMessage> {
   let stream = statusStreams.get(userId);
   if (!stream) {
     stream = createEventStream<StatusMessage>();
-    stream.emit({type: "ping"});
     statusStreams.set(userId, stream);
   }
   return stream;

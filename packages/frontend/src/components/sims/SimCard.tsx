@@ -5,6 +5,8 @@ import {
   TbFillTrash,
   TbOutlineAngle,
   TbOutlineClipboard,
+  TbOutlineClockPlus,
+  TbOutlineClockUp,
   TbOutlineRulerMeasure,
   TbOutlineShare,
   TbOutlineShareOff,
@@ -88,6 +90,11 @@ export function SimCard(props: { simConfig: SimConfig }) {
                       <TbFillTrash/>
                     </button>
                   </form>
+                </div>
+
+                <div class={"flex gap-1 items-center"}>
+                  <TbOutlineClockPlus/> {new Date(config().createdAt).toLocaleString()}
+                  <TbOutlineClockUp/> {new Date(config().updatedAt).toLocaleString()}
                 </div>
 
                 <div class={"divider my-0"}/>
@@ -174,6 +181,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
                     </button>
                   </Show>
                 </div>
+                <div class={"divider my-0"}/>
                 <div class="card-actions justify-end">
                   <button class="btn btn-primary" onClick={handleSelect}>Select</button>
                 </div>

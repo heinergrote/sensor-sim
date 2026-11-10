@@ -3,6 +3,7 @@ import {useMatch, useNavigate} from "@solidjs/router";
 import {paths} from "../router";
 import {useAuth} from "../auth";
 import {Loading, Show} from "solid-js";
+import RevisionStatus from "./RevisionStatus";
 
 export default function Nav() {
 
@@ -35,6 +36,7 @@ export default function Nav() {
           <Show when={user()}>
             {user =>
               <>
+                <RevisionStatus/>
                 <div class={"flex items-center gap-2"}><TbOutlineUser/> {user()?.username}</div>
                 <button class={"btn btn-square btn-sm"} onClick={() => {
                   logout();

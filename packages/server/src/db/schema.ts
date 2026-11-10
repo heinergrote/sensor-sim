@@ -1,4 +1,4 @@
-import {boolean, integer, jsonb, pgSequence, pgTable, serial, text} from "drizzle-orm/pg-core";
+import {boolean, integer, jsonb, pgSequence, pgTable, serial, text, timestamp} from "drizzle-orm/pg-core";
 import {relations, sql} from "drizzle-orm";
 import {Spec} from "@sensor-sim/shared";
 
@@ -30,6 +30,10 @@ export const simConfigs = pgTable("sim_configs", {
   shareToken: text("share_token").notNull().default(""),
   spec: jsonb("spec").$type<Spec>(),
   playing: boolean("playing").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(
+    () => new Date()
+  ),
 });
 
 export type SimConfigRow = typeof simConfigs.$inferSelect;

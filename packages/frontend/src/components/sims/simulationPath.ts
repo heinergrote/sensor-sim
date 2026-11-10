@@ -54,6 +54,7 @@ export function createSimulationPath(
   map.addControl(drawControl, 'top-left');
 
   const draw = drawControl.getTerraDrawInstance()
+  drawControl.activate()
 
 
   const targetMarker = new Marker({
@@ -82,7 +83,6 @@ export function createSimulationPath(
     startMarker.setLngLat([...spec.start])
 
     if (draw) {
-      drawControl.activate()
       draw.clear()
 
       const coordinates = [

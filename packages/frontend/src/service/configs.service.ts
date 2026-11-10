@@ -1,84 +1,15 @@
-import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, StatusMessage, UpdateSimConfig} from "@sensor-sim/shared";
-import {action, createEffect, createRoot} from "solid-js";
-import {api, serverUrl} from "../api";
+import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, UpdateSimConfig} from "@sensor-sim/shared";
+import {action, createSignal} from "solid-js";
+import {api} from "../api";
 import {formAction, query, revalidate} from "@solidjs/router";
-import {jwtToken, useAuth} from "../auth";
 
-const RECONNECT_MIN_DELAY_MS = 1000
-const RECONNECT_MAX_DELAY_MS = 30000
-
-// highest config revision this client has fetched the list at (or been told about); see CONFIG_REVISION_HEADER
-let knownConfigRevision = 0
-
-const _dispose = createRoot(dispose => {
-  const {user} = useAuth()
-  let wss: WebSocket | undefined
-  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
-
-  function disconnect() {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = undefined
-    const socket = wss
-    wss = undefined // before close(), so its onclose doesn't reconnect
-    socket?.close()
-  }
-
-  function connect(reconnectDelay = RECONNECT_MIN_DELAY_MS, isReconnect = false) {
-    const socket = new WebSocket(`${serverUrl}/api/status/ws?token=${jwtToken()}`)
-    wss = socket
-
-    socket.onopen = () => {
-      reconnectDelay = RECONNECT_MIN_DELAY_MS
-      // config changes while disconnected were missed
-      if (isReconnect) revalidate(fetchSimConfigs.key)
-    }
-
-    socket.onmessage = (event) => {
-      const statusMessage = JSON.parse(event.data) as StatusMessage
-
-      if (statusMessage.type === "configUpdate") {
-        // refetch only if the list is older than the change, e.g. not after this tab's own mutation
-        // (the action already revalidated, and that fetch carried the new revision)
-        if (statusMessage.revision > knownConfigRevision) {
-          knownConfigRevision = statusMessage.revision
-          revalidate(fetchSimConfigs.key)
-        }
-
-      }
-
-    }
-
-    // the server closes it on restart; reconnect with backoff unless we closed it ourselves
-    socket.onclose = () => {
-      if (wss !== socket) return
-      wss = undefined
-      reconnectTimer = setTimeout(
-        () => connect(Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY_MS), true),
-        reconnectDelay
-      )
-    }
-  }
-
-  // (re)connect whenever the token changes, so a page loaded before login
-  // (or a login/logout cycle) doesn't leave this socket permanently unauthenticated
-  createEffect(() => user(),
-    (user) => {
-      disconnect()
-      if (user) connect()
-    })
-
-  return () => {
-    disconnect()
-    dispose()
-  };
-
-});
-
+export const [fetchedConfigsRevision, setFetchedConfigsRevision] = createSignal<number>(0)
+export const [statusConfigsRevision, setStatusConfigsRevision] = createSignal<number>(0)
 
 export const fetchSimConfigs = query(async () => {
   const response = await api.get<SimConfig[]>(`/configs`)
   const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
-  if (revision > knownConfigRevision) knownConfigRevision = revision
+  setFetchedConfigsRevision(revision)
   return response.json()
 }, "simConfigs");
 
