@@ -3,8 +3,8 @@ import {addSimulationListener} from "../../service/simulation.service";
 import {SimConfig, Spec, SpecOrbit, SpecPath} from "@sensor-sim/shared";
 import {createSimulationOrbit} from "./simulationOrbit";
 import {createSimulationPath} from "./simulationPath";
-import {updateSimConfig} from "../../service/configs.service";
 import {createSimulationFixed} from "./simulationFixed";
+import {useSimConfigsApi} from "../../service/configs.service";
 
 // In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
 // client inside the worker and throws `document is not defined` on every CSS hot update. Load the untransformed
@@ -49,8 +49,10 @@ export function createSimulationMap(
   onReady: () => void
 ) {
 
+  const api = useSimConfigsApi()
+
   const onSpecUpdate = async (id: number, spec: Spec) => {
-    await updateSimConfig(id, {spec})
+    await api.update(id, {spec})
   }
 
   let configSpecRenderer: ConfigSpecRenderer<any> | null = null;

@@ -77,7 +77,6 @@ export function createSimulationPath(
   startMarker.addTo(map)
 
   function updateSpec(spec: SpecPath) {
-    console.log("updateSpec", spec)
 
     targetMarker.setLngLat([...spec.target])
     startMarker.setLngLat([...spec.start])

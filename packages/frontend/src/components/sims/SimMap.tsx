@@ -1,4 +1,4 @@
-import {createEffect, createSignal, onSettled} from "solid-js";
+import {createEffect, createSignal, deep, onSettled} from "solid-js";
 import {jwtToken} from "../../auth";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {SimConfig} from "@sensor-sim/shared";
@@ -11,14 +11,19 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
   let mapEl!: HTMLDivElement
   let simulationMap: SimulationMap | undefined
 
-  createEffect(() => ({
-      ready: mapReady(),
-      // copy, so a field change re-runs the effect even if the config object is updated in place
-      config: props.simConfig ? {...props.simConfig} : null
-    }),
-    (c) => {
-      if (c.ready) simulationMap?.attachSimConfig(c.config)
-    }
+  createEffect(() => {
+      return {
+        mapReady: mapReady(),
+        config: props.simConfig ? deep(props.simConfig) : null
+      }
+    },
+
+    ({mapReady, config}) => {
+      if (mapReady) {
+        simulationMap?.attachSimConfig(config)
+      }
+    },
+    {name: "simMap.attach"}
   )
 
   onSettled(

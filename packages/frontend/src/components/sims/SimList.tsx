@@ -28,7 +28,9 @@ export default function SimList(props: { simConfigs: SimConfig[], simConfig: Sim
             <SimMap simConfig={props.simConfig}/>
           </div>
         </div>
+
       </Show>
+
     </>
   );
 

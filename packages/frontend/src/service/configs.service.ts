@@ -1,81 +1,143 @@
 import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, UpdateSimConfig} from "@sensor-sim/shared";
-import {action, createSignal} from "solid-js";
+import {action, affects, createOptimisticStore, createSignal, refresh} from "solid-js";
 import {api} from "../api";
-import {formAction, query, revalidate} from "@solidjs/router";
 
-export const [fetchedConfigsRevision, setFetchedConfigsRevision] = createSignal<number>(0)
 export const [statusConfigsRevision, setStatusConfigsRevision] = createSignal<number>(0)
 
-export const fetchSimConfigs = query(async () => {
-  const response = await api.get<SimConfig[]>(`/configs`)
-  const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
-  setFetchedConfigsRevision(revision)
-  return response.json()
-}, "simConfigs");
+export function createSimConfigsApi() {
 
+  const [revision, setRevision] = createSignal<number>(0)
 
-export const fetchSimConfig = query(async (id: number) => {
-  return api.get<SimConfig>(`/configs/${id}`).json()
-}, "simConfig");
+  const [configs, setConfigs] = createOptimisticStore<SimConfig[]>(
+    async () => {
+      const response = await api.get<SimConfig[]>(`/configs`)
+      const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
+      setRevision(revision)
+      return response.json()
+    },
+    []
+  )
 
+  const add = action(function* (label: string) {
+    setConfigs((list) => {
+      list.push({
+        id: 0,
+        label,
+        ownerId: 0,
+        shareToken: "",
+        spec: null,
+        playing: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+    })
 
-// Button-triggered mutations are router form actions, bound via <form action={...}> / formaction.
-// The router revalidates queries after each one.
+    yield api.post<SimConfig>(`/configs`, {
+      json: {label},
+    })
 
-export const addSimConfig = formAction(async (form: FormData) => {
+    refresh(configs)
+  })
 
-  return api.post<SimConfig>(`/configs`, {
-    json: {
-      label: form.get("label") as string
+  const remove = action(function* (id: number) {
+    setConfigs((list) =>
+      list.filter((config) => config.id !== id)
+    )
+    yield api.delete<SimConfig>(`/configs/${id}`)
+    refresh(configs)
+  })
+
+  const startStop = action(
+    function* (id: number, playing: boolean) {
+      setConfigs((list) => {
+        const config = list.find((config) => config.id === id)
+        if (config) config.playing = true
+      })
+      yield api.put(playing ? `/configs/${id}/start` : `/configs/${id}/stop`).json()
+      refresh(configs)
     }
-  }).json()
-})
+  )
 
-export const deleteSimConfig = formAction(async (id: number) => {
-  return api.delete<SimConfig>(`/configs/${id}`).json()
-})
+  const share = action(
+    function* (id: number, share: boolean) {
+      const config = configs.find((config) => config.id === id)
+      if (config) affects(config, "shareToken") // no optimistic mutations, just mark pending
+      yield api.post(share ? `/configs/${id}/share` : `/configs/${id}/unshare`)
+      refresh(configs)
+    }
+  )
 
-export const startSim = formAction(async (id: number) => {
-  return api.put(`/configs/${id}/start`).json()
-})
+  const update = action(async function* (id: number, config: UpdateSimConfig) {
+    console.log("Updating config", id, config)
+    setConfigs((list) => {
+      const currentConfig = list.find((config) => config.id === id)
+      // set all values from config in current config
+      if (currentConfig) Object.assign(currentConfig, config)
+    })
 
-export const stopSim = formAction(async (id: number) => {
-  return api.put(`/configs/${id}/stop`).json()
-})
+    yield api.patch<SimConfig>(`/configs/${id}`, {
+      json: config
+    })
+    console.log("Updated config", id, config)
+    refresh(configs)
+  })
 
-export const share = formAction(async (id: number) => {
-  return api.post<{ token: string, expiryDate: Date }>(`/configs/${id}/share`).json()
-})
+  const updateType = action(async function* (id: number, type: SpecType | null) {
+    const parsedType = specTypesSchema.safeParse(type).data ?? null
 
-export const unShare = formAction(async (id: number) => {
-  return api.post<{ success: boolean }>(`/configs/${id}/unshare`).json()
-})
+    const config = configs.find((config) => config.id === id)
+    if (config) affects(config, "spec") // no optimistic mutations, just mark pending
 
-// Mutations called from code (map drags, sliders, selects) are core actions: plain callables that know
-// nothing about the router, so they revalidate the config list themselves.
+    if (parsedType) {
+      yield api.put<SimConfig>(`/configs/${id}/type`, {
+        json: {type: parsedType}
+      })
+    } else {
+      yield api.patch<SimConfig>(`/configs/${id}`, {
+        json: {spec: null}
+      })
+    }
 
-export const updateSimConfig = action(async function* (id: number, config: UpdateSimConfig) {
-  const result = await api.patch<SimConfig>(`/configs/${id}`, {
-    json: config
-  }).json()
-  yield // re-enter the transaction before touching reactive state
-  revalidate(fetchSimConfigs.key)
-  return result
-})
+    refresh(configs)
 
-export const updateType = action(async function* (id: number, type: SpecType | null) {
-  const parsedType = specTypesSchema.safeParse(type).data ?? null
+  })
 
-  const result = parsedType
-    // type valid: update using type endpoint
-    ? await api.put<SimConfig>(`/configs/${id}/type`, {
-      json: {type: parsedType}
-    }).json()
-    // type invalid: remove spec
-    : await api.patch<SimConfig>(`/configs/${id}`, {
-      json: {spec: null}
-    }).json()
-  yield // re-enter the transaction before touching reactive state
-  revalidate(fetchSimConfigs.key)
-  return result
-})
+  const refreshConfigs = () => refresh(configs)
+
+// export const fetchSimConfigs = query(async () => {
+//   const response = await api.get<SimConfig[]>(`/configs`)
+//   const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
+//   setFetchedConfigsRevision(revision)
+//   return response.json()
+// }, "simConfigs");
+
+// export const fetchSimConfig = query(async (id: number) => {
+//   return api.get<SimConfig>(`/configs/${id}`).json()
+// }, "simConfig");
+
+  return {
+    configs,
+    revision,
+    refreshConfigs,
+    add,
+    remove,
+    startStop,
+    update,
+    updateType,
+    share,
+  }
+}
+
+let simConfigsApi: ReturnType<typeof createSimConfigsApi>
+
+export function useSimConfigsApi() {
+
+  if (!simConfigsApi) {
+    simConfigsApi = createSimConfigsApi()
+  }
+
+  return simConfigsApi
+}
+
+
+

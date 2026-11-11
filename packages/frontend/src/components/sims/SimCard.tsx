@@ -15,18 +15,10 @@ import {
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
 import {useMatch, useNavigate} from "@solidjs/router";
-import {
-  deleteSimConfig,
-  share,
-  startSim,
-  stopSim,
-  unShare,
-  updateSimConfig,
-  updateType
-} from "../../service/configs.service";
 import {SimConfig, SpecFixed, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/shared";
 import {serverUrl} from "../../api";
 import {paths} from "../../router";
+import {useSimConfigsApi} from "../../service/configs.service";
 
 export function SimCard(props: { simConfig: SimConfig }) {
 
@@ -37,14 +29,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
   const specOrbit = () => props.simConfig.spec?.type === "orbit" ? props.simConfig.spec as SpecOrbit : null
   const specFixed = () => props.simConfig.spec?.type === "fixed" ? props.simConfig.spec as SpecFixed : null
 
-  // form actions for the buttons, bound to this config's id
-  const toggleShareAction = () => props.simConfig.shareToken
-    ? unShare.with(props.simConfig.id)
-    : share.with(props.simConfig.id)
-  const togglePlayAction = () => props.simConfig.playing
-    ? stopSim.with(props.simConfig.id)
-    : startSim.with(props.simConfig.id)
-  const deleteAction = () => deleteSimConfig.with(props.simConfig.id)
+  const api = useSimConfigsApi()
 
   // draft of the select: follows the config, but takes the user's pick immediately so the `selected`
   // bindings don't write the old type back while the update is in flight
@@ -55,13 +40,12 @@ export function SimCard(props: { simConfig: SimConfig }) {
     const type = event.currentTarget.value as SpecType | "_none"
     setSelectedType(type)
     try {
-      await updateType(props.simConfig.id, type === "_none" ? null : type)
+      await api.updateType(props.simConfig.id, type === "_none" ? null : type)
     } catch (error) {
       setSelectedType(committedType()) // rejected: show the committed type again
       throw error
     }
   }
-
 
   function handleSelect() {
     navigate(selected() ? `/sims` : `/sims/${props.simConfig.id}`)
@@ -78,18 +62,14 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
                 <div class="flex items-center gap-2">
                   <span>{config().label}</span>
-                  <form method="post" action={togglePlayAction()} class="contents">
-                    <button class="btn btn-sm">
-                      <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
-                      <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
-                    </button>
-                  </form>
+                  <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
+                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
+                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
+                  </button>
                   <div class={"flex-1"}/>
-                  <form method="post" action={deleteAction()} class="contents">
-                    <button class="btn btn-sm">
-                      <TbFillTrash/>
-                    </button>
-                  </form>
+                  <button class="btn btn-sm" onClick={() => api.remove(config().id)}>
+                    <TbFillTrash/>
+                  </button>
                 </div>
 
                 <div class={"flex gap-1 items-center"}>
@@ -165,12 +145,11 @@ export function SimCard(props: { simConfig: SimConfig }) {
                 <div class={"divider my-0"}/>
 
                 <div class="flex gap-1 items-center">
-                  <form method="post" action={toggleShareAction()} class="contents">
-                    <button class="btn btn-sm">
-                      <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
-                      <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
-                    </button>
-                  </form>
+                  <button class="btn btn-sm"
+                          onClick={() => api.share(config().id, config().shareToken.length === 0)}>
+                    <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
+                    <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
+                  </button>
                   <Show when={config().shareToken}>
                     <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
                     <button class="btn btn-sm" onClick={() => {
@@ -199,12 +178,14 @@ export function SimCard(props: { simConfig: SimConfig }) {
 // Draft of the speed: follows the spec, takes every slider move immediately (live m/s label) and commits on release,
 // so the `value` binding doesn't write the old speed back while the update is in flight.
 function SpeedSlider(props: { id: number, spec: SpecPath | SpecOrbit }) {
+  const api = useSimConfigsApi()
+
   const [speed, setSpeed] = createSignal(() => props.spec.speed)
 
   async function commit(value: number) {
     setSpeed(value)
     try {
-      await updateSimConfig(props.id, {spec: {...props.spec, speed: value}})
+      await api.update(props.id, {spec: {...props.spec, speed: value}})
     } catch (error) {
       setSpeed(props.spec.speed) // rejected: show the committed speed again
       throw error
