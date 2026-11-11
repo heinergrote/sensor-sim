@@ -51,7 +51,7 @@ export function createSimConfigsApi() {
     function* (id: number, playing: boolean) {
       setConfigs((list) => {
         const config = list.find((config) => config.id === id)
-        if (config) config.playing = true
+        if (config) config.playing = playing
       })
       yield api.put(playing ? `/configs/${id}/start` : `/configs/${id}/stop`).json()
       refresh(configs)
