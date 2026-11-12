@@ -1,34 +1,8 @@
-import {MapLibreMap, Marker} from "maplibre-gl";
+import {MapLibreMap} from "maplibre-gl";
 import {SpecPath} from "@sensor-sim/shared";
 import {ConfigSpecRenderer} from "./simulationMap";
 import {MaplibreTerradrawControl} from "@watergis/maplibre-gl-terradraw";
 import '@watergis/maplibre-gl-terradraw/dist/maplibre-gl-terradraw.css'
-
-function createTargetMarkerElement(): HTMLElement {
-  const svgMarker = `<svg width="48" height="96" viewBox="0 0 48 96" xmlns="http://w3.org">
-     <circle cx="24" cy="48" r="2" fill="blue"/>
-     <line x1="24" y1="48" x2="24" y2="62" stroke="blue" stroke-width="1"/>
-     <circle cx="24" cy="78" r="16" fill="blue" fill-opacity="0.2" stroke="blue" stroke-width="1"/>
-  </svg>`;
-  const el = document.createElement('div');
-  el.innerHTML = svgMarker;
-  el.className = 'target-marker';
-  el.style.cursor = 'pointer';
-  return el;
-}
-
-function createStartMarkerElement(): HTMLElement {
-  const svgMarker = `<svg width="48" height="96" viewBox="0 0 48 96" xmlns="http://w3.org">
-     <circle cx="24" cy="48" r="2" fill="green"/>
-     <line x1="24" y1="48" x2="24" y2="62" stroke="green" stroke-width="1"/>
-     <circle cx="24" cy="78" r="16" fill="green" fill-opacity="0.2" stroke="green" stroke-width="1"/>
-  </svg>`;
-  const el = document.createElement('div');
-  el.innerHTML = svgMarker;
-  el.className = 'start-marker';
-  el.style.cursor = 'pointer';
-  return el;
-}
 
 
 export function createSimulationPath(
@@ -37,11 +11,9 @@ export function createSimulationPath(
   handleSpecChange: (spec: SpecPath) => void
 ): ConfigSpecRenderer<SpecPath> {
 
-  async function handleUpdate() {
-    const start = startMarker.getLngLat().toArray()
-    const target = targetMarker.getLngLat().toArray()
+  async function handleUpdate(coordinates: [number, number][]) {
     handleSpecChange({
-      ...spec, target, start
+      ...spec, start: coordinates[0], target: coordinates[1]
     })
   }
 
@@ -56,30 +28,11 @@ export function createSimulationPath(
   const draw = drawControl.getTerraDrawInstance()
   drawControl.activate()
 
-
-  const targetMarker = new Marker({
-    draggable: true,
-    element: createTargetMarkerElement(),
-    anchor: 'center',
-  })
-  const startMarker = new Marker({
-    draggable: true,
-    element: createStartMarkerElement(),
-    anchor: 'center',
-  })
+  let featureId: string = ''
 
   updateSpec(spec)
 
-  targetMarker.on('dragend', handleUpdate);
-  startMarker.on('dragend', handleUpdate);
-
-  targetMarker.addTo(map)
-  startMarker.addTo(map)
-
   function updateSpec(spec: SpecPath) {
-
-    targetMarker.setLngLat([...spec.target])
-    startMarker.setLngLat([...spec.start])
 
     if (draw) {
       draw.clear()
@@ -103,14 +56,39 @@ export function createSimulationPath(
           },
         ]
       )
-    }
 
+      if (result[0].id) {
+        featureId = result[0].id.toString()
+      }
+
+      // draw.on('change', (ids, type, context) => {
+      //   if (ids.includes(featureId)) {
+      //     if (type === 'update') {
+      //       const feature = draw.getSnapshotFeature(featureId)
+      //       if (feature && feature.geometry.type === 'LineString' && feature.geometry.coordinates.length === 2) {
+      //         const coords = feature.geometry.coordinates.map((coord) => [coord[0], coord[1]] as [number, number])
+      //         handleUpdate(coords)
+      //       }
+      //     }
+      //   }
+      // })
+
+      draw.on('deselect', (id) => {
+        if (id === featureId) {
+          const feature = draw.getSnapshotFeature(featureId)
+          if (feature && feature.geometry.type === 'LineString' && feature.geometry.coordinates.length === 2) {
+            const coords = feature.geometry.coordinates.map((coord) => [coord[0], coord[1]] as [number, number])
+            handleUpdate(coords)
+          }
+        }
+      })
+
+
+    }
 
   }
 
   function dispose() {
-    targetMarker.remove()
-    startMarker.remove()
     map.removeControl(drawControl)
   }
 

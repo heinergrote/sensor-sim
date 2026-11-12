@@ -11,6 +11,19 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
   let mapEl!: HTMLDivElement
   let simulationMap: SimulationMap | undefined
 
+
+  // createEffect(() => props.simConfig && JSON.parse(JSON.stringify(props.simConfig)),
+  //   (config) => {
+  //     console.log("simConfig changed ", config)
+  //   }
+  // )
+  //
+  // createEffect(() => props.simConfig && props.simConfig.spec && JSON.parse(JSON.stringify(props.simConfig.spec)),
+  //   (spec) => {
+  //     console.log("simConfig spec changed ", spec)
+  //   }
+  // )
+
   createEffect(() => {
       const config = props.simConfig
       return {
@@ -18,8 +31,8 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
         // Plain copy built from ordinary property reads (tracks every field the map uses). Not `deep()`: with
         // solid-js 2.0.0-rc.21, deep() over a createOptimisticStore row spins in snapshotWalk on the second
         // optimistic `update` (e.g. moving the speed slider twice) and freezes the tab.
-        // Freezing version: config: props.simConfig ? deep(props.simConfig) : null
         // see https://github.com/solidjs/solid/issues/4771
+        // Freezing version: config: props.simConfig ? deep(props.simConfig) : null
         config: config ? {...config, spec: config.spec && JSON.parse(JSON.stringify(config.spec))} : null
 
       }
