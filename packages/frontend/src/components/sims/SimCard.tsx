@@ -1,4 +1,4 @@
-import {createSignal, Match, Show, Switch} from "solid-js";
+import {createSignal, For, Match, Show, Switch} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
@@ -106,14 +106,13 @@ export function SimCard(props: { simConfig: SimConfig }) {
                       <Match when={specPath()}>
                         {(spec) =>
                           <>
-                            <div class="flex gap-2 items-center">
-                              From: <TbOutlineWorldLongitude/>{spec().start[0].toFixed(5)},
-                              <TbOutlineWorldLatitude/>{spec().start[1].toFixed(5)}
-                            </div>
-                            <div class="flex gap-2 items-center">
-                              To: <TbOutlineWorldLongitude/>{spec().target[0].toFixed(5)},
-                              <TbOutlineWorldLatitude/>{spec().target[1].toFixed(5)}
-                            </div>
+                            <For each={spec().waypoints} keyed={(waypoint) => `${waypoint[0]}_${waypoint[1]}`}>
+                              {(waypoint) =>
+                                <div class="flex gap-1 items-center">
+                                  <TbOutlineWorldLatitude/>{waypoint()[1].toFixed(7)},
+                                  <TbOutlineWorldLongitude/>{waypoint()[0].toFixed(7)}
+                                </div>
+                              }</For>
                             <div class="flex gap-2 items-center">
                               <SpeedSlider id={config().id} spec={spec()}/>
                             </div>
@@ -124,8 +123,8 @@ export function SimCard(props: { simConfig: SimConfig }) {
                         {(spec) =>
                           <>
                             <div class="flex gap-2 items-center">
-                              <TbOutlineWorldLongitude/>{spec().center[0].toFixed(5)},
-                              <TbOutlineWorldLatitude/>{spec().center[1].toFixed(5)}
+                              <TbOutlineWorldLongitude/>{spec().center[0].toFixed(7)},
+                              <TbOutlineWorldLatitude/>{spec().center[1].toFixed(7)}
                             </div>
                             <div class="flex gap-2 items-center">
                               <TbOutlineRulerMeasure/> {spec().radius.toFixed(2)}m

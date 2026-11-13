@@ -1,4 +1,4 @@
-import {literal, number, tuple, z} from "zod";
+import {array, literal, number, tuple, z} from "zod";
 
 export const simConfigIdParam = z.object({
   id: z.coerce.number().int().positive()
@@ -13,8 +13,9 @@ export const specFixedSchema = z.strictObject({
 
 export const specPathSchema = z.strictObject({
   type: literal("path"),
-  target: tuple([number(), number()]).readonly(),
-  start: tuple([number(), number()]).readonly(),
+  waypoints: array(tuple(
+    [number(), number()]).readonly()
+  ).min(2).readonly(),
   speed: z.number(),
 });
 

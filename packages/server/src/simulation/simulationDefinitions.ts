@@ -9,7 +9,9 @@ export const defaultTarget = [10.523783, 52.264683] as const;
 // Map SpecType -> Specific Internal State
 type SimulationStateMap = {
   path: {
-    currentDistance: number,
+    distanceFromTarget: number, // direct line distance from target (last waypoint)
+    travelledDistance: number, // currently traveled distance along the path
+    remainingDistance: number, // remaining distance along the path
     position: GeoPosition;
   };
   orbit: {

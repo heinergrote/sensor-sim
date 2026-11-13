@@ -12,9 +12,12 @@ export function createSimulationPath(
 ): ConfigSpecRenderer<SpecPath> {
 
   async function handleUpdate(coordinates: [number, number][]) {
+    const waypoints = coordinates.map((coord) => [+coord[0], +coord[1]] as const)
+    console.log("new waypoints: ", waypoints)
     handleSpecChange({
-      ...spec, start: coordinates[0], target: coordinates[1]
+      ...spec, waypoints
     })
+
   }
 
 
@@ -37,10 +40,11 @@ export function createSimulationPath(
     if (draw) {
       draw.clear()
 
-      const coordinates = [
-        spec.start.map((coord) => +coord.toPrecision(9)),
-        spec.target.map((coord) => +coord.toPrecision(9))
-      ]
+      // terra draw expects lower precision
+      const coordinates = spec.waypoints.map((coord) => [
+        +coord[0].toPrecision(9),
+        +coord[1].toPrecision(9)
+      ])
 
       const result = draw.addFeatures(
         [
@@ -76,7 +80,7 @@ export function createSimulationPath(
       draw.on('deselect', (id) => {
         if (id === featureId) {
           const feature = draw.getSnapshotFeature(featureId)
-          if (feature && feature.geometry.type === 'LineString' && feature.geometry.coordinates.length === 2) {
+          if (feature && feature.geometry.type === 'LineString' && feature.geometry.coordinates.length >= 2) {
             const coords = feature.geometry.coordinates.map((coord) => [coord[0], coord[1]] as [number, number])
             handleUpdate(coords)
           }
