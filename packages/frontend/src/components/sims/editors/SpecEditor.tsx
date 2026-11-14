@@ -5,6 +5,7 @@ import {SimConfig, Spec, SpecType} from "@sensor-sim/shared";
 import {MapContext} from "./mapContext";
 import FixedEditor from "./FixedEditor";
 import OrbitEditor from "./OrbitEditor";
+import PathEditor from "./PathEditor";
 
 /**
  * A spec editor owns everything type-specific about editing a spec: its map objects (markers, draw controls —
@@ -17,16 +18,11 @@ export type SpecEditorProps<T extends Spec> = {
   map: MapLibreMap,
 }
 
-type SpecEditors = { [K in SpecType]?: Component<SpecEditorProps<Extract<Spec, { type: K }>>> }
-
-// TODO: `satisfies { [K in SpecType]: … }` (non-optional) once path is ported
-const specEditors = {
+// one editor per spec type — a new type fails to compile here until it has one
+const specEditors: { [K in SpecType]: Component<SpecEditorProps<Extract<Spec, { type: K }>>> } = {
   fixed: FixedEditor,
+  path: PathEditor,
   orbit: OrbitEditor,
-} satisfies SpecEditors
-
-export function hasSpecEditor(type: SpecType | undefined): boolean {
-  return !!type && type in specEditors
 }
 
 export function SpecEditor(props: { config: SimConfig }) {
@@ -34,7 +30,7 @@ export function SpecEditor(props: { config: SimConfig }) {
 
   const editor = () => {
     const type = props.config.spec?.type
-    return type ? (specEditors as SpecEditors)[type] as Component<SpecEditorProps<Spec>> | undefined : undefined
+    return type ? specEditors[type] as Component<SpecEditorProps<Spec>> : undefined
   }
 
   return (

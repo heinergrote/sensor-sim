@@ -8,11 +8,14 @@ import type {SpecEditorProps} from "./SpecEditor";
 
 const samePosition = (a: GeoPosition, b: GeoPosition) => a[0] === b[0] && a[1] === b[1]
 
+// plain copy: the spec's tuple is a store proxy, which must not be read outside a tracking scope (marker effect)
+const copy = ([lng, lat]: GeoPosition): GeoPosition => [lng, lat]
+
 export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
   const api = useSimConfigsApi()
 
   // Draft of the position: follows the spec (also after a save or a remote update), takes drags immediately.
-  const [draft, setDraft] = createSignal<GeoPosition>(() => props.spec.position, {name: "fixedEditor.draft"})
+  const [draft, setDraft] = createSignal<GeoPosition>(() => copy(props.spec.position), {name: "fixedEditor.draft"})
   const dirty = createMemo(() => !samePosition(draft(), props.spec.position), {name: "fixedEditor.dirty"})
 
   const marker = new Marker({draggable: true, element: markerElement('blue'), anchor: 'center'})
@@ -42,7 +45,7 @@ export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
       <TbOutlineWorldLatitude/>{draft()[1].toFixed(5)},
       <TbOutlineWorldLongitude/>{draft()[0].toFixed(5)}
       <div class="flex-1"/>
-      <button class="btn btn-sm" disabled={!dirty()} onClick={() => setDraft(props.spec.position)}>
+      <button class="btn btn-sm" disabled={!dirty()} onClick={() => setDraft(copy(props.spec.position))}>
         <TbOutlineArrowBackUp/> Reset
       </button>
       <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={save}>

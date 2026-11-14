@@ -1,7 +1,5 @@
 import {GeolocateControl, MapLibreMap, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
 import {addSimulationListener} from "../../service/simulation.service";
-import {SimConfig, Spec} from "@sensor-sim/shared";
-import {createEditControllerPath} from "./editControllerPath";
 import {currentMarkerElement} from "./markerElement";
 
 // In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
@@ -17,36 +15,12 @@ setWorkerUrl(import.meta.env.DEV
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
 
+/** The map and the selected sim's live position marker; spec editing lives in `editors/` (Solid components). */
 export type SimulationMap = {
   map: MapLibreMap,
-  attachSimConfig: (simConfig: SimConfig | null) => void,
-  editController: SpecEditController<any> | null,
+  /** follow the live position of this sim (or none) */
+  attachSim: (simId: number | null) => void,
   dispose: () => void
-}
-
-export type SpecEditController<T extends Spec> = {
-  update: (spec: T) => void,
-  save: () => void,
-  dispose: () => void
-}
-
-// `fixed`/`orbit` are edited by components in components/sims/editors; path not yet ported
-function createEditController(config: SimConfig, map: MapLibreMap): SpecEditController<any> | null {
-
-  if (!config.spec) {
-    throw new Error(`No spec provided`);
-  }
-
-  switch (config.spec.type) {
-    case "fixed":
-    case "orbit":
-      return null
-    case "path":
-      return createEditControllerPath(config, map)
-    default:
-      throw new Error(`Unknown spec type`)
-  }
-
 }
 
 /// -------------------------------------------------------------------
@@ -57,8 +31,6 @@ export async function createSimulationMap(
 ): Promise<SimulationMap> {
 
 
-  let editController: SpecEditController<any> | null = null;
-  let simConfig: SimConfig | null = null;
 
   let currentOnMap = false;
   let removeSimulationListener: (() => void) | null = null;
@@ -105,24 +77,16 @@ export async function createSimulationMap(
     anchor: 'center',
   })
 
-  function attachSimConfig(newSimConfig: SimConfig | null) {
-    if (!map.loaded()) return;
-
+  // only handed out after `load`; `map.loaded()` is no guard (false again while tiles load)
+  function attachSim(simId: number | null) {
     removeSimulationListener?.()
     removeSimulationListener = null
     if (currentOnMap) currentMarker.remove();
     currentOnMap = false
 
-    editController?.dispose()
-    editController = null
+    if (simId === null) return
 
-    simConfig = null
-
-    if (!newSimConfig) return
-
-    simConfig = newSimConfig
-
-    removeSimulationListener = addSimulationListener(simConfig.id,
+    removeSimulationListener = addSimulationListener(simId,
       (simData) => {
 
         if (!currentOnMap) {
@@ -135,10 +99,6 @@ export async function createSimulationMap(
       }
     )
 
-    if (simConfig.spec) {
-      editController = createEditController(simConfig, map)
-    }
-
   }
 
   return new Promise<SimulationMap>(resolve => {
@@ -146,11 +106,9 @@ export async function createSimulationMap(
       resolve(
         {
           map,
-          attachSimConfig,
-          editController,
+          attachSim,
           dispose: () => {
             removeSimulationListener?.()
-            editController?.dispose()
             if (currentOnMap) currentMarker.remove();
             map.remove()
           }
