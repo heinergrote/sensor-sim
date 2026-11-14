@@ -2,8 +2,8 @@
 
 (Work in progress, but should work)
 
-GPS simulation for testing location-aware apps. Create simulated devices that stand still (`fixed`), travel from a
-start to a target (`path`) or circle a point (`orbit`), watch them live on a map, and feed their positions into your
+GPS simulation for testing location-aware apps. Create simulated devices that stand still (`fixed`), follow a route
+of waypoints (`path`) or circle a point (`orbit`), watch them live on a map, and feed their positions into your
 own app as if they came from a real GPS.
 
 - **[packages/server](packages/server)** — sim configs, the simulation engine, REST + WebSocket API, users and JWT
@@ -33,7 +33,8 @@ The server does **not** migrate on boot — run `migrate:dev` on a fresh databas
 (`db:migrate` applies the schema but skips the admin seed, leaving no way to log in.)
 
 Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation under **Simulations**,
-pick its type, **Select** it and drag its markers on the map. Admins can add further users under **Users**.
+pick its type and **Select** it. Edit it on the map — drag the markers, or draw the route for a path — and click
+**Save** on its card. Admins can add further users under **Users**.
 
 Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm typecheck`.
 
@@ -46,8 +47,8 @@ A simulation has two halves:
 - **Runtime** — an in-memory runner per config with a spec, ticking every 100 ms and exposing a `SimData` (current
   position) via read-only `/api/sims`.
 
-After every config change the server re-syncs the runners from the database and signals `/api/status/ws`, so clients
-know to refetch the config list.
+After every config change the server re-syncs the runners from the database and signals `/api/status/ws`, so other
+clients of the same user can offer a refresh.
 
 ## Consuming simulated positions
 
@@ -90,6 +91,8 @@ container needs no volume.
 >
 > **Upgrading to JSON specs:** migrations `0008`/`0009` replace the target/initial/type/speed columns with `spec`;
 > existing configs keep their id and label but come back with `spec: null` — pick a type again.
+>
+> **Upgrading to waypoint paths:** path specs stored with `start`/`target` come back as `spec: null` — pick Path again.
 
 ## Environment variables
 

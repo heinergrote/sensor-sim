@@ -21,8 +21,9 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 ## Key dependencies
 
-- **SolidJS 2.0** + **@solidjs/router** (explicit route tree, `query`/`action` data APIs)
-- **MapLibre GL 6** — map rendering; `@sensor-sim/shared/geoUtils` (turf) — distance/bearing when dragging markers
+- **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`/`formAction`)
+- **MapLibre GL 6** — map rendering; **@watergis/maplibre-gl-terradraw** — path drawing (to be replaced by plain
+  Terra Draw); `@sensor-sim/shared/geoUtils` (turf) — distance/bearing for orbit editing
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
 
@@ -47,33 +48,41 @@ Routes are declared in `src/routes.ts`; pages live in `src/pages` and each loads
 | `/users/:id` | `users/User.tsx`       | Edit or delete one user                                   |
 | other        | `NotFound.tsx`         | Not found                                                 |
 
-A route's path, param filters and preload sit next to its page in a `*.route.ts` file (`sims/sims.route.ts`,
+A route's path, param filters and optional preload sit next to its page in a `*.route.ts` file (`sims/sims.route.ts`,
 `users/users.route.ts`). `routes.ts` adds the component; the route file must not import the page, or the page
 loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` instead of hand-written URLs.
 
 ## Data flow
 
-**Sim configs — REST + status signal.** `src/service/configs.service.ts` wraps `/api/configs` in router
-`query()`s and mutations: button/form-driven ones are router `formAction()`s (`addSimConfig`, `startSim`, `stopSim`,
-`deleteSimConfig`, `share`, `unShare`); code-driven ones (`updateSimConfig`, `updateType`) are core Solid
-`action()`s that revalidate the list themselves. A
-WebSocket to `/api/status/ws` revalidates `fetchSimConfigs` whenever the server reports a config change, so the list
-and the map stay in sync across clients. The selected sim is taken from that list; if it disappears, the page
-redirects to `/sims`.
+**Sim configs — optimistic store + revision signal.** `src/service/configs.service.ts` (`useSimConfigsApi()`) keeps
+the config list in an optimistic store over `GET /api/configs` and exposes Solid `action`s (`add`, `remove`,
+`startStop`, `share`, `update`, `updateType`): the UI updates immediately, then the list is refetched. Changes from
+other tabs or devices are **not** applied automatically: the status socket (`/api/status/ws`, owned by
+`components/RevisionStatus.tsx` in the nav bar) reports the latest config revision, and a refresh button appears when
+it's newer than the loaded list (a red icon means the socket is disconnected). The selected sim is taken from the
+list; if it disappears, the page redirects to `/sims`.
 
 **Live position — per-sim WebSocket.** `src/service/simulation.service.ts`'s `addSimulationListener(id, cb)` opens
 one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`. Only the map uses it.
 
-Both the status socket and the per-sim sockets reconnect with backoff (1 s up to 30 s) when the server closes them,
-e.g. on a backend restart, and the config list is refetched after the status socket reconnects.
+Both sockets reconnect with backoff (1 s up to 30 s) when the server closes them, e.g. on a backend restart.
 
 **Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card (the server fills
-in defaults near the previous location). Path and orbit get a speed slider.
+in defaults near the previous location).
 
-**The map** (`components/sims/simulationMap.ts`, imperative MapLibre outside Solid's reactivity) shows only the
-selected sim (**Select** on a card toggles `/sims/:id`): a red current-position marker from its live state plus
-draggable markers per spec type — fixed: position; path: start (green) and target (blue); orbit: center and start
-point (sets radius and start angle). Dropping a marker saves the whole spec, which restarts the sim.
+**The map and spec editing.** The map (`components/sims/SimMap.tsx` + imperative `simulationMap.ts`) shows the
+selected sim (**Select** on a card toggles `/sims/:id`) with a red live-position marker. The selected card hosts that
+sim's **spec editor** (`components/sims/editors/`), which reaches the map through `MapContext` and owns its map
+objects:
+
+| Type  | On the map                                                       | On the card                     |
+|-------|------------------------------------------------------------------|---------------------------------|
+| fixed | blue marker = position                                           | position                        |
+| orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
+| path  | terradraw line — edit vertices in select mode, or draw a new one | waypoints, speed                |
+
+Edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset** discards them. Other cards show
+a read-only summary with a speed slider that saves on release.
 
 **Users — plain REST** via `src/service/users.service.ts` router queries/actions, driven by form submissions.
 

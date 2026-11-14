@@ -54,14 +54,15 @@ src/util/          eventStream, passwords, appSecret (`jwtSecret()`)
 **Config vs. runtime.** A sim config is the durable row in `sim_configs`; the engine keeps one in-memory runner
 per config **that has a valid spec**. Each config mutation re-syncs the engine from the database: new configs get
 a runner, runners of deleted or spec-less configs are disposed, and any `spec`/`playing` change restarts a runner
-from its spec.
+from its spec. A stopped runner keeps its last position, but a spec change resets it to the new spec's
+start.
 
 **Specs.** What a sim does is a JSON `spec` (jsonb column, nullable), discriminated by `type`:
 
 | `type`  | Fields                                 | Behaviour                         |
 |---------|----------------------------------------|-----------------------------------|
 | `fixed` | `position`                             | stays put                         |
-| `path`  | `start, target, speed`                 | moves start → target, stops there |
+| `path`  | `waypoints` (≥ 2), `speed`             | follows the waypoints, stops at the last |
 | `orbit` | `center, radius, startAngle, speed`    | circles the center                |
 
 Points are `[longitude, latitude]` tuples (GeoJSON order), e.g. `{"type": "fixed", "position": [10.52, 52.26]}`;
@@ -103,7 +104,7 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 | POST   | `/:id/share`   | —                 | Mints share token (`<id>!<nanoid10>`, no expiry) → `{token}`                                                                                                                |
 | POST   | `/:id/unshare` | —                 | Clears the token → `{success: true}`                                                                                                                                        |
 
-`SimConfig`: `{id, ownerId, label, shareToken, spec: Spec | null, playing}`. `id` is a serial int; `shareToken` is
+`SimConfig`: `{id, ownerId, label, shareToken, spec: Spec | null, playing, createdAt, updatedAt}`. `id` is a serial int; `shareToken` is
 `""` when not shared. A stored spec that fails validation is returned as `null`.
 
 ### `/api/sims` — running simulations (read-only)
@@ -117,8 +118,8 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 ### Others
 
 - `GET /api/me` → `{id, username, admin}` from the token (no DB hit).
-- `GET /api/status` → the caller's current `StatusMessage`: `{type: "configUpdate", revision}` or `{type: "ping"}`.
-  `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can skip refetches they don't need.
+- `GET /api/status` → the caller's latest `StatusMessage` `{configsRevision}` (empty before the first change).
+  `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can tell whether their list is stale.
 - `/api/users` (admin): `GET /`, `GET /:id`, `POST /` `{username, password, admin}`, `PUT /:id` (same body; password
   re-hashed), `DELETE /:id`. Passwords are scrypt-hashed (`salt:hash`).
 
@@ -128,9 +129,9 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 |-------------------------|-----------------|--------------------------------|---------------------------------------------------|
 | `/api/sims/:id/ws`      | `SimData`       | bearer / `?token=`, owner only | on connect, then every tick while playing         |
 | `/api/shared/:token/ws` | `SimData`       | valid share token in the path  | same                                              |
-| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect, then ≤ every 200 ms on own config changes |
+| `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect (if any), then ≤ every 100 ms on own config changes |
 
-All sockets are push-only. The status socket is a "refetch configs" signal, not data. Deleting a config closes
+All sockets are push-only. The status socket is a "your config list is stale" signal, not data. Deleting a config closes
 every open socket for that simulation from the server side.
 
 ## Sharing
@@ -153,6 +154,7 @@ pnpm db:studio
 Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`). **Migration `0007` deletes all sim configs**
 (id changed from text to serial; the old text id became `label`). **Migrations `0008`/`0009` drop the old
 `type`/`speed`/target/initial columns** in favour of `spec` — existing configs survive with `spec: null`.
+`0010` adds `created_at`/`updated_at`. Path specs stored with `start`/`target` (before `waypoints`) read as `spec: null`.
 
 ## Serving the frontend & map proxy
 

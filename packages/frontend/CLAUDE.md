@@ -10,23 +10,22 @@ pnpm dev                       # vite on :3000 (expects server on :4000)
 pnpm build                     # vite build → dist/client, then typecheck
 pnpm serve                     # preview the build
 pnpm typecheck                 # tsc --noEmit
-pnpm test                      # vitest (jsdom); single file: pnpm test src/foo.test.tsx
+pnpm test                      # vitest (jsdom); single file: pnpm test src/foo.test.tsx — no test files yet
 pnpm lint                      # oxlint src
 ```
 
 ## Architecture
 
-- `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Errored`/`Loading`) and HTML document. No
-  `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`) generates entries.
+- `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Loading`; the `Errored` boundary is currently
+  commented out) and HTML document. No `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`)
+  generates entries.
 - `src/routes.ts` — the explicit route tree (`defineRoutes`): `/`, `/sims/:id?`, `/users`, `/users/:id`, `*404`.
   Every page is a `lazy(() => import(...))` chunk under `src/pages/`.
-- `src/pages/<area>/<area>.route.ts` — `defineRoute({path, matchFilters: {id: int}, preload})` **without**
-  `component`; `routes.ts` adds it as `defineRoute({...simsRoute, component: Sims})` (a plain object rejects
-  components with required params). The page reads `props.params` via `RouteProps<typeof simsRoute.path>` (pass
-  `.path`: `RouteProps` doesn't understand a `defineRoute` result) with an `import type`; params still arrive as
-  strings → `Number(...)`. **A `*.route.ts` must never import its page:** `routes.ts` imports it statically, so that
-  would pull the page into the main chunk and defeat `lazy()`. Typing a page from `Router.paths.*` causes TS2502
-  (circular: `Router` → `routes` → page → props).
+- `src/pages/<area>/<area>.route.ts` — `defineRoute({path, matchFilters: {id: int}, preload?})` **without**
+  `component`; `routes.ts` adds it as `defineRoute({...simsRoute, component: Sims})`. The page reads `props.params`
+  via `RouteProps<typeof simsRoute.path>` with an `import type`; params arrive as strings → `Number(...)`.
+  **A `*.route.ts` must never import its page** (pulls it into the main chunk). Typing a page from `Router.paths.*`
+  causes TS2502 (circular).
 - `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
   `paths.sims(id?)`, `paths.users(id)`) — use them for links.
 - `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
@@ -34,56 +33,75 @@ pnpm lint                      # oxlint src
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
   per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
 
-### Simulations: configs vs. live state
+### Sim configs: optimistic store + revision signal
 
-- `src/service/configs.service.ts` — everything config-side: `@solidjs/router` `query()`s; button-driven mutations
-  are router `formAction()`s (bound via mini `<form method="post" action={x.with(id)} class="contents">` — a
-  `FormAction` can't be called directly, its `this` must come from the router), code-driven ones (`updateSimConfig`,
-  `updateType`) are core solid-js `action(async function* …)`s that `revalidate(fetchSimConfigs.key)` themselves:
-  `fetchSimConfigs` (`GET /configs`, key `"simConfigs"`), `fetchSimConfig(id)`, and actions `addSimConfig` (form:
-  `label` only — new configs have `spec: null`), `updateSimConfig(id, UpdateSimConfig)` (PATCH; spec edits send
-  the **whole** spec), `deleteSimConfig`, `startSim`/`stopSim`, `updateType(id, SpecType | null)` (`PUT
-  /configs/:id/type`, or `PATCH {spec: null}` for none), `share`, `unShare`. A module-level `createRoot` opens `/api/status/ws?token=` whenever
-  `user()` changes and calls `revalidate(fetchSimConfigs.key)` on each newer `configUpdate` message.
+- `src/service/configs.service.ts` — `useSimConfigsApi()` returns a lazily created **module singleton**:
+  `configs` (a `createOptimisticStore` over `GET /configs`), `revision()` (its `X-Config-Revision`),
+  `refreshConfigs()`, and core solid-js `action(function* …)`s: `add(label)`, `remove(id)`, `startStop(id, playing)`,
+  `share(id, share)`, `update(id, UpdateSimConfig)` (PATCH; spec edits send the **whole** spec), `updateType(id,
+  SpecType | null)` (`PUT /configs/:id/type`, or `PATCH {spec: null}`). Each writes the store optimistically (or
+  marks it pending with `affects`), awaits the request, then `refresh(configs)`. Call actions directly from handlers.
+- **No auto-revalidation on remote changes.** `components/RevisionStatus.tsx` (in `Nav`) owns the `/api/status/ws`
+  socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `api.revision()` it shows a
+  refresh button. Its icon turns red while disconnected.
+- Don't `deep()`/`snapshot()` rows of the configs store (froze the tab on rc.21); copy fields by plain reads instead.
 - `src/service/simulation.service.ts` — live `SimData` only. `addSimulationListener(id, cb)` lazily opens one
-  ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe. Plain listener registry, no
-  store.
-- **Both sockets reconnect** on a server-side close (backend restart, or sim deleted) with exponential backoff (1 s → 30
-  s, reset on the next open/message). A close is ignored when the socket is no longer the registered one —
-  so intentional closes (logout, last listener removed) must deregister *before* calling `close()`. The status
-  socket revalidates the config list after a reconnect (updates may have been missed). A deleted sim's socket stops
-  retrying once the revalidated list drops it and the page redirects, detaching its map listener.
-- `pages/sims/Sims.tsx` — the selection lives in the URL. The selected config is **derived from
-  `fetchSimConfigs()`** (no separate `fetchSimConfig` query), so status-socket revalidation keeps the map current. If
-  the id isn't in the list (deleted here or remotely, or bogus), an effect redirects to `/sims` (`replace`). Renders
+  ref-counted WebSocket per sim (`/api/sims/:id/ws?token=`) and returns an unsubscribe.
+- **Both sockets reconnect** on a server-side close with exponential backoff (1 s → 30 s). A close is ignored when
+  the socket is no longer the registered one — intentional closes must deregister *before* calling `close()`.
+
+### Sims page and map
+
+- `pages/sims/Sims.tsx` — selection lives in the URL. The selected config is derived from `api.configs` (no separate
+  fetch); if the id isn't in the list, an effect redirects to `/sims` (`replace`). Renders
   `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
-- `SimCard.tsx` — config/share token and the actions; no live position. Play/Stop, Delete, Share/Unshare are
-  `<form action={…with(id)}>` buttons. Type `<select>` (None/Fixed/Path/Orbit) → `updateType`; per-type spec
-  summary via `<Switch>/<Match>` on `spec.type`; `SpeedSlider` for `path`/`orbit` (live label on `input`, PATCHes
-  `{spec: {...spec, speed}}` on `change`). Select and slider keep a **draft signal** (`createSignal(() => prop)`)
-  so the `selected`/`value` binding doesn't write the old value back mid-request; reset to the prop on rejection. **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`).
-- `SimMap.tsx` — passes a copy of the selected config (or `null`) to `createSimulationMap(el, token).attachSimConfig`;
-  copying makes the effect track every field. Only one sim is on the map at a time.
-- `simulationMap.ts` — imperative MapLibre wrapper outside Solid reactivity. Every `attachSimConfig(cfg)` tears
-  down the previous sim (live listener, current marker, spec renderer) and rebuilds; the current marker (← `SimData`,
-  not draggable) is shared. Spec editing is delegated to a `ConfigSpecRenderer<T>` (`{updateSpec, dispose}`) picked
-  by `spec.type`: `simulationFixed.ts` (one marker), `simulationPath.ts` (start + target), `simulationOrbit.ts`
-  (center + start point; radius/`startAngle` recomputed via `@sensor-sim/shared/geoUtils`). On `dragend` a renderer
-  emits a full new spec (`getLngLat().toArray()` → `[lng, lat]`; spread `[...pos]` back into `setLngLat`, the
-  tuples are readonly) → `updateSimConfig`. The current marker reads `SimData.position.{longitude,latitude}`. No spec → no markers to edit. MapLibre 6 (`MapLibreMap` export): `setWorkerUrl` with a `?worker&url` import, and a missing-image resolver that
-  adds a transparent pixel. JWT goes out via `transformRequest` (read once at map creation).
+- `SimList` provides **`MapContext`** (`editors/mapContext.ts`, an accessor of the loaded `MapLibreMap | undefined`);
+  `SimMap` sets it via `onMap`.
+- `SimMap.tsx` — the map only. Its effect tracks just `simConfig?.id` → `simulationMap.attachSim(id)`, so spec edits
+  never resubscribe the live socket.
+- `simulationMap.ts` — imperative MapLibre wrapper outside Solid: map setup and the red current-position marker
+  (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
+  while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
+  prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (read once at creation).
+- `SimCard.tsx` — label, Play/Stop, Delete, Share/Unshare, type `<select>` (None/Fixed/Path/Orbit → `updateType`).
+  The **selected** card renders `<SpecEditor config/>`; other cards show a read-only per-type summary (path/orbit
+  with a `SpeedSlider` that commits on `change`). Select and slider keep a **draft signal**
+  (`createSignal(() => prop)`) so the binding doesn't write the old value back mid-request; reset on rejection.
+  **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`). Card labels (`sim-55`) are not ids.
+
+### Spec editors (`components/sims/editors/`)
+
+One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
+— a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
+editor via `<Dynamic>`. An editor gets `{configId, spec, map}` and owns:
+
+- **its map objects**, added in `createEffect(() => props.map, map => {…; return cleanup})` and removed on cleanup
+  (unmount = deselect, type change, other sim selected);
+- **a draft** `createSignal(() => toDraft(props.spec))` — a **plain copy**, never the store's tuples (spreading a
+  store proxy in an effect callback triggers `STRICT_READ_UNTRACKED`). It follows the spec after save/remote updates
+  (unsaved edits are then dropped). Map events write the draft; a second effect moves the map objects to it;
+- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `api.update(id, {spec: {...props.spec,
+  ...draft()}})`. Nothing saves on drag.
+
+Types: `FixedEditor` (blue marker → `position`); `OrbitEditor` (blue center moves the whole orbit, green start sets
+`radius`/`startAngle` via `@sensor-sim/shared/geoUtils`; `speed` slider is part of the draft); `PathEditor`
+(`MaplibreTerradrawControl`, a finished line edit sets `waypoints`; redraws only if the draft differs from what's
+drawn; coordinates rounded to 9 significant digits for terra draw; `speed` in the draft). The terradraw control is
+temporary — it will be replaced by plain Terra Draw. Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields
+that, spread tuples (`[...pos]`) into `setLngLat` (readonly).
 
 ### Users
 
-`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` queries; `addUser`, `updateUser`, `deleteUser`
-router `formAction()`s driven by form `action=` (`UserDetail` deletes via the button's `formaction={deleteUser.with(id)}`). Components in `components/users/` are typed on `User`.
+`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` router `query()`s; `addUser`, `updateUser`,
+`deleteUser` router `formAction()`s bound via form `action=` (`UserDetail` deletes via the button's
+`formaction={deleteUser.with(id)}`). Components in `components/users/` are typed on `User`.
 
 ### Server types
 
 Import DTO types from `@sensor-sim/shared` (`SimConfig`, `UpdateSimConfig`, `Spec`, `SpecType`,
-`SpecFixed`/`SpecPath`/`SpecOrbit`, `SimData`, `GeoPosition`, `StatusMessage`, `User`, `Profile`); the frontend has no dependency on `@sensor-sim/server`. The package ships
-**source**, so schema changes break `tsc` here immediately — renamed routes don't. Its Zod schemas are importable
-too (e.g. for client-side validation), but that pulls `zod` into the bundle.
+`SpecFixed`/`SpecPath`/`SpecOrbit`, `SimData`, `GeoPosition`, `StatusMessage`, `User`, `Profile`). No dependency on
+`@sensor-sim/server`. Shared ships **source**: schema changes break `tsc` here immediately, renamed routes don't.
+Importing its Zod schemas pulls `zod` into the bundle.
 
 ## Env vars
 
@@ -97,12 +115,11 @@ too (e.g. for client-side validation), but that pulls `zod` into the bundle.
 
 ## Reactive diagnostics — capture evidence instead of guessing
 
-- **In tests:** `captureArtifact()` from `@solidjs/diagnostics`; matchers from `@solidjs/diagnostics/vitest`
-  (`toHaveNoDiagnostics`, `toStayWithinRerunBudget`, `toHaveNoWaste`, …).
-- **Against the dev server** (requires `diagnostics: true` in `vite.config.ts` — currently `false` — and an open
-  page): `GET /__solid/diagnostics`; `POST` with `{"method":"begin"}` / `{"method":"end"}`,
-  `{"method":"whyDidRun","params":{"name":"<scope>"}}`, `{"method":"costs"}`.
+- **In tests:** `captureArtifact()` from `@solidjs/diagnostics`; matchers from `@solidjs/diagnostics/vitest`.
+- **Against the dev server** (requires `diagnostics: true` in `vite.config.ts` — currently `false`): `GET
+  /__solid/diagnostics`; `POST` `{"method":"begin"|"end"|"costs"}` or `{"method":"whyDidRun","params":{"name":…}}`.
+- Without it: dev warnings land in the browser console; wrap `console.warn` to capture `new Error().stack` and find
+  the offending effect.
 
-Name signals/memos/effects (`{ name: "..." }`) — attribution reports scopes by name.
-
-Solid 2.0 batches DOM updates: tests must `flush()` after firing events before asserting.
+Name signals/memos/effects (`{ name: "..." }`) — attribution reports scopes by name. Solid 2.0 batches DOM updates:
+tests must `flush()` after firing events before asserting.

@@ -62,12 +62,13 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 
 - `/api/configs` is the only write path. Every mutation (create, PATCH, delete, start/stop, share/unshare) calls
   `handleSimConfigsUpdate(userId)` → `simulationEngine.syncConfigs()` (re-reads **all** configs from DB) → a
-  per-user debounced (500 ms) `{type: "configUpdate", revision}` on that user's status stream only. Clients of
-  other users never see it; `/api/status[/ws]` subscribes to the caller's own stream.
+  per-user debounced (100 ms, latest wins) `{configsRevision}` on that user's status stream only. Clients of
+  other users never see it; `/api/status[/ws]` subscribes to the caller's own stream (empty until the first change
+  since server start — no ping).
 - **Config revision** (in memory, per user, `max(Date.now(), prev + 1)`): bumped *after* the write;
   `GET /api/configs` reads it *before* the DB query and returns it as `X-Config-Revision` (`CONFIG_REVISION_HEADER`,
-  exposed via CORS). The client skips a `configUpdate` whose revision it has already fetched — so the tab that
-  made the change doesn't refetch twice. Keep both orderings, or a client can skip a change it never saw.
+  exposed via CORS). The client offers a refresh only when `configsRevision` exceeds the revision it fetched — so
+  the tab that made the change isn't prompted. Keep both orderings, or a client can miss a change it never saw.
 - `syncConfigs` is **serialized** through a promise queue (`syncQueue`) — concurrent requests would otherwise apply
   an older DB snapshot after a newer one and dispose a just-created runner. Always go through `syncConfigs()`,
   never call the inner `doSyncConfigs()` directly.
@@ -81,6 +82,8 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
   and emitted once, so clients see where the edited sim starts.
 - `/api/sims` is read-only: `GET /` (caller's `SimData[]`), `GET /:id`, `GET /:id/ws`.
 - Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
+  `created_at`/`updated_at` (migration `0010`) are DB-managed (`updatedAt` via Drizzle `$onUpdateFn`), returned in
+  the DTO and omitted from the create/update schemas.
 
 - `syncConfigs` `dispose()`s and drops runners whose config was deleted. `dispose()` = `stop()` + close the
   runner's `simDataStream`, which ends every WS `collect()` loop; handlers then `ws.close()`, so clients see the
@@ -93,7 +96,8 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 ## Simulation specs (`sim_configs.spec`, jsonb, nullable)
 
 A spec is a Zod discriminated union on `type` (`specSchema` in `@sensor-sim/shared`): `fixed` (`position`), `path`
-(`start` → `target`, `speed`, stops at target), `orbit` (`center`, `radius`, `startAngle`, `speed`). All points are
+(`waypoints` ≥ 2, `speed`; moves along the polyline via `getPositionOnPathByDistance`, stops at the last point),
+`orbit` (`center`, `radius`, `startAngle`, `speed`). All points are
 `GeoPosition` tuples `[lng, lat]`; `defaultTarget` too. Movement is
 geodesic via `@sensor-sim/shared/geoUtils`. Each type has a `SimulationDefinition<T>` in `simulation/definitions/`:
 
@@ -111,7 +115,8 @@ getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is
 
 **New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its
 `Spec*` type in `types.ts` → state entry in `SimulationStateMap` → `definitions/<type>.ts` → register in
-`definitionRegistry`. Frontend: a renderer in `components/sims/` + cases in `simulationMap.ts` and `SimCard.tsx`.
+`definitionRegistry`. Frontend: an editor in `components/sims/editors/` registered in `SpecEditor.tsx` (compile
+error until it is) + a read-only summary case in `SimCard.tsx`.
 Specs are `strictObject`s — stored JSON with extra/missing keys is treated as no spec.
 
 ## Auth — each subapp declares its own
