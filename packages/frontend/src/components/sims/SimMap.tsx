@@ -1,16 +1,20 @@
-import {createEffect, createSignal, onSettled} from "solid-js";
+import {createEffect, createSignal, onSettled, Show} from "solid-js";
 import {jwtToken} from "../../auth";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {SimConfig} from "@sensor-sim/shared";
+import {PortalControl} from "./PortalControl";
+import {Portal} from "@solidjs/web";
+import {TbOutlineCloudUpload} from "solid-icons/tb";
+
 
 export default function SimMap(props: { simConfig: SimConfig | undefined }) {
 
-  const [mapReady, setMapReady] = createSignal(false);
-
-  // oxlint-disable-next-line no-unassigned-vars
   let mapEl!: HTMLDivElement
-  let simulationMap: SimulationMap | undefined
 
+  // Instantiate the control container immediately
+  const editControl = new PortalControl();
+
+  const [simulationMap, setSimulationMap] = createSignal<SimulationMap>();
 
   // createEffect(() => props.simConfig && JSON.parse(JSON.stringify(props.simConfig)),
   //   (config) => {
@@ -27,7 +31,7 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
   createEffect(() => {
       const config = props.simConfig
       return {
-        mapReady: mapReady(),
+        simulationMap: simulationMap(),
         // Plain copy built from ordinary property reads (tracks every field the map uses). Not `deep()`: with
         // solid-js 2.0.0-rc.21, deep() over a createOptimisticStore row spins in snapshotWalk on the second
         // optimistic `update` (e.g. moving the speed slider twice) and freezes the tab.
@@ -38,9 +42,10 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
       }
     },
 
-    ({mapReady, config}) => {
-      if (mapReady) {
-        simulationMap?.attachSimConfig(config)
+    ({simulationMap, config}) => {
+      if (simulationMap) {
+        simulationMap.attachSimConfig(config)
+        simulationMap.map.addControl(editControl, 'top-left')
       }
     },
     {name: "simMap.attach"}
@@ -48,11 +53,11 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
 
   onSettled(
     () => {
-      simulationMap = createSimulationMap(mapEl, jwtToken(), () => {
-        setMapReady(true);
+      createSimulationMap(mapEl, jwtToken()).then(simulationMap => {
+        setSimulationMap(simulationMap)
       });
       return () => {
-        simulationMap?.dispose()
+        simulationMap()?.dispose()
       }
     }
   )
@@ -60,7 +65,27 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
   return (
     <>
       <div class="w-full h-full rounded-lg shadow-sm" ref={mapEl}/>
+
+      {/* Render your Solid component directly into MapLibre's control slot */}
+      <Show when={simulationMap()}>
+        {(simulationMap) => (
+          <Portal mount={editControl.container}>
+            <EditControls simulationMap={simulationMap()}/>
+          </Portal>
+        )}
+      </Show>
+
     </>
   );
 
+}
+
+function EditControls(props: { simulationMap: SimulationMap }) {
+  return (
+    <div class="w-40 h-10">
+      <button class={"btn"} onClick={() => props.simulationMap.editController?.save()}>
+        <TbOutlineCloudUpload size={20}/> Save
+      </button>
+    </div>
+  );
 }

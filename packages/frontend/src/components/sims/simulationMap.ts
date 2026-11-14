@@ -1,10 +1,10 @@
 import {GeolocateControl, MapLibreMap, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
 import {addSimulationListener} from "../../service/simulation.service";
-import {SimConfig, Spec, SpecOrbit, SpecPath} from "@sensor-sim/shared";
-import {createSimulationOrbit} from "./simulationOrbit";
-import {createSimulationPath} from "./simulationPath";
-import {createSimulationFixed} from "./simulationFixed";
-import {useSimConfigsApi} from "../../service/configs.service";
+import {SimConfig, Spec} from "@sensor-sim/shared";
+import {createEditControllerOrbit} from "./editControllerOrbit";
+import {createEditControllerPath} from "./editControllerPath";
+import {createEditControllerFixed} from "./editControllerFixed";
+import {currentMarkerElement} from "./markerElement";
 
 // In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
 // client inside the worker and throws `document is not defined` on every CSS hot update. Load the untransformed
@@ -18,44 +18,48 @@ setWorkerUrl(import.meta.env.DEV
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
-function createCurrentMarkerElement(): HTMLElement {
-  const svgMarker = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://w3.org">
-     <circle cx="12" cy="12" r="2" fill="red" />
-     <circle cx="12" cy="12" r="11" fill="red" fill-opacity="0.2" stroke="red" stroke-width="1"/>
-  </svg>`;
-  const el = document.createElement('div');
-  el.innerHTML = svgMarker;
-  el.className = 'target-marker';
-  el.style.cursor = 'pointer';
-  return el;
-}
 
 export type SimulationMap = {
   map: MapLibreMap,
   attachSimConfig: (simConfig: SimConfig | null) => void,
+  editController: SpecEditController<any> | null,
   dispose: () => void
 }
 
-export type ConfigSpecRenderer<T extends Spec> = {
-  updateSpec: (spec: T) => void,
+export type SpecEditController<T extends Spec> = {
+  update: (spec: T) => void,
+  save: () => void,
   dispose: () => void
+}
+
+function createEditController(config: SimConfig, map: MapLibreMap): SpecEditController<any> {
+
+  if (!config.spec) {
+    throw new Error(`No spec provided`);
+  }
+
+  switch (config.spec.type) {
+    case "fixed":
+      return createEditControllerFixed(config, map)
+    case "orbit":
+      return createEditControllerOrbit(config, map)
+    case "path":
+      return createEditControllerPath(config, map)
+    default:
+      throw new Error(`Unknown spec type`)
+  }
+
 }
 
 /// -------------------------------------------------------------------
 
-export function createSimulationMap(
+export async function createSimulationMap(
   element: HTMLDivElement,
   jwtToken: string | null,
-  onReady: () => void
-) {
+): Promise<SimulationMap> {
 
-  const api = useSimConfigsApi()
 
-  const onSpecUpdate = async (id: number, spec: Spec) => {
-    await api.update(id, {spec})
-  }
-
-  let configSpecRenderer: ConfigSpecRenderer<any> | null = null;
+  let editController: SpecEditController<any> | null = null;
   let simConfig: SimConfig | null = null;
 
   let currentOnMap = false;
@@ -97,12 +101,9 @@ export function createSimulationMap(
     trackUserLocation: true,
   }), 'bottom-right');
 
-  map.once('load', () => {
-    onReady()
-  })
 
   const currentMarker = new Marker({
-    element: createCurrentMarkerElement(),
+    element: currentMarkerElement(),
     anchor: 'center',
   })
 
@@ -114,8 +115,8 @@ export function createSimulationMap(
     if (currentOnMap) currentMarker.remove();
     currentOnMap = false
 
-    configSpecRenderer?.dispose()
-    configSpecRenderer = null
+    editController?.dispose()
+    editController = null
 
     simConfig = null
 
@@ -137,39 +138,27 @@ export function createSimulationMap(
     )
 
     if (simConfig.spec) {
-      const id = simConfig.id
-      switch (simConfig.spec.type) {
-        case "fixed":
-          configSpecRenderer = createSimulationFixed(
-            simConfig.spec, map,
-            (spec) => onSpecUpdate(id, spec)
-          )
-          break;
-        case "orbit":
-          configSpecRenderer = createSimulationOrbit(
-            simConfig.spec as SpecOrbit, map,
-            (spec) => onSpecUpdate(id, spec)
-          )
-          break;
-        case "path":
-          configSpecRenderer = createSimulationPath(
-            simConfig.spec as SpecPath, map,
-            (spec) => onSpecUpdate(id, spec)
-          )
-          break;
-      }
+      editController = createEditController(simConfig, map)
     }
 
   }
 
-  return {
-    map,
-    attachSimConfig,
-    dispose: () => {
-      removeSimulationListener?.()
-      configSpecRenderer?.dispose()
-      if (currentOnMap) currentMarker.remove();
-      map.remove()
-    }
-  }
+  return new Promise<SimulationMap>(resolve => {
+    map.once('load', () => {
+      resolve(
+        {
+          map,
+          attachSimConfig,
+          editController,
+          dispose: () => {
+            removeSimulationListener?.()
+            editController?.dispose()
+            if (currentOnMap) currentMarker.remove();
+            map.remove()
+          }
+        }
+      )
+    })
+  })
+
 }
