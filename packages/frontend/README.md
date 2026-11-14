@@ -22,8 +22,8 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 ## Key dependencies
 
 - **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`/`formAction`)
-- **MapLibre GL 6** — map rendering; **@watergis/maplibre-gl-terradraw** — path drawing (to be replaced by plain
-  Terra Draw); `@sensor-sim/shared/geoUtils` (turf) — distance/bearing for orbit editing
+- **MapLibre GL 6** — map rendering; **Terra Draw** (+ MapLibre adapter) — path drawing;
+  `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
 
@@ -79,10 +79,11 @@ objects:
 |-------|------------------------------------------------------------------|---------------------------------|
 | fixed | blue marker = position                                           | position                        |
 | orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
-| path  | terradraw line — edit vertices in select mode, or draw a new one | waypoints, speed                |
+| path  | Terra Draw line — drag/edit vertices, or **New** (line/freehand) | length, point count, speed      |
 
-Edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset** discards them. Other cards show
-a read-only summary with a speed slider that saves on release.
+Edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset** discards them. Only the
+selected card expands (editor, dates, share link, delete with confirm); other cards show just the header (label,
+type, Play/Stop, Select).
 
 **Users — plain REST** via `src/service/users.service.ts` router queries/actions, driven by form submissions.
 

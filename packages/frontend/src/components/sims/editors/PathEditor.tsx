@@ -114,12 +114,21 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       terraDraw.start()
       // existing path starts selected
       terraDraw.setMode('select')
-      terraDraw?.on('finish', onFinish)
+      terraDraw.on('finish', onFinish)
+
+      // SimMap defers map.remove() until editors are cleaned up; should the map still be gone first, stop() would
+      // hit the removed style (adapter.clear → getSource(...).setData), so a removed map just drops the instance
+      let mapRemoved = false
+      const onMapRemove = () => { mapRemoved = true }
+      map.once('remove', onMapRemove)
 
       return () => {
         drawn = []
+        featureId = undefined
+        map.off('remove', onMapRemove)
         terraDraw?.off('finish', onFinish)
-        terraDraw?.stop()
+        if (!mapRemoved) terraDraw?.stop()
+        terraDraw = undefined
       }
     }, {name: "pathEditor.drawControl"})
 

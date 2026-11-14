@@ -10,9 +10,8 @@ import {
   TbOutlineShareOff,
   TbOutlineX
 } from "solid-icons/tb";
-import {BsSpeedometer} from "solid-icons/bs";
 import {useMatch, useNavigate} from "@solidjs/router";
-import {SimConfig, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/shared";
+import {SimConfig, SpecType} from "@sensor-sim/shared";
 import {paths} from "../../router";
 import {useSimConfigsApi} from "../../service/configs.service";
 import {SpecEditor} from "./editors/SpecEditor";
@@ -140,32 +139,4 @@ export function SimCard(props: { simConfig: SimConfig }) {
       </Show>
     </>
   )
-}
-
-
-// Draft of the speed: follows the spec, takes every slider move immediately (live m/s label) and commits on release,
-// so the `value` binding doesn't write the old speed back while the update is in flight.
-function SpeedSlider(props: { id: number, spec: SpecPath | SpecOrbit }) {
-  const api = useSimConfigsApi()
-
-  const [speed, setSpeed] = createSignal(() => props.spec.speed)
-
-  async function commit(value: number) {
-    setSpeed(value)
-    try {
-      await api.update(props.id, {spec: {...props.spec, speed: value}})
-    } catch (error) {
-      setSpeed(props.spec.speed) // rejected: show the committed speed again
-      throw error
-    }
-  }
-
-  return <>
-    <BsSpeedometer/><span>{speed()}m/s</span>
-    <input type="range" min="0" max="40" value={speed()}
-           onInput={(e) => setSpeed(+e.currentTarget.value)}
-           onChange={(e) => commit(+e.currentTarget.value)}
-           class="range range-xs w-full"
-    />
-  </>
 }

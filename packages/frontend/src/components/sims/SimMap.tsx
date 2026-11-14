@@ -33,18 +33,24 @@ export default function SimMap(props: {
 
   onSettled(
     () => {
+      let disposed = false
 
       createSimulationMap(mapEl, jwtToken()).then(
         simulationMap => {
+          // unmounted before the map finished loading: nobody will dispose it otherwise
+          if (disposed) return simulationMap.dispose()
           setSimulationMap(simulationMap)
           props.onMap?.(simulationMap.map)
         });
 
       return () => {
+        disposed = true
         props.onMap?.(undefined)
-        simulationMap()?.dispose()
+        // editors (SpecEditor in the SimCards) are disposed in the same pass, possibly after this cleanup;
+        // removing the map only after that lets them detach from a live map (terraDraw.stop() needs its style)
+        const current = simulationMap()
+        queueMicrotask(() => current?.dispose())
       }
-      
     }
   )
 
