@@ -18,23 +18,33 @@ export default function SimMap(props: {
   const [simulationMap, setSimulationMap] = createSignal<SimulationMap>();
 
   // only the id matters for the live position: spec edits must not resubscribe the sim's socket
-  createEffect(() => ({simulationMap: simulationMap(), id: props.simConfig?.id ?? null}),
+  createEffect(
+    () => ({
+      simulationMap: simulationMap(),
+      id: props.simConfig?.id ?? null
+    }),
+
     ({simulationMap, id}) => {
       simulationMap?.attachSim(id)
     },
+
     {name: "simMap.attach"}
   )
 
   onSettled(
     () => {
-      createSimulationMap(mapEl, jwtToken()).then(simulationMap => {
-        setSimulationMap(simulationMap)
-        props.onMap?.(simulationMap.map)
-      });
+
+      createSimulationMap(mapEl, jwtToken()).then(
+        simulationMap => {
+          setSimulationMap(simulationMap)
+          props.onMap?.(simulationMap.map)
+        });
+
       return () => {
         props.onMap?.(undefined)
         simulationMap()?.dispose()
       }
+      
     }
   )
 

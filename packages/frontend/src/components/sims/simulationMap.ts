@@ -14,7 +14,6 @@ setWorkerUrl(import.meta.env.DEV
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
 
-
 /** The map and the selected sim's live position marker; spec editing lives in `editors/` (Solid components). */
 export type SimulationMap = {
   map: MapLibreMap,
@@ -29,7 +28,6 @@ export async function createSimulationMap(
   element: HTMLDivElement,
   jwtToken: string | null,
 ): Promise<SimulationMap> {
-
 
 
   let currentOnMap = false;

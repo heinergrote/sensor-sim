@@ -16,13 +16,14 @@
     "@solidjs/router": "^2.0.0-next.44",
     "@solidjs/web": "^2.0.0-rc.21",
     "@tailwindcss/vite": "^4.3.4",
-    "@watergis/maplibre-gl-terradraw": "^1.17.0",
     "daisyui": "^5.7.50",
     "ky": "^2.2.0",
     "maplibre-gl": "6.16.0",
     "solid-icons": "^1.2.0",
     "solid-js": "^2.0.0-rc.21",
-    "tailwindcss": "^4.3.4"
+    "tailwindcss": "^4.3.4",
+    "terra-draw": "^1.39.0",
+    "terra-draw-maplibre-gl-adapter": "^1.5.0"
   },
   "devDependencies": {
     "@solidjs/diagnostics": "^2.0.0-rc.21",

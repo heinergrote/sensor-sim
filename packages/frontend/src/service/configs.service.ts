@@ -68,7 +68,6 @@ export function createSimConfigsApi() {
   )
 
   const update = action(async function* (id: number, config: UpdateSimConfig) {
-    console.log("Updating config", id, config)
     setConfigs((list) => {
       const currentConfig = list.find((config) => config.id === id)
       // set all values from config in current config
@@ -78,7 +77,7 @@ export function createSimConfigsApi() {
     yield api.patch<SimConfig>(`/configs/${id}`, {
       json: config
     })
-    console.log("Updated config", id, config)
+    
     refresh(configs)
   })
 
