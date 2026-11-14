@@ -54,11 +54,20 @@ export function createSimulationRunner(config: SimConfig) {
       return;
     }
 
+    const specChanged = !isDeepStrictEqual(newConfig.spec, config.spec)
+
     stop()
     // apply new config
     config = {...config, ...newConfig};
 
-    if (config.playing) start();
+    if (config.playing) {
+      start() // rebuilds the state from the spec
+    } else if (specChanged) {
+      // a stopped sim shows where the new spec starts (otherwise it would sit at the old spec's last position);
+      // a plain stop keeps the last state
+      state = config.spec ? simulationDefinitions.init(config.spec) : null
+      simDataStream.emit()
+    }
 
   }
 

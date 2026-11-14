@@ -77,7 +77,8 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 - `applySimConfig` deep-compares (`isDeepStrictEqual`) only `spec` and `playing`; any change stops the runner and,
   if playing, restarts it with state rebuilt from the spec (no live-applied fields any more).
 - `SimulationRunner`: 100 ms tick, `state = simulationDefinitions.step(spec, state, deltaMs)`. A stopped runner
-  stays in the map and keeps its last state.
+  stays in the map and keeps its last state — unless its spec changes: then the state is rebuilt from the new spec
+  and emitted once, so clients see where the edited sim starts.
 - `/api/sims` is read-only: `GET /` (caller's `SimData[]`), `GET /:id`, `GET /:id/ws`.
 - Sim ids are serial ints; `label` is a unique text defaulting to `sim-<seq>` (`sim_config_label_seq`).
 
