@@ -1,34 +1,30 @@
-import {createSignal, For, Match, Show, Switch} from "solid-js";
+import {createSignal, Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
   TbFillTrash,
-  TbOutlineAngle,
   TbOutlineClipboard,
   TbOutlineClockPlus,
   TbOutlineClockUp,
-  TbOutlineRulerMeasure,
   TbOutlineShare,
   TbOutlineShareOff,
-  TbOutlineWorldLatitude,
-  TbOutlineWorldLongitude
+  TbOutlineX
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
 import {useMatch, useNavigate} from "@solidjs/router";
-import {SimConfig, SpecFixed, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/shared";
-import {serverUrl} from "../../api";
+import {SimConfig, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/shared";
 import {paths} from "../../router";
 import {useSimConfigsApi} from "../../service/configs.service";
 import {SpecEditor} from "./editors/SpecEditor";
+import {serverUrl} from "../../api";
 
 export function SimCard(props: { simConfig: SimConfig }) {
 
   const navigate = useNavigate()
   const selected = useMatch(() => paths.sims(props.simConfig.id));
 
-  const specPath = () => props.simConfig.spec?.type === "path" ? props.simConfig.spec as SpecPath : null
-  const specOrbit = () => props.simConfig.spec?.type === "orbit" ? props.simConfig.spec as SpecOrbit : null
-  const specFixed = () => props.simConfig.spec?.type === "fixed" ? props.simConfig.spec as SpecFixed : null
+  const [confirmDeleteId, setConfirmDeleteId] = createSignal<number | null>(null)
+
 
   const api = useSimConfigsApi()
 
@@ -52,6 +48,18 @@ export function SimCard(props: { simConfig: SimConfig }) {
     navigate(selected() ? `/sims` : `/sims/${props.simConfig.id}`)
   }
 
+  function handleDelete(id: number | null) {
+
+    if (id && confirmDeleteId() === id) {
+      api.remove(id)
+      setConfirmDeleteId(null)
+    } else {
+      setConfirmDeleteId(id)
+    }
+
+  }
+
+
   return (
     <>
       <Show fallback={<div>Connecting...</div>} when={props.simConfig}>
@@ -63,110 +71,67 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
                 <div class="flex items-center gap-2">
                   <span>{config().label}</span>
-                  <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
-                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
-                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
-                  </button>
-                  <div class={"flex-1"}/>
-                  <button class="btn btn-sm" onClick={() => api.remove(config().id)}>
-                    <TbFillTrash/>
-                  </button>
-                </div>
-
-                <div class={"flex gap-1 items-center"}>
-                  <TbOutlineClockPlus/> {new Date(config().createdAt).toLocaleString()}
-                  <TbOutlineClockUp/> {new Date(config().updatedAt).toLocaleString()}
-                </div>
-
-                <div class={"divider my-0"}/>
-
-                <div class="flex flex-row gap-2">
-
                   <select class="select select-sm w-fit" onChange={handleTypeChange}>
                     <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
                     <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
                     <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
                     <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
                   </select>
-
-                  <div class={"divider divider-horizontal mx-0"}/>
-
-                  <div class="flex-1">
-
-                    <Switch fallback={<>Select Simulation Type</>}>
-                      <Match when={selected() && config().spec}>
-                        <SpecEditor config={config()}/>
-                      </Match>
-                      <Match when={specFixed()}>
-                        {(spec) =>
-                          <>
-                            <div class="flex gap-2 items-center">
-                              <TbOutlineWorldLatitude/>{spec().position[1].toFixed(5)},
-                              <TbOutlineWorldLongitude/>{spec().position[0].toFixed(5)}
-                            </div>
-                          </>
-                        }
-                      </Match>
-                      <Match when={specPath()}>
-                        {(spec) =>
-                          <>
-                            <For each={spec().waypoints} keyed={(waypoint) => `${waypoint[0]}_${waypoint[1]}`}>
-                              {(waypoint) =>
-                                <div class="flex gap-1 items-center">
-                                  <TbOutlineWorldLatitude/>{waypoint()[1].toFixed(7)},
-                                  <TbOutlineWorldLongitude/>{waypoint()[0].toFixed(7)}
-                                </div>
-                              }</For>
-                            <div class="flex gap-2 items-center">
-                              <SpeedSlider id={config().id} spec={spec()}/>
-                            </div>
-                          </>
-                        }
-                      </Match>
-                      <Match when={specOrbit()}>
-                        {(spec) =>
-                          <>
-                            <div class="flex gap-2 items-center">
-                              <TbOutlineWorldLongitude/>{spec().center[0].toFixed(7)},
-                              <TbOutlineWorldLatitude/>{spec().center[1].toFixed(7)}
-                            </div>
-                            <div class="flex gap-2 items-center">
-                              <TbOutlineRulerMeasure/> {spec().radius.toFixed(2)}m
-                              <TbOutlineAngle/> {spec().startAngle.toFixed(2)}°
-                            </div>
-                            <div class="flex gap-2 items-center">
-                              <SpeedSlider id={config().id} spec={spec()}/>
-                            </div>
-                          </>
-                        }
-                      </Match>
-                    </Switch>
-                  </div>
-                </div>
-
-
-                <div class={"divider my-0"}/>
-
-                <div class="flex gap-1 items-center">
-                  <button class="btn btn-sm"
-                          onClick={() => api.share(config().id, config().shareToken.length === 0)}>
-                    <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
-                    <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
+                  <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
+                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
+                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                   </button>
-                  <Show when={config().shareToken}>
-                    <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
-                    <button class="btn btn-sm" onClick={() => {
-                      // copy to clipboard
-                      navigator.clipboard.writeText(serverUrl + "/s/" + config().shareToken);
-                    }}>
-                      <TbOutlineClipboard/>
-                    </button>
-                  </Show>
+                  <div class={"flex-1"}/>
+                  <button class="btn btn-sm btn-primary" onClick={handleSelect}>Select</button>
                 </div>
-                <div class={"divider my-0"}/>
-                <div class="card-actions justify-end">
-                  <button class="btn btn-primary" onClick={handleSelect}>Select</button>
-                </div>
+
+                <Show when={selected()}>
+                  <div class="flex-1 flex flex-col gap-1">
+                    <div class={"divider my-0"}/>
+                    <Show when={config().spec}>
+                      <SpecEditor config={config()}/>
+                      <div class={"divider my-0"}/>
+                    </Show>
+                    <div class={"flex gap-1 items-center"}>
+                      <TbOutlineClockPlus/> {new Date(config().createdAt).toLocaleString()}
+                      <TbOutlineClockUp/> {new Date(config().updatedAt).toLocaleString()}
+                    </div>
+                    <div class="flex gap-1 items-center">
+                      <button class="btn btn-sm"
+                              onClick={() => api.share(config().id, config().shareToken.length === 0)}>
+                        <Show when={config().shareToken}><TbOutlineShareOff/> Unshare</Show>
+                        <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
+                      </button>
+                      <Show when={config().shareToken}>
+                        <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
+                        <button class="btn btn-sm" onClick={() => {
+                          // copy to clipboard
+                          navigator.clipboard.writeText(serverUrl + "/s/" + config().shareToken);
+                        }}>
+                          <TbOutlineClipboard/>
+                        </button>
+                      </Show>
+                    </div>
+                    <Show when={confirmDeleteId() === config().id}>
+                      <div class="flex justify-center gap-1">
+                        <button class="btn btn-sm btn-error" onClick={() => handleDelete(config().id)}>
+                          <TbFillTrash/> Really?
+                        </button>
+                        <button class="btn btn-sm" onClick={() => handleDelete(null)}>
+                          <TbOutlineX/>
+                        </button>
+                      </div>
+                    </Show>
+                    <Show when={confirmDeleteId() !== config().id}>
+                      <div class="flex justify-end">
+                        <button class="btn btn-sm" onClick={() => handleDelete(config().id)}><TbFillTrash/></button>
+                      </div>
+                    </Show>
+
+                  </div>
+                </Show>
+
+
               </div>
             </div>
 

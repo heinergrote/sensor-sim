@@ -1,5 +1,5 @@
 import {Component, Show, useContext} from "solid-js";
-import {Dynamic} from "@solidjs/web";
+import {dynamic} from "@solidjs/web";
 import type {MapLibreMap} from "maplibre-gl";
 import {SimConfig, Spec, SpecType} from "@sensor-sim/shared";
 import {MapContext} from "./mapContext";
@@ -28,16 +28,17 @@ const specEditors: { [K in SpecType]: Component<SpecEditorProps<Extract<Spec, { 
 export function SpecEditor(props: { config: SimConfig }) {
   const map = useContext(MapContext)
 
-  const editor = () => {
+  // pick an editor based on the spec type
+  const Editor = dynamic(() => {
     const type = props.config.spec?.type
     return type ? specEditors[type] as Component<SpecEditorProps<Spec>> : undefined
-  }
+  });
 
   return (
     <Show when={map()} fallback={<span class="text-sm opacity-60">Loading map…</span>}>
       {(map) => (
         <Show when={props.config.spec}>
-          {(spec) => <Dynamic component={editor()} configId={props.config.id} spec={spec()} map={map()}/>}
+          {(spec) => <Editor configId={props.config.id} spec={spec()} map={map()}/>}
         </Show>
       )}
     </Show>
