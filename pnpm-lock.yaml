@@ -48,6 +48,12 @@ importers:
       tailwindcss:
         specifier: ^4.3.4
         version: 4.3.4
+      terra-draw:
+        specifier: ^1.39.0
+        version: 1.39.0
+      terra-draw-maplibre-gl-adapter:
+        specifier: ^1.5.0
+        version: 1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0)
     devDependencies:
       '@solidjs/diagnostics':
         specifier: ^2.0.0-rc.21
@@ -3200,6 +3206,15 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  terra-draw-maplibre-gl-adapter@1.5.0:
+    resolution: {integrity: sha512-wUv7WDIKln+cWkJOJZ68cOLwFhcBXlSN3GF56Dx8GLnmTTnQEZbIyzWRHjsxhn+TOXvxBOlCDl5JmCghIW3L4g==}
+    peerDependencies:
+      maplibre-gl: '>=4'
+      terra-draw: ^1.0.0
+
+  terra-draw@1.39.0:
+    resolution: {integrity: sha512-W9myUqAlxTQYydNM6cI1kmaU3/i9IlNUfzbfjr7sZVfE5YrJ1ogEpMTKKXdlXdON7tB/nMd3sPL26u7CAzCxKA==}
 
   tinybench@6.2.2:
     resolution: {integrity: sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==}
@@ -6827,6 +6842,13 @@ snapshots:
   tailwindcss@4.3.4: {}
 
   tapable@2.3.3: {}
+
+  terra-draw-maplibre-gl-adapter@1.5.0(maplibre-gl@6.16.0)(terra-draw@1.39.0):
+    dependencies:
+      maplibre-gl: 6.16.0
+      terra-draw: 1.39.0
+
+  terra-draw@1.39.0: {}
 
   tinybench@6.2.2: {}
 

@@ -12,11 +12,13 @@ src/schemas/login.ts       login
 src/types.ts               DTO types (z.infer), Spec, SpecType, SpecFixed/Path/Orbit, GeoPosition, SimData,
                            StatusMessage, Profile
 src/index.ts               re-exports schemas + types            → import from "@sensor-sim/shared"
-src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, randomBetween
+src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, randomBetween, pathLength,
+                           getPositionOnPathByDistance, getNearestPositionOnPath
                                                                  → "@sensor-sim/shared/geoUtils"
 ```
 
-`SimConfig.spec` is `Spec | null`. Spec schemas are `strictObject`s; a new spec type is added to both
+`SimConfig.spec` is `Spec | null`; `SimConfig` also carries server-managed `createdAt`/`updatedAt` (not in the
+create/update schemas). A path spec is `waypoints` (≥ 2 points) + `speed`. `StatusMessage` is `{configsRevision}`. Spec schemas are `strictObject`s; a new spec type is added to both
 `specTypesSchema` and `specSchema` (server side: see `packages/server/CLAUDE.md`). `GeoPosition` is
 `readonly [lng, lat]` (spec points are `tuple([number(), number()]).readonly()`); geoUtils take and return it, and
 `getPosition` returns the origin for a distance ≤ 0. `SimData.position` is deliberately still `{latitude,

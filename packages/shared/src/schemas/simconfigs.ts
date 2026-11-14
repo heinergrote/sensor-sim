@@ -1,4 +1,4 @@
-import {literal, number, tuple, z} from "zod";
+import {array, literal, number, tuple, z} from "zod";
 
 export const simConfigIdParam = z.object({
   id: z.coerce.number().int().positive()
@@ -13,8 +13,9 @@ export const specFixedSchema = z.strictObject({
 
 export const specPathSchema = z.strictObject({
   type: literal("path"),
-  target: tuple([number(), number()]).readonly(),
-  start: tuple([number(), number()]).readonly(),
+  waypoints: array(tuple(
+    [number(), number()]).readonly()
+  ).min(2).readonly(),
   speed: z.number(),
 });
 
@@ -40,7 +41,9 @@ const simConfigFields = z.object({
   label: z.string(),
   shareToken: z.string().min(0).max(64),
   spec: specSchema.nullable(),
-  playing: z.boolean()
+  playing: z.boolean(),
+  updatedAt: z.date(),
+  createdAt: z.date(),
 });
 
 export const simConfigResponseSchema = z.strictObject(simConfigFields.shape);
@@ -48,13 +51,13 @@ export const simConfigResponseSchema = z.strictObject(simConfigFields.shape);
 // POST /api/simconfigs
 export const createSimConfigSchema =
   z.strictObject(simConfigFields.shape)
-    .omit({id: true, ownerId: true, shareToken: true})
+    .omit({id: true, ownerId: true, shareToken: true, createdAt: true, updatedAt: true})
     .partial()
 
 // PUT/PATCH /api/simconfigs
 export const updateSimConfigSchema =
   z.strictObject(simConfigFields.shape)
-    .omit({id: true, ownerId: true, shareToken: true})
+    .omit({id: true, ownerId: true, shareToken: true, createdAt: true, updatedAt: true})
     .partial()
 
 export const updateTypeSchema =

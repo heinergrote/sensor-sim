@@ -1,5 +1,11 @@
 import {GeoPosition} from "@sensor-sim/shared";
-import {getAzimuth, getDistance, getPosition, randomBetween, randomOffset} from "@sensor-sim/shared/geoUtils";
+import {
+  getDistance,
+  getPositionOnPathByDistance,
+  pathLength,
+  randomBetween,
+  randomOffset
+} from "@sensor-sim/shared/geoUtils";
 import {defaultTarget, SimulationDefinition} from "../simulationDefinitions";
 
 export const pathDefinition: SimulationDefinition<'path'> = {
@@ -7,30 +13,34 @@ export const pathDefinition: SimulationDefinition<'path'> = {
   createDefaultSpec: (initialPosition?: GeoPosition) => {
     if (!initialPosition)
       initialPosition = randomOffset(defaultTarget, 0, 500);
-    const randomStart = randomOffset(initialPosition, 50, 200);
+    const waypoint = randomOffset(initialPosition, 50, 200);
 
     return {
       type: "path",
-      target: initialPosition,
-      start: randomStart,
+      waypoints: [initialPosition, waypoint],
       speed: Math.round(randomBetween(5, 20)),
     };
   },
 
-  getLocation: spec => spec.start,
+  getLocation: spec => spec.waypoints[0],
 
   init: (spec) => ({
-    currentDistance: getDistance(spec.target, spec.start,),
-    position: spec.start
+    distanceFromTarget: getDistance(spec.waypoints[0], spec.waypoints[spec.waypoints.length - 1]),
+    travelledDistance: 0,
+    remainingDistance: pathLength(spec.waypoints),
+    position: spec.waypoints[0]
   }),
 
   step: (state, spec, deltaMs) => {
-    const stepDistance = spec.speed * deltaMs / 1000;
-    const azimuth = getAzimuth(spec.target, spec.start,)
-    const nextDistance = Math.max(0, state.currentDistance - stepDistance);
-    const nextPosition = getPosition(spec.target, nextDistance, azimuth)
+    const nextDistance = state.travelledDistance + spec.speed * deltaMs / 1000;
+
+    // move along the path defined by the waypoints
+    const nextPosition = getPositionOnPathByDistance(spec.waypoints, nextDistance);
+
     return {
-      currentDistance: nextDistance,
+      distanceFromTarget: getDistance(spec.waypoints[0], spec.waypoints[spec.waypoints.length - 1]),
+      travelledDistance: nextDistance,
+      remainingDistance: pathLength(spec.waypoints) - nextDistance,
       position: nextPosition
     };
   }

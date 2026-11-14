@@ -2,39 +2,57 @@ import {createEffect, createSignal, onSettled} from "solid-js";
 import {jwtToken} from "../../auth";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {SimConfig} from "@sensor-sim/shared";
+import type {MapLibreMap} from "maplibre-gl";
 
-export default function SimMap(props: { simConfig: SimConfig | undefined }) {
+/**
+ * The map plus the selected sim's live position. Spec editing lives in the `SpecEditor` components (rendered in
+ * the selected `SimCard`), which reach the map through `MapContext` — set here via `onMap`.
+ */
+export default function SimMap(props: {
+  simConfig: SimConfig | undefined,
+  onMap?: (map: MapLibreMap | undefined) => void,
+}) {
 
-  const [mapReady, setMapReady] = createSignal(false);
-
-  // oxlint-disable-next-line no-unassigned-vars
   let mapEl!: HTMLDivElement
-  let map: SimulationMap | undefined
 
-  createEffect(() => ({
-      ready: mapReady(),
-      // copy, so a field change re-runs the effect even if the config object is updated in place
-      config: props.simConfig ? {...props.simConfig} : null
+  const [simulationMap, setSimulationMap] = createSignal<SimulationMap>();
+
+  // only the id matters for the live position: spec edits must not resubscribe the sim's socket
+  createEffect(
+    () => ({
+      simulationMap: simulationMap(),
+      id: props.simConfig?.id ?? null
     }),
-    (c) => {
-      if (c.ready) map?.attachSimConfig(c.config)
-    }
+
+    ({simulationMap, id}) => {
+      simulationMap?.attachSim(id)
+    },
+
+    {name: "simMap.attach"}
   )
 
   onSettled(
     () => {
-      map = createSimulationMap(mapEl, jwtToken());
-      setMapReady(true);
+      let disposed = false
+
+      createSimulationMap(mapEl, jwtToken()).then(
+        simulationMap => {
+          // unmounted before the map finished loading: nobody will dispose it otherwise
+          if (disposed) return simulationMap.dispose()
+          setSimulationMap(simulationMap)
+          props.onMap?.(simulationMap.map)
+        });
+
       return () => {
-        map?.dispose()
+        disposed = true
+        props.onMap?.(undefined)
+        // editors (SpecEditor in the SimCards) are disposed in the same pass, possibly after this cleanup;
+        // removing the map only after that lets them detach from a live map (terraDraw.stop() needs its style)
+        const current = simulationMap()
+        queueMicrotask(() => current?.dispose())
       }
     }
   )
 
-  return (
-    <>
-      <div class="w-full h-full rounded-lg shadow-sm" ref={mapEl}/>
-    </>
-  );
-
+  return <div class="w-full h-full rounded-lg shadow-sm" ref={mapEl}/>;
 }

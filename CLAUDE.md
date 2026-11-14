@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-GPS simulation monorepo (pnpm workspaces). Each simulation has a typed JSON spec — `fixed`, `path` (start → target)
+GPS simulation monorepo (pnpm workspaces). Each simulation has a typed JSON spec — `fixed`, `path` (waypoints)
 or `orbit` — and broadcasts its position in real time over WebSockets. Access is gated by JWT auth against a Postgres-backed user
 store.
 
@@ -44,12 +44,12 @@ against a fresh DB. `db:migrate` (drizzle-kit) applies the schema but skips the 
 **Config and runtime are separate.** A *sim config* (`sim_configs` row, `/api/configs`) is the persisted, editable
 definition; a *simulation* (`/api/sims`) is the read-only in-memory runner derived from it, exposing `SimData`.
 Every write goes through `/api/configs` (start/stop included — they just flip `playing`); the server then resyncs
-the engine from the DB and pings `/api/status/ws` so clients refetch the config list.
+the engine from the DB and sends a new config revision on `/api/status/ws`; clients with an older list offer a refresh.
 
 **Specs are one jsonb column, validated by Zod on both sides.** `sim_configs.spec` holds a `specSchema`
 discriminated union (`type`: `fixed`/`path`/`orbit`) or `null`; only configs with a valid spec get a runner.
 Behaviour per type is a `SimulationDefinition` (default spec, location, `init`, pure `step`) behind the
-`simulationDefinitions` facade on the server, and a map renderer on the frontend. Adding a type touches shared,
+`simulationDefinitions` facade on the server, and an editor component (`components/sims/editors/`) on the frontend. Adding a type touches shared,
 server and frontend — checklist in `packages/server/CLAUDE.md`. Spec shape changes need no migration; old rows
 that no longer validate read as `spec: null`.
 
@@ -98,4 +98,5 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 `depends_on`) and **pins an explicit version tag** — migrations are forward-only. Migration `0007` **deletes all
 existing `sim_configs` rows** (id became a serial int); `0008`/`0009` drop the old per-field columns, so
 existing configs come back with `spec: null`. Specs stored before the `[lng, lat]` tuple fields (`latitude`/
-`longitude`, `start*`/`target*`/`center*`) no longer validate and read as `spec: null` too. Deployment detail: `packages/server/README.md`.
+`longitude`, `start*`/`target*`/`center*`) or before path `waypoints` (`start`/`target`) no longer validate and
+read as `spec: null` too. `0010` adds `created_at`/`updated_at`. Deployment detail: `packages/server/README.md`.
