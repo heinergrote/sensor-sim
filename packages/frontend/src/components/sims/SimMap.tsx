@@ -2,12 +2,16 @@ import {createEffect, createSignal, onSettled, Show} from "solid-js";
 import {jwtToken} from "../../auth";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {SimConfig} from "@sensor-sim/shared";
+import type {MapLibreMap} from "maplibre-gl";
 import {PortalControl} from "./PortalControl";
 import {Portal} from "@solidjs/web";
 import {TbOutlineCloudUpload} from "solid-icons/tb";
 
 
-export default function SimMap(props: { simConfig: SimConfig | undefined }) {
+export default function SimMap(props: {
+  simConfig: SimConfig | undefined,
+  onMap?: (map: MapLibreMap | undefined) => void,
+}) {
 
   let mapEl!: HTMLDivElement
 
@@ -55,8 +59,10 @@ export default function SimMap(props: { simConfig: SimConfig | undefined }) {
     () => {
       createSimulationMap(mapEl, jwtToken()).then(simulationMap => {
         setSimulationMap(simulationMap)
+        props.onMap?.(simulationMap.map)
       });
       return () => {
+        props.onMap?.(undefined)
         simulationMap()?.dispose()
       }
     }

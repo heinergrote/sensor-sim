@@ -19,6 +19,7 @@ import {SimConfig, SpecFixed, SpecOrbit, SpecPath, SpecType} from "@sensor-sim/s
 import {serverUrl} from "../../api";
 import {paths} from "../../router";
 import {useSimConfigsApi} from "../../service/configs.service";
+import {hasSpecEditor, SpecEditor} from "./editors/SpecEditor";
 
 export function SimCard(props: { simConfig: SimConfig }) {
 
@@ -93,6 +94,9 @@ export function SimCard(props: { simConfig: SimConfig }) {
                   <div class="flex-1">
 
                     <Switch fallback={<>Select Simulation Type</>}>
+                      <Match when={selected() && hasSpecEditor(config().spec?.type)}>
+                        <SpecEditor config={config()}/>
+                      </Match>
                       <Match when={specFixed()}>
                         {(spec) =>
                           <>

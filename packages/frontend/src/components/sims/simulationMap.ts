@@ -1,9 +1,7 @@
 import {GeolocateControl, MapLibreMap, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
 import {addSimulationListener} from "../../service/simulation.service";
 import {SimConfig, Spec} from "@sensor-sim/shared";
-import {createEditControllerOrbit} from "./editControllerOrbit";
 import {createEditControllerPath} from "./editControllerPath";
-import {createEditControllerFixed} from "./editControllerFixed";
 import {currentMarkerElement} from "./markerElement";
 
 // In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
@@ -32,7 +30,8 @@ export type SpecEditController<T extends Spec> = {
   dispose: () => void
 }
 
-function createEditController(config: SimConfig, map: MapLibreMap): SpecEditController<any> {
+// `fixed`/`orbit` are edited by components in components/sims/editors; path not yet ported
+function createEditController(config: SimConfig, map: MapLibreMap): SpecEditController<any> | null {
 
   if (!config.spec) {
     throw new Error(`No spec provided`);
@@ -40,9 +39,8 @@ function createEditController(config: SimConfig, map: MapLibreMap): SpecEditCont
 
   switch (config.spec.type) {
     case "fixed":
-      return createEditControllerFixed(config, map)
     case "orbit":
-      return createEditControllerOrbit(config, map)
+      return null
     case "path":
       return createEditControllerPath(config, map)
     default:
