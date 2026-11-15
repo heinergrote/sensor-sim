@@ -17,6 +17,7 @@ export const specPathSchema = z.strictObject({
     [number(), number()]).readonly()
   ).min(2).readonly(),
   speed: z.number(),
+  mode: z.string().default("linestring"),
 });
 
 

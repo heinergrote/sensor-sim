@@ -40,6 +40,8 @@ export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
     () => props.map,
     (map) => {
       marker.setLngLat([...untrack(draft)]).addTo(map)
+
+      map.flyTo({center: marker.getLngLat()})
       marker.on('dragend', onDragEnd)
 
       return () => {

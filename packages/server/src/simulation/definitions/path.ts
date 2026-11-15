@@ -19,6 +19,7 @@ export const pathDefinition: SimulationDefinition<'path'> = {
       type: "path",
       waypoints: [initialPosition, waypoint],
       speed: Math.round(randomBetween(5, 20)),
+      mode: "linestring"
     };
   },
 

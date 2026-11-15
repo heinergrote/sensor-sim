@@ -66,6 +66,7 @@ export default function OrbitEditor(props: SpecEditorProps<SpecOrbit>) {
       startMarker.setLngLat([...untrack(startPosition)]).addTo(map)
       centerMarker.on('dragend', onCenterDragEnd)
       startMarker.on('dragend', onStartDragEnd)
+      map.flyTo({center: centerMarker.getLngLat()})
       return () => {
         centerMarker.off('dragend', onCenterDragEnd)
         startMarker.off('dragend', onStartDragEnd)

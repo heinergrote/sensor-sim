@@ -1,5 +1,4 @@
 import * as turf from "@turf/turf";
-import {lineString} from "@turf/turf";
 import {GeoPosition} from "../types";
 
 export function getPosition(origin: GeoPosition, distance: number, azimuth: number): GeoPosition {
@@ -26,12 +25,12 @@ export function randomBetween(min: number, max: number) {
 
 export function pathLength(path: readonly GeoPosition[]): number {
   const mutablePath = path.map(position => [...position]); // turf assumes mutable arrays/coordinates
-  return turf.length(lineString(mutablePath), {units: "meters"});
+  return turf.length(turf.lineString(mutablePath), {units: "meters"});
 }
 
 export function getPositionOnPathByDistance(path: readonly GeoPosition[], distance: number): GeoPosition {
   const mutablePath = path.map(position => [...position]); // turf assumes mutable arrays/coordinates
-  const pos = turf.along(lineString(mutablePath), distance, {units: 'meters'})
+  const pos = turf.along(turf.lineString(mutablePath), distance, {units: 'meters'})
   return [pos.geometry.coordinates[0], pos.geometry.coordinates[1]]
 }
 
@@ -42,7 +41,7 @@ export function getNearestPositionOnPath(path: readonly GeoPosition[], point: Ge
   const mutablePath = path.map(position => [...position]); // turf assumes mutable arrays/coordinates
   const mutablePoint = [...point];
 
-  const snapped = turf.nearestPointOnLine(lineString(mutablePath), mutablePoint, {units: 'meters'});
+  const snapped = turf.nearestPointOnLine(turf.lineString(mutablePath), mutablePoint, {units: 'meters'});
   const distance = snapped.properties.totalDistance;
   const pos = snapped.geometry.coordinates;
 
