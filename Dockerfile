@@ -49,6 +49,7 @@ ENV NODE_ENV=production
 ENV PORT=4000
 
 # Configure at runtime, e.g.:
+# ENV TILE_PROVIDER=maptiler   (default: openfreemap)
 # ENV MAPTILER_KEY=your_key_here
 
 CMD ["node", "dist/index.js"]

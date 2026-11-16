@@ -6,7 +6,7 @@ import {Hono} from "hono";
 import {cors} from "hono/cors";
 import {CONFIG_REVISION_HEADER} from "@sensor-sim/shared";
 import {loginApp} from "./login/login.api";
-import {maptilerApp} from "./maptiler/maptiler.api";
+import {TILES_PATH, tilesApp} from "./tiles/tiles.api";
 import {usersApp} from "./users/users.api";
 import {meApp} from "./me/me.api";
 import {sharedApp} from "./shared/shared.api";
@@ -31,7 +31,7 @@ const app = new Hono()
   .route("/api/status", statusApp)
   .route("/api/shared", sharedApp)
   .route("/s", sharedApp)
-  .route("/api/maptiler", maptilerApp)
+  .route(TILES_PATH, tilesApp)
   .route('/api/sims', simsApp)
   .route('/api/configs', simConfigsApp)
   .route('/api/me', meApp)

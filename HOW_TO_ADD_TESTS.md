@@ -675,7 +675,7 @@ flows:
 - Share link opens on `/s/<token>` without logging in; after unsharing it no longer does.
 - Admin creates a user; that user does not see the admin's sims.
 
-MapTiler tiles can be stubbed with `page.route("**/api/maptiler/**", …)` so the tests don't need `MAPTILER_KEY`
+Map tiles can be stubbed with `page.route("**/api/tiles/**", …)` so the tests don't need a tile provider
 or network access.
 
 ---

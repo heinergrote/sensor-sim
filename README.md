@@ -7,7 +7,7 @@ of waypoints (`path`) or circle a point (`orbit`), watch them live on a map, and
 own app as if they came from a real GPS.
 
 - **[packages/server](packages/server)** — sim configs, the simulation engine, REST + WebSocket API, users and JWT
-  auth, MapTiler proxy; in production it serves the UI too.
+  auth, map tile proxy (OpenFreeMap by default, MapTiler optional); in production it serves the UI too.
 - **[packages/frontend](packages/frontend)** — the management UI: map, simulation controls, user administration (SolidJS
   2 + MapLibre).
 - **[packages/shared](packages/shared)** — the API contract (Zod schemas and DTO types) used by both.
@@ -20,7 +20,8 @@ You need Node 24+, pnpm and a Postgres database. Create `packages/server/.env`:
 DATABASE_URL=postgres://user:password@localhost:5432/sensorsim
 JWT_SECRET=some-long-random-string
 DEFAULT_ADMIN_PASSWORD=choose-one     # seeds the first admin when migrations run
-MAPTILER_KEY=your-maptiler-key        # for map tiles; stays server-side
+# TILE_PROVIDER=maptiler             # default: openfreemap (no key needed)
+# MAPTILER_KEY=your-maptiler-key      # only for maptiler; stays server-side
 ```
 
 ```bash
@@ -79,7 +80,6 @@ docker run -p 4000:4000 \
   -e DATABASE_URL=postgres://user:password@db:5432/sensorsim \
   -e JWT_SECRET=... \
   -e DEFAULT_ADMIN_PASSWORD=... \
-  -e MAPTILER_KEY=... \
   ghcr.io/heinergrote/sensor-sim:latest
 ```
 
@@ -102,6 +102,8 @@ container needs no volume.
 | `JWT_SECRET`             | — (required)   | Signs login tokens                            |
 | `DEFAULT_ADMIN_USERNAME` | `admin`        | Admin account seeded by the migrate step      |
 | `DEFAULT_ADMIN_PASSWORD` | —              | Its password; without it nothing is seeded    |
-| `MAPTILER_KEY`           | —              | Required for the `/api/maptiler` tile proxy   |
+| `TILE_PROVIDER`          | `openfreemap`  | Tile provider behind `/api/tiles` (`openfreemap` / `maptiler`) |
+| `TILE_STYLE`             | per provider   | Upstream style path behind `/api/tiles/style.json` |
+| `MAPTILER_KEY`           | —              | Required with `TILE_PROVIDER=maptiler`        |
 | `PORT`                   | `4000`         | HTTP port (REST, WebSockets and static files) |
 | `VITE_MAP_STYLE`         | server's proxy | Frontend build-time MapLibre style URL        |

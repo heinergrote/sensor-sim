@@ -11,7 +11,7 @@ store.
 ```
 packages/shared      – network contract: Zod request/response schemas + DTO types, SimData, StatusMessage, Profile
 packages/server      – Hono + ws: sim configs (Postgres/Drizzle), in-memory simulation engine, users, JWT auth,
-                       MapTiler proxy; serves the built frontend in prod
+                       tile proxy (OpenFreeMap/MapTiler); serves the built frontend in prod
 packages/frontend    – SolidJS 2.x management UI (MapLibre map, sim controls, login, user admin)
 ```
 
@@ -75,7 +75,7 @@ owner-scoped; a share link (`<id>!<nanoid>` token in `sim_configs.share_token`, 
 to expose a sim to someone else. Details: `packages/server/CLAUDE.md`.
 
 **The JWT travels three ways on the client:** `Authorization: Bearer` on REST (`src/api.ts`), the same header via
-MapLibre `transformRequest` (the MapTiler proxy is authenticated), and `?token=` on WebSockets. MapTiler keys never
+MapLibre `transformRequest` (the `/api/tiles` proxy is authenticated), and `?token=` on WebSockets. MapTiler keys never
 leave the server.
 
 **One database, two tables** (`users`, `sim_configs`), migration-managed via the separate `src/migrate.ts` entrypoint.
@@ -86,7 +86,7 @@ Components run once; reactivity is signals. Explicit route tree in `src/routes.t
 
 ## Env vars
 
-Server: `PORT` (4000), `NODE_ENV`, `MAPTILER_KEY`, `DATABASE_URL` (**required**), `JWT_SECRET` (**required**),
+Server: `PORT` (4000), `NODE_ENV`, `TILE_PROVIDER` (`openfreemap` | `maptiler`), `TILE_STYLE`, `MAPTILER_KEY` (maptiler only), `DATABASE_URL` (**required**), `JWT_SECRET` (**required**),
 `DEFAULT_ADMIN_USERNAME` (`admin`), `DEFAULT_ADMIN_PASSWORD` (no seeding without it).
 Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.production`).
 

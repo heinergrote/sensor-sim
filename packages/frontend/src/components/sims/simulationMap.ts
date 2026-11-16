@@ -12,7 +12,7 @@ setWorkerUrl(import.meta.env.DEV
   ))
   : (await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')).default);
 
-const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/maptiler/maps/streets-v2/style.json";
+const mapStyle = import.meta.env.VITE_MAP_STYLE || window.location.origin + "/api/tiles/style.json";
 
 /** The map and the selected sim's live position marker; spec editing lives in `editors/` (Solid components). */
 export type SimulationMap = {
@@ -46,8 +46,9 @@ export async function createSimulationMap(
     },
     transformRequest: jwtToken ?
       (url, _resourceType) => {
-        // add bearer token to requests (when using proxy)
-        if (url.includes(window.location.origin)) {
+        // add bearer token to requests going to our own server (the tile proxy), which in dev is
+        // :4000 while the page runs on :3000 - so compare against the style's origin, not the page's
+        if (url.startsWith(tileServerUrl + "/")) {
           return {url, headers: {'Authorization': 'Bearer ' + jwtToken}};
         }
         // keep other requests unmodified

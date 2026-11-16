@@ -1,7 +1,7 @@
 # packages/server
 
 `@sensor-sim/server`: one Hono app on `@hono/node-server` (`PORT`, default 4000). Owns sim configs + users (Postgres
-via Drizzle), the in-memory simulation engine, JWT auth, the MapTiler proxy, and serves the built frontend in prod.
+via Drizzle), the in-memory simulation engine, JWT auth, the tile proxy (`/api/tiles`), and serves the built frontend in prod.
 Throws at import without `DATABASE_URL` / `JWT_SECRET`. Endpoint tables and env reference: `README.md`.
 
 ## Commands (run here, or `pnpm --filter @sensor-sim/server <script>` from root)
@@ -34,7 +34,10 @@ simulation/              simulationEngine.ts (Map<id, runner>), simulationRunner
                          simulationDefinitions.ts (registry + polymorphic API), definitions/{fixed,path,orbit}.ts
 sims/                    sims.api.ts (/api/sims, read-only)
 users/                   users.api.ts (/api/users), user.repository.ts, users.mappings.ts
-login/ me/ maptiler/     login.api.ts, me.api.ts, maptiler.api.ts
+tiles/                   tileProxy.ts (createTileProxy(provider, mountPath); `style.json` → provider.stylePath),
+                         tiles.api.ts (`tileProviders` registry, TILE_PROVIDER/TILE_STYLE → tilesApp on /api/tiles).
+                         New provider = one registry entry; the client only ever sees /api/tiles
+login/ me/               login.api.ts, me.api.ts
 status/                  status.service.ts (getStatusStream, sendStatusMessage — one stream per user), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
@@ -123,7 +126,7 @@ Specs are `strictObject`s — stored JSON with extra/missing keys is treated as 
 
 ```
 login.api, shared.api        no JWT                                              → public (shared: share-token gated)
-maptiler, me, status         .use(jwtMiddleware)                                 → any logged-in user
+tiles, me, status            .use(jwtMiddleware)                                 → any logged-in user
 simconfigs.api               jwtMiddleware + loadOwnedSimConfig on '/:id/*'      → 400 bad id / 404 / 403 non-owner
 sims.api                     wsJwtMiddleware on '/:id/ws', jwtMiddleware,
                              withOwnSimMiddleware() on '/:id/*'                  → 404 / 403 non-owner (engine lookup)
