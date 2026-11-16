@@ -12,7 +12,8 @@ Needs a reachable Postgres. Create `.env` here:
 DATABASE_URL=postgres://user:password@localhost:5432/sensorsim
 JWT_SECRET=some-long-random-string
 DEFAULT_ADMIN_PASSWORD=choose-one
-MAPTILER_KEY=your-maptiler-key
+# TILE_PROVIDER=maptiler           # default: openfreemap (no key needed)
+# MAPTILER_KEY=your-maptiler-key
 ```
 
 ```bash
@@ -33,7 +34,9 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 | `JWT_SECRET`             | — (required) | HS256 secret for login tokens                   |
 | `DEFAULT_ADMIN_USERNAME` | `admin`      | Admin created by the migrate step               |
 | `DEFAULT_ADMIN_PASSWORD` | —            | Its password; without it nothing is seeded      |
-| `MAPTILER_KEY`           | —            | Required for `/api/maptiler` (500 without it)   |
+| `TILE_PROVIDER`          | `openfreemap`| `openfreemap` or `maptiler`; unknown → startup error |
+| `TILE_STYLE`             | per provider | Upstream style path behind `/api/tiles/style.json` |
+| `MAPTILER_KEY`           | —            | Required with `TILE_PROVIDER=maptiler` (500 without it) |
 | `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files |
 | `NODE_ENV`               | —            | Only logged; CORS is open for all origins       |
 
@@ -46,7 +49,8 @@ src/simconfigs/    /api/configs — persisted sim configs (api, repository, mapp
 src/simulation/    SimulationEngine (id → runner), SimulationRunner (100 ms tick), per-type definitions
 src/sims/          /api/sims (read-only)
 src/users/         /api/users — admin CRUD (api, repository, mappings)
-src/login/ me/ maptiler/ status/ shared/   remaining subapps
+src/tiles/        /api/tiles — tile proxy (createTileProxy) + provider registry
+src/login/ me/ status/ shared/   remaining subapps
 src/middleware/    jwtAuth, requireRole, withOwnSim, simShareMiddleware
 src/util/          eventStream, passwords, appSecret (`jwtSecret()`)
 ```
@@ -81,7 +85,7 @@ or as `?token=` on WebSocket routes. No refresh, no server sessions.
 | Scope              | Routes                                                                              |
 |--------------------|-------------------------------------------------------------------------------------|
 | public             | `POST /api/login`, `/api/shared/:token[/ws]`, static files                          |
-| any logged-in user | `/api/me`, `/api/status`, `/api/maptiler`, `GET/POST /api/configs`, `GET /api/sims` |
+| any logged-in user | `/api/me`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
 | owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)                  |
 | admin only         | `/api/users`                                                                        |
 
@@ -159,8 +163,13 @@ Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`). **Migration 
 ## Serving the frontend & map proxy
 
 Unmatched GETs fall back to `index.html` from `dist/public`, else `../../frontend/dist/client`; if neither exists
-the server runs API-only. `GET /api/maptiler/<path>` proxies `api.maptiler.com`, injects `MAPTILER_KEY`, drops
-client `key` params, and rewrites absolute MapTiler URLs in JSON to the proxy (honouring `x-forwarded-*`).
+the server runs API-only. `GET /api/tiles/<path>` (JWT-protected) proxies the
+provider chosen by `TILE_PROVIDER` — `openfreemap` (`tiles.openfreemap.org`, default, keyless) or `maptiler`
+(`api.maptiler.com`, injects `MAPTILER_KEY`, drops client/embedded `key` params). The provider is transparent to
+the client: `/api/tiles/style.json` maps to the provider's style (`styles/bright` / `maps/streets-v2/style.json`,
+override with `TILE_STYLE`), and absolute upstream URLs in JSON responses are rewritten to `/api/tiles/`
+(honouring `x-forwarded-*`), so sprites, glyphs and tiles also come through it. Switching provider only needs a
+server restart, no frontend rebuild.
 
 ## Deployment
 

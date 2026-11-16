@@ -31,10 +31,11 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 | Variable         | Default                                            | Purpose                 |
 |------------------|----------------------------------------------------|-------------------------|
-| `VITE_MAP_STYLE` | `<origin>/api/maptiler/maps/streets-v2/style.json` | URL of a MapLibre style |
+| `VITE_MAP_STYLE` | `<origin>/api/tiles/style.json` | URL of a MapLibre style |
 
 `.env.development` points at the dev server's proxy on `:4000`; `.env.production` is empty so production uses the
-same-origin proxy. The MapTiler key never reaches the browser.
+same-origin proxy. The tile provider (OpenFreeMap by default, or MapTiler) is chosen on the
+server via `TILE_PROVIDER`; API keys never reach the browser.
 
 ## Pages
 

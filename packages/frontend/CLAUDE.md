@@ -109,7 +109,9 @@ Importing its Zod schemas pulls `zod` into the bundle.
 
 ## Env vars
 
-`VITE_MAP_STYLE` — MapLibre style URL; falls back to `<origin>/api/maptiler/maps/streets-v2/style.json`.
+`VITE_MAP_STYLE` — MapLibre style URL; falls back to `<origin>/api/tiles/style.json` (the server picks the
+tile provider; the frontend doesn't know which). `transformRequest` adds the JWT to every request on the
+style URL's origin (in dev `:4000`, not the page's `:3000`).
 
 ## Versioned skills (in node_modules — read on demand)
 

@@ -248,7 +248,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
         <button class="btn btn-sm btn-primary" disabled={!(dirty() && isValidPath())} onClick={save}>
           <TbOutlineCloudUpload/> Save
         </button>
-        <button class={["btn", "btn-sm", "btn-square", "p-0", {"btn-primary": terraDrawModeId() === "select"}]}
+        <button class={["btn", "btn-sm", "btn-square", {"btn-primary": terraDrawModeId() === "select"}]}
                 onClick={() => handleMode("select")}>
           <TbOutlinePointer/>
         </button>
