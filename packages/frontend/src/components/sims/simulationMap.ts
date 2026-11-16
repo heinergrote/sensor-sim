@@ -46,8 +46,8 @@ export async function createSimulationMap(
     },
     transformRequest: jwtToken ?
       (url, _resourceType) => {
-        // add bearer token to requests to tileServerUrl
-        if (url.startsWith(tileServerUrl)) {
+        // add bearer token to requests (when using proxy)
+        if (url.includes(window.location.origin)) {
           return {url, headers: {'Authorization': 'Bearer ' + jwtToken}};
         }
         // keep other requests unmodified
