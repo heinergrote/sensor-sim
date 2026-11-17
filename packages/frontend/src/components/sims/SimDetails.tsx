@@ -36,17 +36,23 @@ export default function SimDetails(props: {
   onSettled(
     () => {
       let disposed = false
+      const token = jwtToken()
 
-      createSimulationMap(mapEl, jwtToken()).then(
-        simulationMap => {
-          // unmounted before the map finished loading: nobody will dispose it otherwise
-          if (disposed) return simulationMap.dispose()
-          setSimulationMap(simulationMap)
-          setMap(simulationMap.map)
-        })
+      // creating the MapLibre map (WebGL context, canvas, controls) takes >10ms synchronously: run it in the next
+      // frame, off the reactive path, so the page paints first and the settle pass stays cheap (HOT_SCOPE_TIME)
+      const frame = requestAnimationFrame(() =>
+        createSimulationMap(mapEl, token).then(
+          simulationMap => {
+            // unmounted before the map finished loading: nobody will dispose it otherwise
+            if (disposed) return simulationMap.dispose()
+            setSimulationMap(simulationMap)
+            setMap(simulationMap.map)
+          })
+      )
 
       return () => {
         disposed = true
+        cancelAnimationFrame(frame)
         // editors (SpecEditor in the SimCards) are disposed in the same pass, possibly after this cleanup;
         // removing the map only after that lets them detach from a live map (terraDraw.stop() needs its style)
         const current = simulationMap()
