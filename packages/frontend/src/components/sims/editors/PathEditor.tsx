@@ -50,8 +50,17 @@ const toDrawPrecision = (waypoints: readonly GeoPosition[]): GeoPosition[] =>
 export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   const api = useSimConfigsApi()
 
-  const [draft, setDraft] = createSignal<PathDraft>(() => toDraft(props.spec), {name: "pathEditor.draft"})
-  const dirty = createMemo(() => !sameDraft(draft(), toDraft(props.spec)), {name: "pathEditor.dirty"})
+  // plain copy of the saved spec. Copying tracks every waypoint tuple of the store (hundreds of sources), so the copy
+  // runs untracked and is keyed on coarse markers instead: the spec object (replaced by the optimistic update on
+  // save) and updatedAt (changes with every server write; refresh reconciles waypoints in place).
+  const saved = createMemo(() => {
+    const spec = props.spec
+    const _updatedAt = props.updatedAt // tracked only
+    return untrack(() => toDraft(spec))
+  }, {name: "pathEditor.saved", equals: sameDraft})
+
+  const [draft, setDraft] = createSignal<PathDraft>(() => saved(), {name: "pathEditor.draft"})
+  const dirty = createMemo(() => !sameDraft(draft(), saved()), {name: "pathEditor.dirty"})
   const isValidPath = createMemo(() => draft().waypoints.length >= 2, {name: "pathEditor.isValidPath"})
 
   const [terraDrawModeId, setTerraDrawModeId] = createSignal(() => "select", {name: "pathEditor.terraDrawModeId"})
@@ -242,7 +251,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
                }}/>
       </div>
       <div class="flex gap-2 justify-end">
-        <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(toDraft(props.spec))}>
+        <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
           <TbOutlineArrowBackUp/> Reset
         </button>
         <button class="btn btn-sm btn-primary" disabled={!(dirty() && isValidPath())} onClick={save}>
