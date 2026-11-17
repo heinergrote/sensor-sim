@@ -1,18 +1,20 @@
-import {formAction} from "@solidjs/router";
 import {useSimConfigsApi} from "../../service/configs.service";
 
 export default function SimForm() {
 
   const api = useSimConfigsApi()
 
-  const addSimConfigAction = formAction(async (form: FormData) => {
-      await api.add(form.get("label") as string)
-    },
-    "addSimConfigAction")
+  function handleSubmit(e: SubmitEvent & { currentTarget: HTMLFormElement }) {
+    e.preventDefault()
+    const form = e.currentTarget
+    const label = new FormData(form).get("label") as string
+    form.reset()
+    api.add(label)
+  }
 
   return (
     <>
-      <form action={addSimConfigAction} method="post">
+      <form onSubmit={handleSubmit}>
         <fieldset class="fieldset bg-base-300 rounded-box shadow-sm p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">

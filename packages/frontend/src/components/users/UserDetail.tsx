@@ -9,7 +9,15 @@ export function UserDetail(props: {
 
   const navigate = useNavigate()
 
-  deleteUser.onSettled(() => navigate(-1));
+  async function handleSave(e: SubmitEvent & { currentTarget: HTMLFormElement }) {
+    e.preventDefault()
+    await updateUser(props.user.id, new FormData(e.currentTarget))
+  }
+
+  async function handleDelete() {
+    await deleteUser(props.user.id)
+    navigate(-1)
+  }
 
   return (
     <>
@@ -21,15 +29,13 @@ export function UserDetail(props: {
         <button type="submit" form="userDetailForm" class="btn btn-primary">
           <TbOutlineDeviceFloppy size={24}/> Save
         </button>
-        <button type="submit" form="userDetailForm" formaction={deleteUser.with(Number(props.user.id))}
-                class="btn btn-error">
+        <button type="button" class="btn btn-error" onClick={handleDelete}>
           <TbOutlineTrash size={16}/> Delete
         </button>
 
       </div>
 
-      <form id="userDetailForm" action={updateUser.with(props.user.id)} method="post"
-            class={"flex flex-col gap-1"}>
+      <form id="userDetailForm" onSubmit={handleSave} class={"flex flex-col gap-1"}>
         <input class="input" type="text" name="username" value={props.user.username} placeholder="Username"/>
         <input class="input" type="password" name="password" placeholder="Password"/>
         <label class="label">

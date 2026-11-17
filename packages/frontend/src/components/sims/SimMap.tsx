@@ -1,8 +1,9 @@
-import {createEffect, createSignal, onSettled} from "solid-js";
+import {createEffect, createSignal, onSettled, Show} from "solid-js";
 import {jwtToken} from "../../auth";
 import {createSimulationMap, SimulationMap} from "./simulationMap";
 import {SimConfig} from "@sensor-sim/shared";
 import type {MapLibreMap} from "maplibre-gl";
+import {SimCard} from "./SimCard";
 
 /**
  * The map plus the selected sim's live position. Spec editing lives in the `SpecEditor` components (rendered in
@@ -54,5 +55,12 @@ export default function SimMap(props: {
     }
   )
 
-  return <div class="w-full h-full rounded-lg shadow-sm" ref={mapEl}/>;
+  return (
+    <div class="flex flex-col w-full h-full">
+      <Show when={props.simConfig}>
+        {(config) => <SimCard simConfig={config()}/>}
+      </Show>
+      <div class="w-full flex-1 rounded-lg shadow-sm" ref={mapEl}/>
+    </div>
+  );
 }

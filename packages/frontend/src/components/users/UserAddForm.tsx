@@ -5,17 +5,23 @@ import {TbOutlinePlus, TbOutlineRotateClockwise} from "solid-icons/tb";
 export function UserAddForm() {
 
   const [pending, setPending] = createSignal(false);
-  addUser.onSettled(() => setPending(false));
+
+  async function handleSubmit(e: SubmitEvent & { currentTarget: HTMLFormElement }) {
+    e.preventDefault()
+    const form = e.currentTarget
+    setPending(true)
+    try {
+      await addUser(new FormData(form))
+      form.reset()
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
     <div>
 
-      <form
-        action={addUser}
-        method="post"
-        class="flex gap-1"
-        onSubmit={() => setPending(true)}
-      >
+      <form class="flex gap-1" onSubmit={handleSubmit}>
         <input class="input w-40" type="text" name="username" placeholder="Username"/>
         <input class="input  w-40" type="password" name="password" placeholder="Password"/>
         <label class="label">

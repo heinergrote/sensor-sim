@@ -96,9 +96,14 @@ that, spread tuples (`[...pos]`) into `setLngLat` (readonly).
 
 ### Users
 
-`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` router `query()`s; `addUser`, `updateUser`,
-`deleteUser` router `formAction()`s bound via form `action=` (`UserDetail` deletes via the button's
-`formaction={deleteUser.with(id)}`). Components in `components/users/` are typed on `User`.
+`src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` router `query()`s; `addUser(form)`,
+`updateUser(id, form)`, `deleteUser(id)` plain async functions that `revalidate` both query keys themselves (the
+router doesn't revalidate after plain fetches). Forms call them from `onSubmit` (with `preventDefault`), Delete from
+`onClick`. Components in `components/users/` are typed on `User`.
+
+**No router `formAction`s.** Without server functions they only render `action="https://action/<name>"` and resolve it
+through a registry; a miss (e.g. a component-scoped action not registered yet) falls through to a native POST to that
+URL. Use plain submit handlers calling service functions / core `action`s.
 
 ### Server types
 

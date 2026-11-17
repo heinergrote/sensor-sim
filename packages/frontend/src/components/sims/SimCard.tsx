@@ -43,10 +43,6 @@ export function SimCard(props: { simConfig: SimConfig }) {
     }
   }
 
-  function handleSelect() {
-    navigate(selected() ? `/sims` : `/sims/${props.simConfig.id}`)
-  }
-
   function handleDelete(id: number | null) {
 
     if (id && confirmDeleteId() === id) {
@@ -76,12 +72,11 @@ export function SimCard(props: { simConfig: SimConfig }) {
                     <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
                     <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
                   </select>
+                  <div class={"flex-1"}/>
                   <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
                     <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
                     <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                   </button>
-                  <div class={"flex-1"}/>
-                  <button class="btn btn-sm btn-primary" onClick={handleSelect}>Select</button>
                 </div>
 
                 <Show when={selected()}>
