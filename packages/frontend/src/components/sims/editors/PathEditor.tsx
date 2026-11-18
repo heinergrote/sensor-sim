@@ -186,20 +186,6 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       }
       map.once('remove', onMapRemove)
 
-
-      const coords = untrack(() => props.spec.waypoints.map(([lng, lat]) => ({lng, lat})))
-      if (coords.length > 0) {
-        const bounds = new LngLatBounds(coords[0], coords[0]);
-        for (const coord of coords) {
-          bounds.extend(coord);
-        }
-        map.fitBounds(bounds, {
-          padding: 60,
-          maxZoom: 18
-        });
-      }
-
-
       return () => {
         drawn = []
         featureId = undefined
@@ -233,6 +219,25 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       }
     }
   )
+
+  // effect: new configId
+  createEffect(
+    () => props.configId,
+    (configId) => {
+      const coords = untrack(() => props.spec.waypoints.map(([lng, lat]) => ({lng, lat})))
+      if (coords.length > 0) {
+        const bounds = new LngLatBounds(coords[0], coords[0]);
+        for (const coord of coords) {
+          bounds.extend(coord);
+        }
+        props.map.fitBounds(bounds, {
+          padding: 60,
+          maxZoom: 18
+        });
+      }
+    }
+  )
+
 
   function handleMode(mode: string) {
     if (mode === terraDrawModeId()) {
