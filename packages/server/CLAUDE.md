@@ -119,7 +119,7 @@ getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is
 **New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its
 `Spec*` type in `types.ts` → state entry in `SimulationStateMap` → `definitions/<type>.ts` → register in
 `definitionRegistry`. Frontend: an editor in `components/sims/editors/` registered in `SpecEditor.tsx` (compile
-error until it is) + a read-only summary case in `SimCard.tsx`.
+error until it is) + an `<option>` in `SimCard.tsx`'s type select.
 Specs are `strictObject`s — stored JSON with extra/missing keys is treated as no spec.
 
 ## Auth — each subapp declares its own

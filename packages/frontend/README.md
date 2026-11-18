@@ -21,7 +21,7 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 ## Key dependencies
 
-- **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`/`formAction`)
+- **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`; no `formAction`s)
 - **MapLibre GL 6** — map rendering; **Terra Draw** (+ MapLibre adapter) — path drawing;
   `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
@@ -71,22 +71,22 @@ Both sockets reconnect with backoff (1 s up to 30 s) when the server closes them
 **Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card (the server fills
 in defaults near the previous location).
 
-**The map and spec editing.** The map (`components/sims/SimMap.tsx` + imperative `simulationMap.ts`) shows the
-selected sim (**Select** on a card toggles `/sims/:id`) with a red live-position marker. The selected card hosts that
-sim's **spec editor** (`components/sims/editors/`), which reaches the map through `MapContext` and owns its map
-objects:
+**The map and spec editing.** The left side lists all sims; clicking a row toggles `/sims/:id`. The right side
+(`components/sims/SimDetails.tsx` + imperative `simulationMap.ts`) shows the selected sim's card above the map with
+a red live-position marker. The card hosts the sim's **spec editor** (`components/sims/editors/`), which reaches the
+map through `MapContext` and owns its map objects:
 
 | Type  | On the map                                                       | On the card                     |
 |-------|------------------------------------------------------------------|---------------------------------|
-| fixed | blue marker = position                                           | position                        |
+| fixed | blue marker = position (saved on drag end)                       | position                        |
 | orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
 | path  | Terra Draw line — drag/edit vertices, or **New** (line/freehand) | length, point count, speed      |
 
-Edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset** discards them. Only the
-selected card expands (editor, dates, share link, delete with confirm); other cards show just the header (label,
-type, Play/Stop, Select).
+Orbit and path edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset**/**Undo**
+discards them. Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
 
-**Users — plain REST** via `src/service/users.service.ts` router queries/actions, driven by form submissions.
+**Users — plain REST** via `src/service/users.service.ts`: router `query`s for reads, plain async mutations
+(called from submit/click handlers) that revalidate the queries.
 
 ## Authentication
 
@@ -97,7 +97,7 @@ sent as a bearer header by `ky` and by MapLibre's `transformRequest` (the tile p
 
 ## Sharing a simulation
 
-**Share** on a sim card calls `POST /api/configs/:id/share` and shows the share URL (`<server>/s/<token>`) with a copy button; Unshare
+**Share** on a sim card calls `POST /api/configs/:id/share` and shows the token as a link to the share URL (`<server>/s/<token>`) plus a copy button for the full URL; Unshare
 revokes it. The token unlocks the server's public `/s/:token[/ws]` (alias `/api/shared/…`) endpoints for devices without an
 account.
 

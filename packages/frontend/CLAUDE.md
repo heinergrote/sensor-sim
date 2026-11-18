@@ -16,8 +16,8 @@ pnpm lint                      # oxlint src
 
 ## Architecture
 
-- `src/App.tsx` / `src/Document.tsx` — app shell (`Router`, `Nav`, `Loading`; the `Errored` boundary is currently
-  commented out) and HTML document. No `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`)
+- `src/App.tsx` / `src/Document.tsx` — app shell and HTML document. The **only `Loading` boundary** wraps the whole
+  shell (`Nav` + `main`) in `App.tsx`; pages and `Nav` don't add their own. The `Errored` boundary is commented out. No `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`)
   generates entries.
 - `src/routes.ts` — the explicit route tree (`defineRoutes`): `/`, `/sims/:id?`, `/users`, `/users/:id`, `*404`.
   Every page is a `lazy(() => import(...))` chunk under `src/pages/`.
@@ -54,27 +54,29 @@ pnpm lint                      # oxlint src
 
 - `pages/sims/Sims.tsx` — selection lives in the URL. The selected config is derived from `api.configs` (no separate
   fetch); if the id isn't in the list, an effect redirects to `/sims` (`replace`). Renders
-  `components/sims/SimList.tsx` (`SimForm` + one `SimCard` per config + `SimMap`).
-- `SimList` provides **`MapContext`** (`editors/mapContext.ts`, an accessor of the loaded `MapLibreMap | undefined`);
-  `SimMap` sets it via `onMap`.
-- `SimMap.tsx` — the map only. Its effect tracks just `simConfig?.id` → `simulationMap.attachSim(id)`, so spec edits
-  never resubscribe the live socket. Cleanup defers `dispose()` (`map.remove()`) to a microtask: leaving the page
-  disposes editors in the same pass, and they must detach from a live map. A map that loads after unmount is disposed.
+  `components/sims/SimList.tsx`: `SimForm` + a DaisyUI `list` of rows (id button, label, type; clicking toggles
+  `/sims` ↔ `/sims/:id`) beside `SimDetails`.
+- `SimDetails.tsx` — the selected sim's `SimCard` above the map. Provides **`MapContext`** (`editors/mapContext.ts`,
+  an accessor of the loaded `MapLibreMap | undefined`). Creates the map in `onSettled` inside a
+  `requestAnimationFrame` (MapLibre setup is >10 ms sync → `HOT_SCOPE_TIME`). Its effect tracks just `simConfig?.id`
+  → `simulationMap.attachSim(id)`, so spec edits never resubscribe the live socket. Cleanup defers `dispose()`
+  (`map.remove()`) to a microtask: editors are disposed in the same pass and must detach from a live map. A map that
+  loads after unmount is disposed.
 - `simulationMap.ts` — imperative MapLibre wrapper outside Solid: map setup and the red current-position marker
   (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
   while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
   prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (read once at creation).
-- `SimCard.tsx` — header: label, type `<select>` (None/Fixed/Path/Orbit → `updateType`), Play/Stop, Select. Only the
-  **selected** card expands: `<SpecEditor config/>`, created/updated dates, Share/Unshare + copy link, Delete with an
-  inline "Really?" confirm. Unselected cards show no spec. The select keeps a **draft signal**
-  (`createSignal(() => prop)`) so the binding doesn't write the old value back mid-request; reset on rejection.
-  **Select** toggles `/sims` ↔ `/sims/:id` (highlight via `useMatch`). Card labels (`sim-55`) are not ids.
+- `SimCard.tsx` — only rendered for the selected sim. Two DaisyUI cards in a `flex-wrap gap-2` row: left (`grow`) =
+  id/label, type `<select>` (→ `updateType`), Share/Unshare + copy (full URL) + token link (`target=_blank`), Delete
+  with inline "Really?" confirm; right (`grow-999 basis-0`, only with a spec) = Play/Stop + `<SpecEditor config/>`.
+  Either fills the row when alone on its line. The select keeps a **draft signal** (`createSignal(() => prop)`) so
+  the binding doesn't write the old value back mid-request; reset on rejection. Labels (`sim-55`) are not ids.
 
 ### Spec editors (`components/sims/editors/`)
 
 One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
 — a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
-editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, map}` and owns:
+editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, updatedAt, map}` and owns:
 
 - **its map objects**, added in `createEffect(() => props.map, map => {…; return cleanup})` and removed on cleanup
   (unmount = deselect, type change, other sim selected);
@@ -83,13 +85,17 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
   (unsaved edits are then dropped). Map events write the draft; a second effect moves the map objects to it;
 - **its UI**: draft values, Reset/Save (enabled while dirty). Save → `api.update(id, {spec: {...props.spec,
   ...draft()}})`. Nothing saves on drag.
+- **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along
+  (e.g. `save(position)`) instead of reading it back in the same handler.
 
 Types: `FixedEditor` (the exception: **no draft/UI**, blue marker saves `position` on `dragend` and follows
 `props.spec`); `OrbitEditor` (blue center moves the whole orbit, green start sets
 `radius`/`startAngle` via `@sensor-sim/shared/geoUtils`; `speed` slider is part of the draft); `PathEditor`
 (plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`, no UI control: modes `select` (default; drag line/vertices,
 midpoints, delete vertices), `linestring`, `freehand-linestring` via the card's two **New** buttons; a `finish` event
-sets `waypoints`; the drawn line starts selected; redraws only if the draft differs from what's drawn; coordinates
+sets `waypoints`; the drawn line starts selected; the draft follows a `saved` memo that copies the spec
+**untracked**, keyed on the spec object + `updatedAt` (tracking every waypoint tuple made hundreds of sources), and
+**Undo** resets to it; redraws only if the draft differs from what's drawn; coordinates
 rounded to 9 significant digits for terra draw; shows length via `pathLength`; Save needs ≥ 2 waypoints; `speed` in
 the draft). Its cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` — after `map.remove()` the
 adapter's `clear()` crashes on the missing sources. Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields

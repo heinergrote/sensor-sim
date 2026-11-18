@@ -7,8 +7,8 @@ import {MapLibreMap} from "maplibre-gl";
 import {jwtToken} from "../../auth";
 
 /**
- * The map plus the selected sim's live position. Spec editing lives in the `SpecEditor` components (rendered in
- * the selected `SimCard`), which reach the map through `MapContext` — set here via `onMap`.
+ * The selected sim's `SimCard` above the map with its live position. Spec editing lives in the `SpecEditor`
+ * components (rendered in that `SimCard`), which reach the map through the `MapContext` provided here.
  */
 export default function SimDetails(props: {
   simConfig: SimConfig | undefined
