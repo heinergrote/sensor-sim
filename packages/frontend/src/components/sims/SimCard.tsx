@@ -4,15 +4,12 @@ import {
   TbFillPlayerStop,
   TbFillTrash,
   TbOutlineClipboard,
-  TbOutlineClockPlus,
-  TbOutlineClockUp,
   TbOutlineShare,
   TbOutlineShareOff,
   TbOutlineX
 } from "solid-icons/tb";
-import {useMatch, useNavigate} from "@solidjs/router";
+import {useNavigate} from "@solidjs/router";
 import {SimConfig, SpecType} from "@sensor-sim/shared";
-import {paths} from "../../router";
 import {useSimConfigsApi} from "../../service/configs.service";
 import {serverUrl} from "../../api";
 import {SpecEditor} from "./editors/SpecEditor";
@@ -20,7 +17,6 @@ import {SpecEditor} from "./editors/SpecEditor";
 export function SimCard(props: { simConfig: SimConfig }) {
 
   const navigate = useNavigate()
-  const selected = useMatch(() => paths.sims(props.simConfig.id));
 
   const [confirmDeleteId, setConfirmDeleteId] = createSignal<number | null>(null)
 
@@ -56,39 +52,25 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
 
   return (
-    <Show fallback={<div>Connecting...</div>} when={props.simConfig}>
+    <Show fallback={<div>Loading...</div>} when={props.simConfig}>
       {(config) =>
-        <div class={["card w-full shadow-sm mb-2", selected() ? "bg-base-300" : "bg-base-200"]}>
+        <div class={"card w-full shadow-sm mb-2 bg-base-300"}>
           <div class="card-body p-4">
 
-            <div class="flex items-center gap-2">
-              <span>{config().label}</span>
-              <select class="select select-sm w-fit" onChange={handleTypeChange}>
-                <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
-                <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
-                <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
-                <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
-              </select>
-              <div class={"flex-1"}/>
-              <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
-                <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
-                <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
-              </button>
-            </div>
+            <div class="flex flex-wrap w-full gap-2">
 
-            <Show when={selected()}>
-              <div class="flex-1 flex flex-col gap-1">
-                <div class={"divider my-0"}/>
-                <Show when={config().spec}>
-
-                  <SpecEditor config={config()}/>
-
-                  <div class={"divider my-0"}/>
-                </Show>
-                <div class={"flex gap-1 items-center"}>
-                  <TbOutlineClockPlus/> {new Date(config().createdAt).toLocaleString()}
-                  <TbOutlineClockUp/> {new Date(config().updatedAt).toLocaleString()}
+              <div class={"flex flex-col gap-2"}>
+                <div class="flex items-center gap-2">
+                  <span class={"text-2xl font-thin text-nowrap"}>{config().id} | {config().label}</span>
+                  <select class="select select-sm w-fit" onChange={handleTypeChange}>
+                    <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
+                    <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
+                    <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
+                    <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
+                  </select>
                 </div>
+
+
                 <div class="flex gap-1 items-center">
                   <button class="btn btn-sm"
                           onClick={() => api.share(config().id, config().shareToken.length === 0)}>
@@ -96,17 +78,17 @@ export function SimCard(props: { simConfig: SimConfig }) {
                     <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
                   </button>
                   <Show when={config().shareToken}>
-                    <div class="truncate flex-1" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
                     <button class="btn btn-sm" onClick={() => {
-                      // copy to clipboard
-                      navigator.clipboard.writeText(serverUrl + "/s/" + config().shareToken);
+                      navigator.clipboard.writeText(serverUrl + "/s/" + config().shareToken); // copy to clipboard
                     }}>
                       <TbOutlineClipboard/>
                     </button>
+                    <div class="truncate" id="shareUrl">{serverUrl + "/s/" + config().shareToken}</div>
                   </Show>
                 </div>
+
                 <Show when={confirmDeleteId() === config().id}>
-                  <div class="flex justify-center gap-1">
+                  <div class="flex gap-1">
                     <button class="btn btn-sm btn-error" onClick={() => handleDelete(config().id)}>
                       <TbFillTrash/> Really?
                     </button>
@@ -116,14 +98,25 @@ export function SimCard(props: { simConfig: SimConfig }) {
                   </div>
                 </Show>
                 <Show when={confirmDeleteId() !== config().id}>
-                  <div class="flex justify-end">
-                    <button class="btn btn-sm" onClick={() => handleDelete(config().id)}><TbFillTrash/></button>
+                  <div class="flex">
+                    <button class="btn btn-sm" onClick={() => handleDelete(config().id)}><TbFillTrash/> Delete</button>
                   </div>
                 </Show>
 
               </div>
-            </Show>
 
+              <Show when={config().spec}>
+                <div class={"divider divider-horizontal m-1"}></div>
+                <div class="flex-1 flex flex-col gap-1">
+                  <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
+                    <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
+                    <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
+                  </button>
+                  <SpecEditor config={config()}/>
+                </div>
+              </Show>
+
+            </div>
 
           </div>
         </div>

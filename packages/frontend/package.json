@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@solidjs/diagnostics": "^2.0.0",
-    "@solidjs/start-devtools": "^1.0.0-next.9",
+    "@solidjs/start-devtools": "^1.0.0",
     "@solidjs/testing-library": "^1.0.0-rc.2",
     "@solidjs/vite-plugin": "^3.0.0",
     "@testing-library/jest-dom": "^7.0.1",

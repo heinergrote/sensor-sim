@@ -252,7 +252,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       </div>
       <div class="flex gap-2 justify-end">
         <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
-          <TbOutlineArrowBackUp/> Reset
+          <TbOutlineArrowBackUp/> Undo
         </button>
         <button class="btn btn-sm btn-primary" disabled={!(dirty() && isValidPath())} onClick={save}>
           <TbOutlineCloudUpload/> Save

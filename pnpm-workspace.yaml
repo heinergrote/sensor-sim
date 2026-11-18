@@ -47,6 +47,7 @@ minimumReleaseAgeExclude:
   - '@solidjs/compiler-win32-x64-msvc@2.0.0'
   - '@solidjs/compiler@2.0.0'
   - '@solidjs/meta@2.0.0'
+  - '@solidjs/start-devtools@1.0.0'
 permissions:
   '@solidjs/diagnostics':
     skills: true

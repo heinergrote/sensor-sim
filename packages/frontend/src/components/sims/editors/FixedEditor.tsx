@@ -64,16 +64,20 @@ export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
   }
 
   return (
-    <div class="flex flex-wrap gap-2 items-center">
-      <TbOutlineWorldLatitude/>{draft()[1].toFixed(5)},
-      <TbOutlineWorldLongitude/>{draft()[0].toFixed(5)}
-      <div class="flex-1"/>
-      <button class="btn btn-sm" disabled={!dirty()} onClick={() => setDraft(copy(props.spec.position))}>
-        <TbOutlineArrowBackUp/> Reset
-      </button>
-      <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={save}>
-        <TbOutlineCloudUpload/> Save
-      </button>
+    <div class="flex flex-col gap-1">
+      <div class="flex gap-2 items-center">
+        <TbOutlineWorldLongitude/>{draft()[1].toFixed(5)},
+        <TbOutlineWorldLatitude/>{draft()[0].toFixed(5)}
+      </div>
+
+      <div class="flex gap-2 justify-end">
+        <button class="btn btn-sm" disabled={!dirty()} onClick={() => setDraft(copy(props.spec.position))}>
+          <TbOutlineArrowBackUp/> Reset
+        </button>
+        <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={save}>
+          <TbOutlineCloudUpload/> Save
+        </button>
+      </div>
     </div>
   )
 }

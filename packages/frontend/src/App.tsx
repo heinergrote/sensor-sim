@@ -9,17 +9,17 @@ export default function App() {
     <Router>
       {(props) => (
         <>
-          <div class="flex flex-col h-screen">
-            <Nav/>
-            <main class="flex-1 min-h-0 p-2">
-              <Loading>
+          <Loading fallback={<div class="text-center text-2xl opacity-50 font-thin mt-4">Loading... </div>}>
+            <div class="flex flex-col h-screen">
+              <Nav/>
+              <main class="flex-1 min-h-0 p-2">
                 {/*<Errored fallback={error => (<p>{String(error())}</p>)}>*/}
                 {/*  {props.children}*/}
                 {/*</Errored>*/}
                 {props.children}
-              </Loading>
-            </main>
-          </div>
+              </main>
+            </div>
+          </Loading>
         </>
       )}
     </Router>

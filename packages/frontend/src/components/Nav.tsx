@@ -2,7 +2,7 @@ import {TbOutlineHome, TbOutlineLogout, TbOutlineMapPinCog, TbOutlineUser, TbOut
 import {useMatch, useNavigate} from "@solidjs/router";
 import {paths} from "../router";
 import {useAuth} from "../auth";
-import {Loading, Show} from "solid-js";
+import {Show} from "solid-js";
 import RevisionStatus from "./RevisionStatus";
 
 export default function Nav() {
@@ -16,39 +16,37 @@ export default function Nav() {
   const navigate = useNavigate()
 
   return (
-    <Loading>
-      <nav class="bg-base-300">
-        <ul class="flex items-center p-2 gap-2">
-          <a class={["btn", {"btn-primary": Boolean(isHome())}]} href={paths()}>
-            <TbOutlineHome size={24}/>
+    <nav class="bg-base-300">
+      <ul class="flex items-center p-2 gap-2">
+        <a class={["btn", {"btn-primary": Boolean(isHome())}]} href={paths()}>
+          <TbOutlineHome size={24}/>
+        </a>
+        <Show when={user()}>
+          <a class={["btn", {"btn-primary": Boolean(isSims())}]} href={paths.sims}>
+            <TbOutlineMapPinCog size={24}/> Simulations
           </a>
-          <Show when={user()}>
-            <a class={["btn", {"btn-primary": Boolean(isSims())}]} href={paths.sims}>
-              <TbOutlineMapPinCog size={24}/> Simulations
-            </a>
-          </Show>
-          <Show when={user()?.admin}>
-            <a class={["btn", {"btn-primary": Boolean(isUsers())}]} href={paths.users}>
-              <TbOutlineUsers size={24}/> Users</a>
-          </Show>
-          <div class={`mx-1 flex-1`}/>
+        </Show>
+        <Show when={user()?.admin}>
+          <a class={["btn", {"btn-primary": Boolean(isUsers())}]} href={paths.users}>
+            <TbOutlineUsers size={24}/> Users</a>
+        </Show>
+        <div class={`mx-1 flex-1`}/>
 
-          <Show when={user()}>
-            {user =>
-              <>
-                <RevisionStatus/>
-                <div class={"flex items-center gap-2"}><TbOutlineUser/> {user()?.username}</div>
-                <button class={"btn btn-square btn-sm"} onClick={() => {
-                  logout();
-                  navigate(paths());
-                }}><TbOutlineLogout/></button>
-              </>
-            }
-          </Show>
-        </ul>
+        <Show when={user()}>
+          {user =>
+            <>
+              <RevisionStatus/>
+              <div class={"flex items-center gap-2"}><TbOutlineUser/> {user()?.username}</div>
+              <button class={"btn btn-square btn-sm"} onClick={() => {
+                logout();
+                navigate(paths());
+              }}><TbOutlineLogout/></button>
+            </>
+          }
+        </Show>
+      </ul>
 
-      </nav>
+    </nav>
 
-    </Loading>
   );
 }

@@ -1,5 +1,5 @@
 import {Title} from "@solidjs/meta";
-import {createEffect, createMemo, Loading} from "solid-js";
+import {createEffect, createMemo} from "solid-js";
 import SimList from "../../components/sims/SimList";
 import {RouteProps, useNavigate} from "@solidjs/router";
 import {Router} from "../../router";
@@ -28,9 +28,7 @@ export default function Sims(props: RouteProps<typeof simsRoute.path>) {
   return (
     <>
       <Title>Sensor Sim - Sims</Title>
-      <Loading fallback={<>Loading…</>}>
-        <SimList simConfigs={api.configs} simConfig={simConfig()}/>
-      </Loading>
+      <SimList simConfigs={api.configs} simConfig={simConfig()}/>
     </>
   );
 }
