@@ -84,7 +84,8 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
 - **its UI**: draft values, Reset/Save (enabled while dirty). Save → `api.update(id, {spec: {...props.spec,
   ...draft()}})`. Nothing saves on drag.
 
-Types: `FixedEditor` (blue marker → `position`); `OrbitEditor` (blue center moves the whole orbit, green start sets
+Types: `FixedEditor` (the exception: **no draft/UI**, blue marker saves `position` on `dragend` and follows
+`props.spec`); `OrbitEditor` (blue center moves the whole orbit, green start sets
 `radius`/`startAngle` via `@sensor-sim/shared/geoUtils`; `speed` slider is part of the draft); `PathEditor`
 (plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`, no UI control: modes `select` (default; drag line/vertices,
 midpoints, delete vertices), `linestring`, `freehand-linestring` via the card's two **New** buttons; a `finish` event
