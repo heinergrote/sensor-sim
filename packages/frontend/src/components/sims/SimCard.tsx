@@ -62,9 +62,9 @@ export function SimCard(props: { simConfig: SimConfig }) {
         <div class="flex flex-wrap w-full gap-2 mb-2">
 
           <div class="card grow shadow-sm bg-base-300">
-            <div class="card-body p-4 gap-2">
+            <div class="card-body p-4 gap-2 min-w-60">
               <div class="flex items-center gap-2">
-                <span class={"text-2xl font-thin text-nowrap"}>{config().id} | {config().label}</span>
+                <span class={"text-2xl font-thin text-nowrap"}>{config().label}</span>
                 <Show when={config().spec}>
                   <select class="select select-sm w-fit min-w-24" onChange={handleTypeChange}>
                     <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>

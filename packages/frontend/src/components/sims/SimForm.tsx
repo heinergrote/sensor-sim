@@ -27,7 +27,7 @@ export default function SimForm() {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <fieldset class="fieldset bg-base-300 rounded-box shadow-sm p-2 mb-2 w-full">
+        <fieldset class="fieldset bg-base-200 rounded-box shadow-sm p-2 mb-2 w-full">
           <div class="flex gap-1">
             <div class="flex-1">
               <input name="label" type="text" class="input w-full" placeholder="Label"/>

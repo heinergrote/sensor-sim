@@ -1,9 +1,10 @@
 import SimDetails from "./SimDetails";
 import {useAuth} from "../../auth";
-import {For, Show} from "solid-js";
+import {For, Match, Show, Switch} from "solid-js";
 import SimForm from "./SimForm";
 import {SimConfig} from "@sensor-sim/shared";
 import {useNavigate} from "@solidjs/router";
+import {TbOutlineCircle, TbOutlineMapPin, TbOutlinePolygon, TbOutlineQuestionMark} from "solid-icons/tb";
 
 export default function SimList(props: { simConfigs: SimConfig[], simConfig: SimConfig | undefined }) {
 
@@ -27,21 +28,21 @@ export default function SimList(props: { simConfigs: SimConfig[], simConfig: Sim
               <For each={props.simConfigs} keyed={(config) => config.id}>
                 {(config) => (
                   <li
-                    class={["cursor-pointer list-row hover:bg-base-300", props.simConfig?.id === config().id ? "bg-base-300" : "bg-base-200"]}
+                    class={["cursor-pointer list-row items-center hover:bg-base-300", props.simConfig?.id === config().id ? "bg-base-300" : "bg-base-200"]}
                     onClick={() => handleSelect(config().id)}
                   >
-                    <div class="text-2xl font-thin tabular-nums">
-                      <button
-                        class={["btn text-2xl font-thin tabular-nums", props.simConfig?.id === config().id ? "btn-primary" : "btn-outline"]}
-                        onClick={() => handleSelect(config().id)}
-                      >
-                        {config().id}
-                      </button>
-                    </div>
+                    <button
+                      class={["btn btn-square text-2xl", props.simConfig?.id === config().id ? "btn-primary" : "btn-outline"]}
+                    >
+                      <Switch fallback={<TbOutlineQuestionMark/>}>
+                        <Match when={config()?.spec?.type === 'path'}><TbOutlinePolygon/></Match>
+                        <Match when={config()?.spec?.type === 'fixed'}><TbOutlineMapPin/></Match>
+                        <Match when={config()?.spec?.type === 'orbit'}><TbOutlineCircle/></Match>
+                      </Switch>
+                    </button>
 
                     <div class="list-col-grow">
-                      <div>{config().label}</div>
-                      <div class="text-xs opacity-60">Type: {config().spec?.type ?? 'none'}</div>
+                      <div class="text-xl font-thin tabular-nums">{config().label}</div>
                     </div>
                   </li>
                 )}
