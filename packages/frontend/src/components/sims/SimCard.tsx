@@ -3,7 +3,10 @@ import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
   TbFillTrash,
+  TbOutlineCircle,
   TbOutlineClipboard,
+  TbOutlineMapPin,
+  TbOutlinePolygon,
   TbOutlineShare,
   TbOutlineShareOff,
   TbOutlineX
@@ -30,11 +33,15 @@ export function SimCard(props: { simConfig: SimConfig }) {
     const type = event.currentTarget.value as SpecType | "_none"
     setSelectedType(type)
     try {
-      await api.updateType(props.simConfig.id, type === "_none" ? null : type)
+      await updateType(type === "_none" ? null : type)
     } catch (error) {
       setSelectedType(committedType()) // rejected: show the committed type again
       throw error
     }
+  }
+
+  async function updateType(type: SpecType | null) {
+    await api.updateType(props.simConfig.id, type)
   }
 
   function handleDelete(id: number | null) {
@@ -58,12 +65,15 @@ export function SimCard(props: { simConfig: SimConfig }) {
             <div class="card-body p-4 gap-2">
               <div class="flex items-center gap-2">
                 <span class={"text-2xl font-thin text-nowrap"}>{config().id} | {config().label}</span>
-                <select class="select select-sm w-fit min-w-24" onChange={handleTypeChange}>
-                  <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
-                  <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
-                  <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
-                  <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
-                </select>
+                <Show when={config().spec}>
+                  <select class="select select-sm w-fit min-w-24" onChange={handleTypeChange}>
+                    <option value={"_none"} defaultSelected={selectedType() === "_none"}>None</option>
+                    <option value={"fixed"} defaultSelected={selectedType() === "fixed"}>Fixed</option>
+                    <option value={"path"} defaultSelected={selectedType() === "path"}>Path</option>
+                    <option value={"orbit"} defaultSelected={selectedType() === "orbit"}>Orbit</option>
+                  </select>
+                </Show>
+
               </div>
 
 
@@ -103,17 +113,34 @@ export function SimCard(props: { simConfig: SimConfig }) {
             </div>
           </div>
 
-          <Show when={config().spec}>
-            <div class="card grow-999 basis-0 shadow-sm bg-base-300">
-              <div class="card-body p-4 gap-1">
+          <div class="card grow-999 basis-0 shadow-sm bg-base-300">
+            <div class="card-body p-4 gap-1">
+              <Show when={config().spec}
+                    fallback={
+                      <>
+                        <div>Select a Type</div>
+                        <div class="flex">
+                          <button class="btn" onClick={() => updateType("fixed")}>
+                            <TbOutlineMapPin/> Fixed
+                          </button>
+                          <button class="btn" onClick={() => updateType("path")}>
+                            <TbOutlinePolygon/> Path
+                          </button>
+                          <button class="btn" onClick={() => updateType("orbit")}>
+                            <TbOutlineCircle/> Orbit
+                          </button>
+                        </div>
+                      </>
+                    }
+              >
                 <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
                   <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
                   <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                 </button>
                 <SpecEditor config={config()}/>
-              </div>
+              </Show>
             </div>
-          </Show>
+          </div>
 
         </div>
 

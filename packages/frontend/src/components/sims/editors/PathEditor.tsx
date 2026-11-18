@@ -2,6 +2,9 @@ import {createEffect, createMemo, createSignal, untrack} from "solid-js";
 import {GeoPosition, SpecPath} from "@sensor-sim/shared";
 import {
   TbOutlineArrowBackUp,
+  TbOutlineArrowCapsule,
+  TbOutlineArrowRight,
+  TbOutlineArrowsRightLeft,
   TbOutlineCloudUpload,
   TbOutlinePointer,
   TbOutlinePolygon,
@@ -22,12 +25,18 @@ import {TerraDrawMapLibreGLAdapter} from "terra-draw-maplibre-gl-adapter";
 import {pathLength} from "@sensor-sim/shared/geoUtils";
 import {LngLatBounds} from "maplibre-gl";
 
-type PathDraft = { waypoints: GeoPosition[], speed: number, mode: string }
+type PathDraft = {
+  waypoints: GeoPosition[],
+  speed: number,
+  editMode: string,
+  playMode: "single" | "loop" | "reversing"
+}
 
 const toDraft = (spec: SpecPath): PathDraft => ({
   waypoints: spec.waypoints.map(([lng, lat]) => [lng, lat] as const),
   speed: spec.speed,
-  mode: spec.mode
+  editMode: spec.editMode,
+  playMode: spec.playMode,
 })
 
 const sameWaypoints = (a: readonly GeoPosition[], b: readonly GeoPosition[]) =>
@@ -37,7 +46,8 @@ const sameWaypoints = (a: readonly GeoPosition[], b: readonly GeoPosition[]) =>
 const sameDraft = (a: PathDraft, b: PathDraft) =>
   sameWaypoints(a.waypoints, b.waypoints) &&
   a.speed === b.speed &&
-  a.mode === b.mode
+  a.editMode === b.editMode &&
+  a.playMode === b.playMode
 
 // terra draw rejects coordinates with more than 9 significant digits
 const toDrawPrecision = (waypoints: readonly GeoPosition[]): GeoPosition[] =>
@@ -102,8 +112,8 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
     const feature = terraDraw.getSnapshotFeature(id)
     if (feature?.geometry.type !== 'LineString' || feature.geometry.coordinates.length < 2) return
     drawn = feature.geometry.coordinates.map(([lng, lat]) => [lng, lat] as const)
-    const drawMode = feature?.properties?.mode?.toString()
-    setDraft(d => ({...d, waypoints: drawn, mode: drawMode || d.mode}))
+    const editMode = feature?.properties?.mode?.toString()
+    setDraft(d => ({...d, waypoints: drawn, editMode: editMode || d.editMode}))
 
     setTerraDrawModeId("select")
 
@@ -184,7 +194,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
           bounds.extend(coord);
         }
         map.fitBounds(bounds, {
-          padding: 200,
+          padding: 60,
           maxZoom: 18
         });
       }
@@ -204,11 +214,11 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   createEffect(
     () => ({
       waypoints: draft().waypoints.map(([lng, lat]) => [lng, lat] as const),
-      mode: draft().mode
+      editMode: draft().editMode,
     }),
-    ({waypoints, mode}) => {
+    ({waypoints, editMode}) => {
       if (!sameWaypoints(toDrawPrecision(waypoints), drawn))
-        render(waypoints, mode)
+        render(waypoints, editMode)
     },
     {name: "pathEditor.line"})
 
@@ -240,7 +250,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   return (
     <div class="flex flex-col gap-1">
       <div class="flex gap-2 items-center">
-        <TbOutlineRulerMeasure/> {length().toFixed(2)} m ({draft().mode}, {draft().waypoints.length} points)
+        <TbOutlineRulerMeasure/> {length().toFixed(2)} m ({draft().editMode}, {draft().waypoints.length} points)
       </div>
       <div class="flex gap-2 items-center">
         <BsSpeedometer/><span>{draft().speed}m/s</span>
@@ -250,6 +260,26 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
                  setDraft(d => ({...d, speed}))
                }}/>
       </div>
+
+      <div class="join">
+        <button class={["btn", "btn-sm", "join-item", draft().playMode === "single" ? "btn-primary" : ""]}
+                onClick={() => setDraft(d => ({...d, playMode: "single"}))}
+        >
+          <TbOutlineArrowRight/> Single
+        </button>
+        <button class={["btn", "btn-sm", "join-item", draft().playMode === "loop" ? "btn-primary" : ""]}
+                onClick={() => setDraft(d => ({...d, playMode: "loop"}))}
+        >
+          <TbOutlineArrowCapsule/> Loop
+        </button>
+        <button
+          class={["btn", "btn-sm", "join-item", draft().playMode === "reversing" ? "btn-primary" : ""]}
+          onClick={() => setDraft(d => ({...d, playMode: "reversing"}))}
+        >
+          <TbOutlineArrowsRightLeft/> Reversing
+        </button>
+      </div>
+
       <div class="flex gap-2 justify-end">
         <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
           <TbOutlineArrowBackUp/> Undo
