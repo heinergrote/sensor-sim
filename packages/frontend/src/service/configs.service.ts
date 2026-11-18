@@ -32,11 +32,12 @@ export function createSimConfigsApi() {
       })
     })
 
-    yield api.post<SimConfig>(`/configs`, {
+    const created: SimConfig = yield api.post(`/configs`, {
       json: {label},
-    })
+    }).json<SimConfig>()
 
     refresh(configs)
+    return created
   })
 
   const remove = action(function* (id: number) {
