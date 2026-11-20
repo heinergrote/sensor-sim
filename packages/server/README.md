@@ -132,7 +132,7 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 | Path                    | Payload         | Auth                           | Emitted                                           |
 |-------------------------|-----------------|--------------------------------|---------------------------------------------------|
 | `/api/sims/:id/ws`      | `SimData`       | bearer / `?token=`, owner only | on connect, then every tick while playing         |
-| `/api/shared/:token/ws` | `SimData`       | valid share token in the path  | same                                              |
+| `/api/shared/:token`    | `SimData`       | valid share token in the path  | same (WS upgrade; plain GET returns JSON once)    |
 | `/api/status/ws`        | `StatusMessage` | bearer / `?token=`             | on connect (if any), then ≤ every 100 ms on own config changes |
 
 All sockets are push-only. The status socket is a "your config list is stale" signal, not data. Deleting a config closes
@@ -141,7 +141,7 @@ every open socket for that simulation from the server side.
 ## Sharing
 
 The share token is **not** a JWT but an unguessable `<sim id>!<nanoid10>` with no expiry, matched exactly against
-`sim_configs.share_token` on every request — `unshare` revokes immediately. Also served under `/s/:token[/ws]`.
+`sim_configs.share_token` on every request — `unshare` revokes immediately. Also served under `/s/:token`. `/:token/ws` is a legacy alias for the same handler.
 
 ## Database & migrations
 

@@ -142,7 +142,7 @@ users.api                    jwtMiddleware + requireRole(true)                  
 `POST /api/configs/:id/share` writes `<id>!<nanoid(10)>` (`TOKEN_SEP = "!"`, exported from `simShareMiddleware`) to
 `sim_configs.share_token`; `unshare` clears it. No expiry, no signature — the token is an unguessable secret.
 `simShareMiddleware` splits off the id, loads the config and requires `share_token === token` (so revoke is
-immediate), then sets `simRunner` for `GET /api/shared/:token` and `/:token/ws`. `sharedApp` is mounted twice
+immediate), then sets `simRunner` for `GET /api/shared/:token` — one route: a WebSocket upgrade streams `SimData`, any other GET gets it once as JSON (`/:token/ws` is a legacy alias for the same handlers). `sharedApp` is mounted twice
 (`/api/shared` and `/s`); the frontend builds share URLs on `/s`.
 
 ## Gotchas
