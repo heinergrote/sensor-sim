@@ -4,14 +4,21 @@ import {LoginResponse, Profile} from "@sensor-sim/shared";
 import ky, {isHTTPError} from "ky";
 import {query} from "@solidjs/router";
 
-// Access token (15 min JWT), its expiry (epoch ms) and the opaque refresh token (rotated on every refresh,
-// 7 days sliding on the server). All three in localStorage, shared by every tab of this origin.
+// Access token (15 min JWT), its expiry and planned refresh time (epoch ms, *local* clock — computed from the
+// server's relative `accessExpiresIn` on receipt) and the opaque refresh token (rotated on every refresh, 7 days
+// sliding on the server). All in localStorage, shared by every tab of this origin.
 const ACCESS_KEY = 'jwt_token'
 const EXPIRES_KEY = 'jwt_expires_at'
+const REFRESH_AT_KEY = 'jwt_refresh_at'
 const REFRESH_KEY = 'refresh_token'
 
-/** refresh this long before the access token expires */
+/**
+ * Refresh this long before the access token expires — but at most half its lifetime, or a token living shorter
+ * than the margin would be stale on arrival and refresh in a tight loop.
+ */
 const REFRESH_MARGIN_MS = 60_000
+/** last-resort floor for the refresh timer, whatever the stored times say */
+const MIN_REFRESH_INTERVAL_MS = 5_000
 /** cross-tab lock: only one tab may present the refresh token at a time (a reused one revokes the session) */
 const REFRESH_LOCK = 'sensor-sim-auth-refresh'
 
@@ -19,7 +26,8 @@ const REFRESH_LOCK = 'sensor-sim-auth-refresh'
 export const jwtToken = () => localStorage.getItem(ACCESS_KEY)
 const storedRefreshToken = () => localStorage.getItem(REFRESH_KEY)
 const accessExpiresAt = () => Number(localStorage.getItem(EXPIRES_KEY)) || 0
-const accessIsFresh = () => jwtToken() !== null && accessExpiresAt() - Date.now() > REFRESH_MARGIN_MS
+const accessRefreshAt = () => Number(localStorage.getItem(REFRESH_AT_KEY)) || 0
+const accessIsFresh = () => jwtToken() !== null && Date.now() < accessRefreshAt()
 
 // Changes only on login/logout (also of other tabs), never on token rotation: `user` and everything keyed on it
 // (e.g. the status socket) must not re-run every 15 minutes. A new object per login, so re-login re-triggers.
@@ -48,7 +56,10 @@ function endSession() {
 
 function storeTokens(res: LoginResponse) {
   localStorage.setItem(ACCESS_KEY, res.accessToken)
-  localStorage.setItem(EXPIRES_KEY, String(res.accessExpiresAt))
+  const lifetimeMs = res.accessExpiresIn * 1000
+  const now = Date.now()
+  localStorage.setItem(EXPIRES_KEY, String(now + lifetimeMs))
+  localStorage.setItem(REFRESH_AT_KEY, String(now + lifetimeMs - Math.min(REFRESH_MARGIN_MS, lifetimeMs / 2)))
   localStorage.setItem(REFRESH_KEY, res.refreshToken)
   scheduleRefresh()
 }
@@ -56,6 +67,7 @@ function storeTokens(res: LoginResponse) {
 function clearTokens() {
   localStorage.removeItem(ACCESS_KEY)
   localStorage.removeItem(EXPIRES_KEY)
+  localStorage.removeItem(REFRESH_AT_KEY)
   localStorage.removeItem(REFRESH_KEY)
   clearTimeout(refreshTimer)
 }
@@ -116,7 +128,7 @@ async function doRefresh(staleToken: string | null): Promise<string | null> {
   }
 }
 
-/** An access token valid for at least another minute (refreshing if needed), or `null` when logged out. */
+/** An access token not yet due for refresh (refreshing if needed), or `null` when logged out. */
 export async function getValidToken(): Promise<string | null> {
   if (!storedRefreshToken()) return null
   if (accessIsFresh()) return jwtToken()
@@ -136,7 +148,7 @@ let refreshTimer: ReturnType<typeof setTimeout> | undefined
 function scheduleRefresh() {
   clearTimeout(refreshTimer)
   if (!storedRefreshToken()) return
-  const delay = Math.max(0, accessExpiresAt() - REFRESH_MARGIN_MS - Date.now())
+  const delay = Math.max(MIN_REFRESH_INTERVAL_MS, accessRefreshAt() - Date.now())
   refreshTimer = setTimeout(async () => {
     // getValidToken refreshes only if no other tab did; a failed (network) attempt is retried in a while
     await getValidToken()

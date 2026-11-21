@@ -16,8 +16,11 @@ export const loginResponse = z.object({
   accessToken: z.string(),
   /** opaque, rotated on every refresh — the previous one is invalid afterwards */
   refreshToken: z.string(),
-  /** access token expiry, epoch milliseconds */
-  accessExpiresAt: z.number(),
+  /**
+   * access token lifetime in seconds (like OAuth's `expires_in`). Relative on purpose: the client computes the
+   * expiry from its own clock, so a skewed client clock can't make every token look expired.
+   */
+  accessExpiresIn: z.number(),
 });
 
 export type Login = z.infer<typeof login>;

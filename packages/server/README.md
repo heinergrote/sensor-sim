@@ -81,7 +81,7 @@ each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are
 ## Auth
 
 `POST /api/login {username, password}` creates a **session** and returns
-`{accessToken, refreshToken, accessExpiresAt}`:
+`{accessToken, refreshToken, accessExpiresIn}` (seconds):
 
 - `accessToken` — 15 min HS256 JWT (`{sub, username, admin, sid, exp}`). Send it as `Authorization: Bearer …`, or as
   `?token=` on WebSocket routes (checked at upgrade only; an open socket outlives the token).

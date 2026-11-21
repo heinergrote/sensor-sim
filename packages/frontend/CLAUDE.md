@@ -28,10 +28,12 @@ pnpm lint                      # oxlint src
   causes TS2502 (circular).
 - `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
   `paths.sims(id?)`, `paths.users(id)`) — use them for links.
-- `src/auth.ts` — access token / expiry / refresh token in localStorage (`jwt_token`, `jwt_expires_at`,
-  `refresh_token`). A `session` signal changes **only on login/logout** (also other tabs, via `storage` events) —
+- `src/auth.ts` — access token / expiry / refresh time / refresh token in localStorage (`jwt_token`,
+  `jwt_expires_at`, `jwt_refresh_at`, `refresh_token`). Times are on the **local clock**, computed on receipt from the
+  server's relative `accessExpiresIn`; refresh is due `min(60 s, lifetime / 2)` before expiry (a fixed margin
+  longer than the token's lifetime refreshed in a tight loop). A `session` signal changes **only on login/logout** (also other tabs, via `storage` events) —
   token rotation is deliberately not reactive, or `user` and the status socket would re-run every 15 min.
-  `getValidToken()` refreshes if < 60 s left; `refreshTokens(stale)` is single-flight per tab and runs under
+  `getValidToken()` refreshes once due; `refreshTokens(stale)` is single-flight per tab and runs under
   `navigator.locks` across tabs (re-reads storage under the lock — two tabs presenting the same refresh token
   would trip the server's reuse detection and kill the session). A 401 from refresh logs out; a network error
   doesn't. A timer refreshes ahead of expiry while logged in. `useAuth()` → `{login, logout, user}`, `user` =

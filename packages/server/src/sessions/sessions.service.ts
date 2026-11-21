@@ -54,7 +54,7 @@ async function issueTokens(user: UserRow, sessionId: number, refreshToken: strin
     exp,
   };
   const accessToken = await sign(payload, jwtSecret(), "HS256");
-  return {accessToken, refreshToken, accessExpiresAt: exp * 1000};
+  return {accessToken, refreshToken, accessExpiresIn: ACCESS_TTL_S};
 }
 
 /** New session for a freshly authenticated user. */
