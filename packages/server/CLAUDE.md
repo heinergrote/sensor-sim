@@ -37,7 +37,8 @@ users/                   users.api.ts (/api/users), user.repository.ts, users.ma
 tiles/                   tileProxy.ts (createTileProxy(provider, mountPath); `style.json` → provider.stylePath),
                          tiles.api.ts (`tileProviders` registry, TILE_PROVIDER/TILE_STYLE → tilesApp on /api/tiles).
                          New provider = one registry entry; the client only ever sees /api/tiles
-login/ me/               login.api.ts, me.api.ts
+login/ me/               login.api.ts (login, refresh, logout), me.api.ts
+sessions/                sessions.service.ts (token issuing, rotation, reuse detection, clientInfo), .repository.ts
 status/                  status.service.ts (getStatusStream, sendStatusMessage — one stream per user), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
@@ -134,8 +135,15 @@ users.api                    jwtMiddleware + requireRole(true)                  
 ```
 
 `jwtMiddleware` sets `c.get('user')` (`{id, username, admin}`) — downstream reads that, not the JWT payload.
-`wsJwtMiddleware` copies `?token=` into `Authorization`; mount it only on `/ws` routes. Login: HS256, 24 h,
-`{sub, username, admin, exp}`; no refresh, no server session.
+`wsJwtMiddleware` copies `?token=` into `Authorization`; mount it only on `/ws` routes.
+
+**Sessions / refresh** (`sessions/`): login inserts a `sessions` row (user agent, IP, `expires_at` = now + 7 d) and
+returns a 15 min access JWT `{sub, username, admin, sid, exp}` (`ACCESS_TTL_S`) plus an opaque refresh token (only
+its sha256 is stored). `/api/login/refresh` rotates it (`refresh_token_hash` → `prev_token_hash`) via a conditional
+UPDATE (concurrent refreshes: one wins), slides `expires_at`, re-reads the user (so `admin`/`username` changes reach
+the next token). A token matching `prev_token_hash` = reuse → session revoked. The middleware stays stateless: it
+never reads `sessions`, so a revoked session's access token lives on ≤ 15 min. IP from forwarding headers only with
+`TRUST_PROXY=true`. Expired sessions of a user are deleted on their next login. No session UI/API yet.
 
 ## Sharing
 

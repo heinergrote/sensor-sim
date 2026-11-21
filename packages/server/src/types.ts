@@ -6,6 +6,8 @@ export type JWTPayload = {
   sub: number,
   username: string,
   admin: boolean,
+  /** sessions.id this access token was issued for */
+  sid: number,
   exp: number,
 }
 

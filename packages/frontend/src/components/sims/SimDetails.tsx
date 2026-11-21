@@ -4,7 +4,6 @@ import {SimConfig} from "@sensor-sim/shared";
 import {SimCard} from "./SimCard";
 import {MapContext} from "./editors/mapContext";
 import {MapLibreMap} from "maplibre-gl";
-import {jwtToken} from "../../auth";
 
 /**
  * The selected sim's `SimCard` above the map with its live position. Spec editing lives in the `SpecEditor`
@@ -36,12 +35,11 @@ export default function SimDetails(props: {
   onSettled(
     () => {
       let disposed = false
-      const token = jwtToken()
 
       // creating the MapLibre map (WebGL context, canvas, controls) takes >10ms synchronously: run it in the next
       // frame, off the reactive path, so the page paints first and the settle pass stays cheap (HOT_SCOPE_TIME)
       const frame = requestAnimationFrame(() =>
-        createSimulationMap(mapEl, token).then(
+        createSimulationMap(mapEl).then(
           simulationMap => {
             // unmounted before the map finished loading: nobody will dispose it otherwise
             if (disposed) return simulationMap.dispose()

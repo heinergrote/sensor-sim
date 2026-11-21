@@ -74,11 +74,12 @@ fallback. In dev Vite (`:3000`) talks cross-origin to `:4000`; CORS is `origin: 
 owner-scoped; a share link (`<id>!<nanoid>` token in `sim_configs.share_token`, no expiry, not a JWT) is the only way
 to expose a sim to someone else. Details: `packages/server/CLAUDE.md`.
 
-**The JWT travels three ways on the client:** `Authorization: Bearer` on REST (`src/api.ts`), the same header via
+**Auth = short access JWT (15 min) + rotating refresh token (7 d sliding)** tied to a `sessions` row; details in
+`packages/server/CLAUDE.md`. **The access JWT travels three ways on the client:** `Authorization: Bearer` on REST (`src/api.ts`), the same header via
 MapLibre `transformRequest` (the `/api/tiles` proxy is authenticated), and `?token=` on WebSockets. MapTiler keys never
 leave the server.
 
-**One database, two tables** (`users`, `sim_configs`), migration-managed via the separate `src/migrate.ts` entrypoint.
+**One database, three tables** (`users`, `sim_configs`, `sessions`), migration-managed via the separate `src/migrate.ts` entrypoint.
 
 ## Frontend: SolidJS 2.x, not React
 
@@ -87,7 +88,8 @@ Components run once; reactivity is signals. Explicit route tree in `src/routes.t
 ## Env vars
 
 Server: `PORT` (4000), `NODE_ENV`, `TILE_PROVIDER` (`openfreemap` | `maptiler`), `TILE_STYLE`, `MAPTILER_KEY` (maptiler only), `DATABASE_URL` (**required**), `JWT_SECRET` (**required**),
-`DEFAULT_ADMIN_USERNAME` (`admin`), `DEFAULT_ADMIN_PASSWORD` (no seeding without it).
+`DEFAULT_ADMIN_USERNAME` (`admin`), `DEFAULT_ADMIN_PASSWORD` (no seeding without it), `TRUST_PROXY` (`true` → session
+IP from `X-Forwarded-For`).
 Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.production`).
 
 ## Release
@@ -99,4 +101,5 @@ Frontend: `VITE_MAP_STYLE` (MapLibre style URL; see `.env.development` / `.env.p
 existing `sim_configs` rows** (id became a serial int); `0008`/`0009` drop the old per-field columns, so
 existing configs come back with `spec: null`. Specs stored before the `[lng, lat]` tuple fields (`latitude`/
 `longitude`, `start*`/`target*`/`center*`) or before path `waypoints` (`start`/`target`) no longer validate and
-read as `spec: null` too. `0010` adds `created_at`/`updated_at`. Deployment detail: `packages/server/README.md`.
+read as `spec: null` too. `0010` adds `created_at`/`updated_at`. `0011` adds `sessions`; tokens from before it
+carry no refresh token, so users have to log in again once. Deployment detail: `packages/server/README.md`.

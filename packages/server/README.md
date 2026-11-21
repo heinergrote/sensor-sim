@@ -38,6 +38,7 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 | `TILE_STYLE`             | per provider | Upstream style path behind `/api/tiles/style.json` |
 | `MAPTILER_KEY`           | —            | Required with `TILE_PROVIDER=maptiler` (500 without it) |
 | `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files |
+| `TRUST_PROXY`            | —            | `true`: take the session IP from `X-Forwarded-For` / `X-Real-IP` (only behind a reverse proxy) |
 | `NODE_ENV`               | —            | Only logged; CORS is open for all origins       |
 
 ## Architecture
@@ -79,12 +80,20 @@ each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are
 
 ## Auth
 
-`POST /api/login` returns a 24 h HS256 token (`{sub, username, admin, exp}`). Send it as `Authorization: Bearer …`,
-or as `?token=` on WebSocket routes. No refresh, no server sessions.
+`POST /api/login {username, password}` creates a **session** and returns
+`{accessToken, refreshToken, accessExpiresAt}`:
+
+- `accessToken` — 15 min HS256 JWT (`{sub, username, admin, sid, exp}`). Send it as `Authorization: Bearer …`, or as
+  `?token=` on WebSocket routes (checked at upgrade only; an open socket outlives the token).
+- `refreshToken` — opaque, stored only as a sha256 hash in `sessions`. `POST /api/login/refresh {refreshToken}`
+  returns a new pair and **rotates** it; the session expiry slides to now + 7 days. Presenting an already rotated
+  token again revokes the whole session (reuse detection). `POST /api/login/logout {refreshToken}` revokes it (204).
+- Sessions record user agent and IP (from `X-Forwarded-For`/`X-Real-IP` only with `TRUST_PROXY=true`), last use
+  and expiry. Revocation stops the next refresh; an already issued access token stays valid until it expires.
 
 | Scope              | Routes                                                                              |
 |--------------------|-------------------------------------------------------------------------------------|
-| public             | `POST /api/login`, `/api/shared/:token[/ws]`, static files                          |
+| public             | `POST /api/login[/refresh\|/logout]`, `/api/shared/:token[/ws]`, static files       |
 | any logged-in user | `/api/me`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
 | owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)                  |
 | admin only         | `/api/users`                                                                        |

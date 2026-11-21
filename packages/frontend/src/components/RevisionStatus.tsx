@@ -1,4 +1,4 @@
-import {jwtToken, useAuth} from "../auth";
+import {getValidToken, isLoggedIn, useAuth} from "../auth";
 import {serverUrl} from "../api";
 import {StatusMessage} from "@sensor-sim/shared";
 import {createEffect, createMemo, createSignal, onCleanup, Show} from "solid-js";
@@ -19,6 +19,8 @@ export default function RevisionStatus() {
 
   let wss: WebSocket | undefined
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+  // bumped by disconnect(): a connect() still awaiting its token must not open a socket afterwards
+  let connectGeneration = 0
 
   createEffect(() => user(),
     (user) => {
@@ -26,8 +28,18 @@ export default function RevisionStatus() {
       if (user) connect()
     })
 
-  function connect(reconnectDelay = RECONNECT_MIN_DELAY_MS, isReconnect = false) {
-    const socket = new WebSocket(`${serverUrl}/api/status/ws?token=${jwtToken()}`)
+  async function connect(reconnectDelay = RECONNECT_MIN_DELAY_MS) {
+    const generation = connectGeneration
+    // the access token is short-lived: get a fresh one for every (re)connect
+    const token = await getValidToken()
+    if (generation !== connectGeneration) return
+    if (!token) {
+      // no token although logged in = server unreachable: keep retrying with backoff
+      if (isLoggedIn()) scheduleReconnect(reconnectDelay)
+      return
+    }
+
+    const socket = new WebSocket(`${serverUrl}/api/status/ws?token=${token}`)
     wss = socket
 
     socket.onopen = () => {
@@ -43,15 +55,20 @@ export default function RevisionStatus() {
     socket.onclose = () => {
       if (wss !== socket) return
       wss = undefined
-      reconnectTimer = setTimeout(
-        () => connect(Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY_MS), true),
-        reconnectDelay
-      )
+      scheduleReconnect(reconnectDelay)
       setConnected(false)
     }
   }
 
+  function scheduleReconnect(reconnectDelay: number) {
+    reconnectTimer = setTimeout(
+      () => connect(Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY_MS)),
+      reconnectDelay
+    )
+  }
+
   function disconnect() {
+    connectGeneration++
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     const socket = wss

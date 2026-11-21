@@ -28,10 +28,17 @@ pnpm lint                      # oxlint src
   causes TS2502 (circular).
 - `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
   `paths.sims(id?)`, `paths.users(id)`) — use them for links.
-- `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
-  `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
-- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
-  per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
+- `src/auth.ts` — access token / expiry / refresh token in localStorage (`jwt_token`, `jwt_expires_at`,
+  `refresh_token`). A `session` signal changes **only on login/logout** (also other tabs, via `storage` events) —
+  token rotation is deliberately not reactive, or `user` and the status socket would re-run every 15 min.
+  `getValidToken()` refreshes if < 60 s left; `refreshTokens(stale)` is single-flight per tab and runs under
+  `navigator.locks` across tabs (re-reads storage under the lock — two tabs presenting the same refresh token
+  would trip the server's reuse detection and kill the session). A 401 from refresh logs out; a network error
+  doesn't. A timer refreshes ahead of expiry while logged in. `useAuth()` → `{login, logout, user}`, `user` =
+  async memo over `GET /api/me`.
+- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; `beforeRequest` sets
+  `await getValidToken()`, `afterResponse` refreshes once and retries (`ky.retry`) on a 401. Both sockets call
+  `getValidToken()` before every (re)connect. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
 
 ### Sim configs: optimistic store + revision signal
 
@@ -65,7 +72,7 @@ pnpm lint                      # oxlint src
 - `simulationMap.ts` — imperative MapLibre wrapper outside Solid: map setup and the red current-position marker
   (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
   while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
-  prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (read once at creation).
+  prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (synchronous, reads the stored token per request — kept fresh by `auth.ts`'s timer).
 - `SimCard.tsx` — only rendered for the selected sim. Two DaisyUI cards in a `flex-wrap gap-2` row: left (`grow`) =
   id/label, type `<select>` (→ `updateType`), Share/Unshare + copy (full URL) + token link (`target=_blank`), Delete
   with inline "Really?" confirm; right (`grow-999 basis-0`, only with a spec) = Play/Stop + `<SpecEditor config/>`.
