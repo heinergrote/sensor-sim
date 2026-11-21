@@ -4,18 +4,17 @@ import SimList from "../../components/sims/SimList";
 import {RouteProps, useNavigate} from "@solidjs/router";
 import {Router} from "../../router";
 import type {simsRoute} from "./sims.route";
-import {useSimConfigsApi} from "../../service/configs.service";
+import {configs} from "../../service/configs.service";
 
 export default function Sims(props: RouteProps<typeof simsRoute.path>) {
 
   const navigate = useNavigate()
-  const api = useSimConfigsApi()
 
   // derived from the list (not a separate query), so the status socket's revalidation keeps it current
   const simConfig = createMemo(() => {
     if (!props.params.id) return undefined
     const id = Number(props.params.id)
-    return api.configs.find(config => config.id === id)
+    return configs.find(config => config.id === id)
   });
 
   // the selected sim was deleted (here or by another client) or never existed
@@ -28,7 +27,7 @@ export default function Sims(props: RouteProps<typeof simsRoute.path>) {
   return (
     <>
       <Title>Sensor Sim - Sims</Title>
-      <SimList simConfigs={api.configs} simConfig={simConfig()}/>
+      <SimList simConfigs={configs} simConfig={simConfig()}/>
     </>
   );
 }

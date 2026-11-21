@@ -11,7 +11,7 @@ import {
   TbOutlineWorldLongitude
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {useSimConfigsApi} from "../../../service/configs.service";
+import {updateConfig} from "../../../service/configs.service";
 import {markerElement} from "../markerElement";
 import type {SpecEditorProps} from "./SpecEditor";
 
@@ -36,8 +36,6 @@ const sameDraft = (a: OrbitDraft, b: OrbitDraft) =>
  * the draft too: committing it on its own would reset the draft and drop unsaved marker moves.
  */
 export default function OrbitEditor(props: SpecEditorProps<SpecOrbit>) {
-
-  const api = useSimConfigsApi()
 
   // plain copy of the spec (no store proxies); follows the spec after a save or a remote update
   const [draft, setDraft] = createSignal<OrbitDraft>(() => toDraft(props.spec), {name: "orbitEditor.draft"})
@@ -90,7 +88,7 @@ export default function OrbitEditor(props: SpecEditorProps<SpecOrbit>) {
 
   // save the draft to remote
   async function save() {
-    await api.update(props.configId, {spec: {...props.spec, ...draft()}})
+    await updateConfig(props.configId, {spec: {...props.spec, ...draft()}})
   }
 
   return (

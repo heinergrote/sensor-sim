@@ -42,17 +42,19 @@ pnpm lint                      # oxlint src
 
 ### Sim configs: optimistic store + revision signal
 
-- `src/service/configs.service.ts` — `useSimConfigsApi()` returns a lazily created **module singleton**:
-  `configs` (a `createOptimisticStore` over `GET /configs`; tracks `authSession()` from `auth.ts`, so it refetches
-  on login and is `[]` when logged out — any other per-user module state must do the same). Created in a
-  **detached root** (`runWithOwner(null, () => createRoot(…))`): owned by the first calling component, it died with
-  that component's unmount (logout) and never refetched, `revision()` (its `X-Config-Revision`),
-  `refreshConfigs()`, and core solid-js `action(function* …)`s: `add(label)`, `remove(id)`, `startStop(id, playing)`,
-  `share(id, share)`, `update(id, UpdateSimConfig)` (PATCH; spec edits send the **whole** spec), `updateType(id,
-  SpecType | null)` (`PUT /configs/:id/type`, or `PATCH {spec: null}`). Each writes the store optimistically (or
-  marks it pending with `affects`), awaits the request, then `refresh(configs)`. Call actions directly from handlers.
+- `src/service/configs.service.ts` — plain module exports, imported directly (like `users.service.ts`):
+  `configs` (a `createOptimisticStore` over `GET /configs`), `configsRevision()` (its `X-Config-Revision`),
+  `refreshConfigs()`, and core solid-js `action(function* …)`s: `addConfig(label)`, `removeConfig(id)`,
+  `startStopConfig(id, playing)`, `shareConfig(id, share)`, `updateConfig(id, UpdateSimConfig)` (PATCH; spec edits
+  send the **whole** spec), `updateConfigType(id, SpecType | null)` (`PUT /configs/:id/type`, or
+  `PATCH {spec: null}`). Each writes the store optimistically (or marks it pending with `affects`), awaits the
+  request, then `refresh(configs)`. Call actions directly from handlers.
+  The store is created at module level inside a never-disposed `createRoot` — **never create it from a
+  component**: owned by one, it died on that component's unmount (logout) and never refetched. It tracks
+  `authSession()` from `auth.ts`, so it refetches on login and is `[]` when logged out; any other per-user module
+  state must do the same.
 - **No auto-revalidation on remote changes.** `components/RevisionStatus.tsx` (in `Nav`) owns the `/api/status/ws`
-  socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `api.revision()` it shows a
+  socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `configsRevision()` it shows a
   refresh button. Its icon turns red while disconnected.
 - Don't `deep()`/`snapshot()` rows of the configs store (froze the tab on rc.21); copy fields by plain reads instead.
 - `src/service/simulation.service.ts` — live `SimData` only. `addSimulationListener(id, cb)` lazily opens one
@@ -93,7 +95,7 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
 - **a draft** `createSignal(() => toDraft(props.spec))` — a **plain copy**, never the store's tuples (spreading a
   store proxy in an effect callback triggers `STRICT_READ_UNTRACKED`). It follows the spec after save/remote updates
   (unsaved edits are then dropped). Map events write the draft; a second effect moves the map objects to it;
-- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `api.update(id, {spec: {...props.spec,
+- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `updateConfig(id, {spec: {...props.spec,
   ...draft()}})`. Nothing saves on drag.
 - **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along
   (e.g. `save(position)`) instead of reading it back in the same handler.

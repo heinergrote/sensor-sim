@@ -2,7 +2,7 @@ import {getValidToken, isLoggedIn, useAuth} from "../auth";
 import {serverUrl} from "../api";
 import {StatusMessage} from "@sensor-sim/shared";
 import {createEffect, createMemo, createSignal, onCleanup, Show} from "solid-js";
-import {setStatusConfigsRevision, statusConfigsRevision, useSimConfigsApi} from "../service/configs.service";
+import {configsRevision, refreshConfigs, setStatusConfigsRevision, statusConfigsRevision} from "../service/configs.service";
 import {TbOutlineExclamationMark, TbOutlineRefresh} from "solid-icons/tb";
 
 const RECONNECT_MIN_DELAY_MS = 1000
@@ -10,12 +10,10 @@ const RECONNECT_MAX_DELAY_MS = 30000
 
 export default function RevisionStatus() {
 
-  const api = useSimConfigsApi()
-
   const {user} = useAuth()
   const [connected, setConnected] = createSignal<boolean>(false)
 
-  const refreshNeeded = createMemo(() => statusConfigsRevision() > api.revision())
+  const refreshNeeded = createMemo(() => statusConfigsRevision() > configsRevision())
 
   let wss: WebSocket | undefined
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -86,7 +84,7 @@ export default function RevisionStatus() {
     <Show when={connected()} fallback={<div class={"btn btn-square btn-error"}><TbOutlineExclamationMark/></div>}>
       {
         refreshNeeded() &&
-        <button class={"btn btn-square btn-error"} onClick={api.refreshConfigs}>
+        <button class={"btn btn-square btn-error"} onClick={refreshConfigs}>
           <TbOutlineRefresh/>
         </button>
       }
