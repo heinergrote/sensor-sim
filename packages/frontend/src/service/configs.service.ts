@@ -1,6 +1,7 @@
 import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, UpdateSimConfig} from "@sensor-sim/shared";
-import {action, affects, createOptimisticStore, createSignal, refresh} from "solid-js";
+import {action, affects, createOptimisticStore, createRoot, createSignal, refresh, runWithOwner} from "solid-js";
 import {api} from "../api";
+import {authSession} from "../auth";
 
 export const [statusConfigsRevision, setStatusConfigsRevision] = createSignal<number>(0)
 
@@ -10,6 +11,8 @@ export function createSimConfigsApi() {
 
   const [configs, setConfigs] = createOptimisticStore<SimConfig[]>(
     async () => {
+      // per user: refetch on every login, empty while logged out (the store is a module singleton)
+      if (!authSession()) return []
       const response = await api.get<SimConfig[]>(`/configs`)
       const revision = Number(response.headers.get(CONFIG_REVISION_HEADER))
       setRevision(revision)
@@ -133,7 +136,10 @@ let simConfigsApi: ReturnType<typeof createSimConfigsApi>
 export function useSimConfigsApi() {
 
   if (!simConfigsApi) {
-    simConfigsApi = createSimConfigsApi()
+    // Detached root: the first caller is some component (Nav's RevisionStatus, the sims page). Owned by it, the
+    // store's computation would be disposed when it unmounts (e.g. on logout) and the singleton would never fetch
+    // again. Never disposed — it lives as long as the page.
+    simConfigsApi = runWithOwner(null, () => createRoot(() => createSimConfigsApi()))
   }
 
   return simConfigsApi

@@ -35,7 +35,7 @@ pnpm lint                      # oxlint src
   `navigator.locks` across tabs (re-reads storage under the lock — two tabs presenting the same refresh token
   would trip the server's reuse detection and kill the session). A 401 from refresh logs out; a network error
   doesn't. A timer refreshes ahead of expiry while logged in. `useAuth()` → `{login, logout, user}`, `user` =
-  async memo over `GET /api/me`.
+  async memo over `GET /api/me`. Logout also clears the router `query` cache.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; `beforeRequest` sets
   `await getValidToken()`, `afterResponse` refreshes once and retries (`ky.retry`) on a 401. Both sockets call
   `getValidToken()` before every (re)connect. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
@@ -43,7 +43,10 @@ pnpm lint                      # oxlint src
 ### Sim configs: optimistic store + revision signal
 
 - `src/service/configs.service.ts` — `useSimConfigsApi()` returns a lazily created **module singleton**:
-  `configs` (a `createOptimisticStore` over `GET /configs`), `revision()` (its `X-Config-Revision`),
+  `configs` (a `createOptimisticStore` over `GET /configs`; tracks `authSession()` from `auth.ts`, so it refetches
+  on login and is `[]` when logged out — any other per-user module state must do the same). Created in a
+  **detached root** (`runWithOwner(null, () => createRoot(…))`): owned by the first calling component, it died with
+  that component's unmount (logout) and never refetched, `revision()` (its `X-Config-Revision`),
   `refreshConfigs()`, and core solid-js `action(function* …)`s: `add(label)`, `remove(id)`, `startStop(id, playing)`,
   `share(id, share)`, `update(id, UpdateSimConfig)` (PATCH; spec edits send the **whole** spec), `updateType(id,
   SpecType | null)` (`PUT /configs/:id/type`, or `PATCH {spec: null}`). Each writes the store optimistically (or

@@ -2,6 +2,7 @@ import {createMemo, createSignal} from 'solid-js'
 import {api, serverUrl} from "./api";
 import {LoginResponse, Profile} from "@sensor-sim/shared";
 import ky, {isHTTPError} from "ky";
+import {query} from "@solidjs/router";
 
 // Access token (15 min JWT), its expiry (epoch ms) and the opaque refresh token (rotated on every refresh,
 // 7 days sliding on the server). All three in localStorage, shared by every tab of this origin.
@@ -31,6 +32,20 @@ const setSession = (value: object | null) => {
 }
 if (storedRefreshToken()) setSession({})
 
+/**
+ * Reactive login state: a new object per login, `null` when logged out. Track it in anything that caches
+ * per-user data (e.g. the configs store), so the next user in this browser never sees the previous one's.
+ */
+export const authSession = session
+
+/** drop everything held for the logged-out user that isn't keyed on `authSession` */
+function endSession() {
+  clearTimeout(refreshTimer)
+  setSession(null)
+  // router query cache (users, user) — would otherwise be served to the next login for up to 5 s / kept 3 min
+  query.clear()
+}
+
 function storeTokens(res: LoginResponse) {
   localStorage.setItem(ACCESS_KEY, res.accessToken)
   localStorage.setItem(EXPIRES_KEY, String(res.accessExpiresAt))
@@ -53,7 +68,7 @@ export function login(res: LoginResponse) {
 export function logout() {
   const refreshToken = storedRefreshToken()
   clearTokens()
-  setSession(null)
+  endSession()
   if (refreshToken) {
     // revoke the server-side session; nothing to do if that fails
     ky.post(`${serverUrl}/api/login/logout`, {json: {refreshToken}}).catch(() => {
@@ -137,8 +152,7 @@ window.addEventListener('storage', (e) => {
   if (e.key !== null && e.key !== REFRESH_KEY) return
   const loggedIn = storedRefreshToken() !== null
   if (!loggedIn && currentSession) {
-    clearTimeout(refreshTimer)
-    setSession(null)
+    endSession()
   } else if (loggedIn && !currentSession) {
     setSession({})
   }

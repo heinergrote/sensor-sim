@@ -25,6 +25,8 @@ export default function RevisionStatus() {
   createEffect(() => user(),
     (user) => {
       disconnect()
+      // the last revision seen belongs to the previous user's stream
+      setStatusConfigsRevision(0)
       if (user) connect()
     })
 
