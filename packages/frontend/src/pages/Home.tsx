@@ -2,6 +2,7 @@ import {Title} from "@solidjs/meta";
 import {Show} from "solid-js";
 import LoginForm from "../components/LoginForm";
 import {useAuth} from "../auth";
+import {TbOutlineMapPinCog} from "solid-icons/tb";
 
 export default function Home() {
 
@@ -15,7 +16,8 @@ export default function Home() {
 
       <Show when={user()} fallback={<LoginForm/>}>
         <div>Logged in as {user()?.username}</div>
-        <a href="/sims">Show Simulation</a>
+
+        <a class="btn mt-4" href="/sims"> <TbOutlineMapPinCog size={24}/> Your Simulations</a>
       </Show>
 
     </div>

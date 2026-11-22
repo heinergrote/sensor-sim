@@ -25,8 +25,10 @@ export function clientInfo(c: Context): ClientInfo {
 
   let ip: string | undefined;
   if (process.env.TRUST_PROXY === 'true') {
-    ip = c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || c.req.header('X-Real-IP')?.trim();
+    const forwardedFor = c.req.header('x-forwarded-for')
+    ip = forwardedFor?.split(',')[0]?.trim() || c.req.header('X-Real-IP')?.trim();
   }
+
   if (!ip) {
     try {
       ip = getConnInfo(c).remote.address;
