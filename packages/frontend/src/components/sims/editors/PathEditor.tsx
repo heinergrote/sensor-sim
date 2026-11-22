@@ -222,7 +222,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   // effect: new configId
   createEffect(
     () => props.configId,
-    (configId) => {
+    (_configId) => {
       const coords = untrack(() => props.spec.waypoints.map(([lng, lat]) => ({lng, lat})))
       if (coords.length > 0) {
         const bounds = new LngLatBounds(coords[0], coords[0]);
