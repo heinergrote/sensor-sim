@@ -115,6 +115,16 @@ the draft). Its cleanup calls `terraDraw.stop()` only if the map hasn't fired `r
 adapter's `clear()` crashes on the missing sources. Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields
 that, spread tuples (`[...pos]`) into `setLngLat` (readonly).
 
+### Sessions
+
+`src/service/sessions.service.ts` — `fetchOwnSessions()`, `fetchUserSessions(userId)` router `query()`s (cleared on
+logout with the rest of the query cache); `revokeOwnSession(id)`, `revokeUserSession(userId, id)` plain functions that
+revalidate both queries (an admin's own sessions appear in both lists). `components/sessions/SessionList.tsx` renders a `Session[]` table
+(`describeUserAgent` → "Firefox on macOS", raw UA as `title`; "this device" badge for `current`). Its `onRevoke(id)` prop backs a Revoke button per row; the `current` row gets
+Log out instead (`logout()` + navigate home), since revoking it would only log out after the access token lapses. Shown on `Home`
+under "Logged in as" (own) and below the form in `UserDetail` (admin only, behind `user()?.admin`), each in its own
+`Loading`.
+
 ### Users
 
 `src/service/users.service.ts` — `fetchUsers`, `fetchUser(id: number)` router `query()`s; `addUser(form)`,

@@ -13,6 +13,8 @@ export type JWTPayload = {
 
 export type HonoGlobalVars = {
   user: User;
+  /** `sid` of the access token: the session this request belongs to */
+  sessionId: number;
 };
 
 export type HonoSimRunnerVars = HonoGlobalVars & {

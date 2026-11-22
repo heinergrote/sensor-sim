@@ -17,6 +17,7 @@ import {db} from "./db";
 import {simsApp} from "./sims/sims.api";
 import {statusApp} from "./status/status.api";
 import {simConfigsApp} from "./simconfigs/simconfigs.api";
+import {sessionsApp} from "./sessions/sessions.api";
 import {createSimulationEngine} from "./simulation/simulationEngine";
 
 console.log("Starting server -", process.env.NODE_ENV);
@@ -35,6 +36,7 @@ const app = new Hono()
   .route('/api/sims', simsApp)
   .route('/api/configs', simConfigsApp)
   .route('/api/me', meApp)
+  .route('/api/sessions', sessionsApp)
   .route('/api/users', usersApp)
 
 

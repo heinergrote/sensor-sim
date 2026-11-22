@@ -38,7 +38,8 @@ tiles/                   tileProxy.ts (createTileProxy(provider, mountPath); `st
                          tiles.api.ts (`tileProviders` registry, TILE_PROVIDER/TILE_STYLE → tilesApp on /api/tiles).
                          New provider = one registry entry; the client only ever sees /api/tiles
 login/ me/               login.api.ts (login, refresh, logout), me.api.ts
-sessions/                sessions.service.ts (token issuing, rotation, reuse detection, clientInfo), .repository.ts
+sessions/                sessions.service.ts (token issuing, rotation, reuse detection, clientInfo), .repository.ts,
+                         .mapping.ts (toDto, never the hashes), sessions.api.ts (GET/DELETE /api/sessions — own)
 status/                  status.service.ts (getStatusStream, sendStatusMessage — one stream per user), status.api.ts
 shared/                  shared.api.ts — public share-token endpoints
 middleware/              jwtAuth (jwtMiddleware, wsJwtMiddleware), requireRole, withOwnSim, simShareMiddleware
@@ -127,14 +128,15 @@ Specs are `strictObject`s — stored JSON with extra/missing keys is treated as 
 
 ```
 login.api, shared.api        no JWT                                              → public (shared: share-token gated)
-tiles, me, status            .use(jwtMiddleware)                                 → any logged-in user
+tiles, me, status, sessions  .use(jwtMiddleware)                                 → any logged-in user
 simconfigs.api               jwtMiddleware + loadOwnedSimConfig on '/:id/*'      → 400 bad id / 404 / 403 non-owner
 sims.api                     wsJwtMiddleware on '/:id/ws', jwtMiddleware,
                              withOwnSimMiddleware() on '/:id/*'                  → 404 / 403 non-owner (engine lookup)
 users.api                    jwtMiddleware + requireRole(true)                   → admin only
 ```
 
-`jwtMiddleware` sets `c.get('user')` (`{id, username, admin}`) — downstream reads that, not the JWT payload.
+`jwtMiddleware` sets `c.get('user')` (`{id, username, admin}`) and `c.get('sessionId')` (the token's `sid`) —
+downstream reads those, not the JWT payload.
 `wsJwtMiddleware` copies `?token=` into `Authorization`; mount it only on `/ws` routes.
 
 **Sessions / refresh** (`sessions/`): login inserts a `sessions` row (user agent, IP, `expires_at` = now + 7 d) and
@@ -143,7 +145,10 @@ its sha256 is stored). `/api/login/refresh` rotates it (`refresh_token_hash` →
 UPDATE (concurrent refreshes: one wins), slides `expires_at`, re-reads the user (so `admin`/`username` changes reach
 the next token). A token matching `prev_token_hash` = reuse → session revoked. The middleware stays stateless: it
 never reads `sessions`, so a revoked session's access token lives on ≤ 15 min. IP from forwarding headers only with
-`TRUST_PROXY=true`. Expired sessions of a user are deleted on their next login. No session UI/API yet.
+`TRUST_PROXY=true`. Expired sessions of a user are deleted on their next login. Listing: `GET /api/sessions` (own) and
+`GET /api/users/:id/sessions` (admin), active only, `current` marks the caller's. Revoke: `DELETE /api/sessions/:id`
+(own) and `DELETE /api/users/:id/sessions/:sessionId` (admin), both via `revokeUserSession(userId, id)` — a
+user-scoped conditional UPDATE, so 404 doesn't reveal whether a session id exists for someone else.
 
 ## Sharing
 

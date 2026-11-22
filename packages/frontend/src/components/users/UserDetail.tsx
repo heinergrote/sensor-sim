@@ -2,12 +2,28 @@ import {TbOutlineArrowLeft, TbOutlineDeviceFloppy, TbOutlineTrash} from "solid-i
 import {useNavigate} from "@solidjs/router";
 import {User} from "@sensor-sim/shared";
 import {deleteUser, updateUser} from "../../service/users.service";
+import {createMemo, Loading, Show} from "solid-js";
+import {useAuth} from "../../auth";
+import {fetchUserSessions, revokeUserSession} from "../../service/sessions.service";
+import {SessionList} from "../sessions/SessionList";
+
+function UserSessions(props: { userId: number }) {
+  const sessions = createMemo(() => fetchUserSessions(props.userId))
+  return (
+    <div class="mt-4">
+      <Loading fallback={<p>Loading sessions…</p>}>
+        <SessionList sessions={sessions()} onRevoke={(id) => revokeUserSession(props.userId, id)}/>
+      </Loading>
+    </div>
+  )
+}
 
 export function UserDetail(props: {
   user: User
 }) {
 
   const navigate = useNavigate()
+  const {user: currentUser} = useAuth()
 
   async function handleSave(e: SubmitEvent & { currentTarget: HTMLFormElement }) {
     e.preventDefault()
@@ -42,6 +58,10 @@ export function UserDetail(props: {
           <input type="checkbox" name="admin" checked={props.user.admin} class="checkbox"/> Admin
         </label>
       </form>
+
+      <Show when={currentUser()?.admin}>
+        <UserSessions userId={props.user.id}/>
+      </Show>
 
     </>
   );

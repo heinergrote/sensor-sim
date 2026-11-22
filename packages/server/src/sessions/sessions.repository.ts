@@ -1,4 +1,4 @@
-import {and, eq, isNull, lt, or} from "drizzle-orm";
+import {and, desc, eq, gt, isNull, lt, or} from "drizzle-orm";
 import {db} from "../db";
 import {NewSessionRow, SessionRow, sessions} from "../db/schema";
 
@@ -47,6 +47,27 @@ export async function revokeSession(id: number): Promise<void> {
   await db.update(sessions)
     .set({revokedAt: new Date()})
     .where(eq(sessions.id, id));
+}
+
+/** Sessions that can still be refreshed (not revoked, not expired), most recently used first. */
+export async function getActiveSessions(userId: number): Promise<SessionRow[]> {
+  return await db
+    .select()
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())))
+    .orderBy(desc(sessions.lastUsedAt));
+}
+
+/**
+ * Revokes a session only if it belongs to `userId` and is still active. `false` = no such session for that user
+ * (unknown, someone else's, or already revoked) — callers answer 404 without telling which.
+ */
+export async function revokeUserSession(userId: number, id: number): Promise<boolean> {
+  const revoked = await db.update(sessions)
+    .set({revokedAt: new Date()})
+    .where(and(eq(sessions.id, id), eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+    .returning({id: sessions.id});
+  return revoked.length > 0;
 }
 
 /** Opportunistic cleanup of a user's sessions that can never be refreshed again. */

@@ -94,7 +94,7 @@ each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are
 | Scope              | Routes                                                                              |
 |--------------------|-------------------------------------------------------------------------------------|
 | public             | `POST /api/login[/refresh\|/logout]`, `/api/shared/:token[/ws]`, static files       |
-| any logged-in user | `/api/me`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
+| any logged-in user | `/api/me`, `/api/sessions`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
 | owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)                  |
 | admin only         | `/api/users`                                                                        |
 
@@ -134,7 +134,13 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 - `GET /api/status` → the caller's latest `StatusMessage` `{configsRevision}` (empty before the first change).
   `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can tell whether their list is stale.
 - `/api/users` (admin): `GET /`, `GET /:id`, `POST /` `{username, password, admin}`, `PUT /:id` (same body; password
-  re-hashed), `DELETE /:id`. Passwords are scrypt-hashed (`salt:hash`).
+  re-hashed), `DELETE /:id`, `GET /:id/sessions` (that user's active sessions), `DELETE /:id/sessions/:sessionId` (revoke → 204). Passwords are scrypt-hashed
+  (`salt:hash`).
+- `GET /api/sessions` → the caller's active (not revoked, not expired) sessions, most recently used first:
+  `Session[]` `{id, userAgent, ip, createdAt, lastUsedAt, expiresAt, current}` (ISO timestamps; `current` = the
+  requesting token's session). `lastUsedAt` moves on refresh only, not on every request.
+  `DELETE /api/sessions/:id` revokes one of the caller's own sessions → 204 (404 if unknown, someone else's or already
+  revoked). A revoked session can't refresh; its current access token stays valid until it expires (≤ 15 min).
 
 ## WebSocket API
 
@@ -164,7 +170,7 @@ pnpm db:push      # dev only
 pnpm db:studio
 ```
 
-Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`). **Migration `0007` deletes all sim configs**
+Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`), `sessions` (`0011`). **Migration `0007` deletes all sim configs**
 (id changed from text to serial; the old text id became `label`). **Migrations `0008`/`0009` drop the old
 `type`/`speed`/target/initial columns** in favour of `spec` — existing configs survive with `spec: null`.
 `0010` adds `created_at`/`updated_at`. Path specs stored with `start`/`target` (before `waypoints`) read as `spec: null`.
