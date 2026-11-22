@@ -25,6 +25,7 @@ export const jwtMiddleware = createMiddleware<{ Variables: HonoGlobalVars & JwtV
   }
 
   c.set('user', user)
+  c.set('sessionId', payload.sid)
 
   return await next()
 })

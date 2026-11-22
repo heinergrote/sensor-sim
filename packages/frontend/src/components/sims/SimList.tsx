@@ -11,13 +11,12 @@ import {
   TbOutlineQuestionMark,
   TbOutlineTrash
 } from "solid-icons/tb";
-import {useSimConfigsApi} from "../../service/configs.service";
+import {removeConfig} from "../../service/configs.service";
 
 export default function SimList(props: { simConfigs: SimConfig[], simConfig: SimConfig | undefined }) {
 
   const {user} = useAuth()
   const navigate = useNavigate()
-  const api = useSimConfigsApi()
 
   const [confirmDeleteId, setConfirmDeleteId] = createSignal<number | null>(null)
 
@@ -29,7 +28,7 @@ export default function SimList(props: { simConfigs: SimConfig[], simConfig: Sim
 
   function handleDelete(id: number | null) {
     if (id && confirmDeleteId() === id) {
-      api.remove(id)
+      removeConfig(id)
       setConfirmDeleteId(null)
     } else {
       setConfirmDeleteId(id)

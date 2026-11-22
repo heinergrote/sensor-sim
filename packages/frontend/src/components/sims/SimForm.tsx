@@ -1,11 +1,9 @@
 import {useNavigate} from "@solidjs/router";
 import {TimeoutError, until} from "solid-js";
-import {useSimConfigsApi} from "../../service/configs.service";
+import {addConfig, configs} from "../../service/configs.service";
 import {Router} from "../../router";
 
 export default function SimForm() {
-
-  const api = useSimConfigsApi()
   const navigate = useNavigate()
 
   async function handleSubmit(e: SubmitEvent & { currentTarget: HTMLFormElement }) {
@@ -13,10 +11,10 @@ export default function SimForm() {
     const form = e.currentTarget
     const label = new FormData(form).get("label") as string
     form.reset()
-    const created = await api.add(label)
+    const created = await addConfig(label)
     // navigate only once the list contains the new id, otherwise Sims' "missing" redirect bounces back to /sims
     try {
-      await until(() => api.configs.some(config => config.id === created.id), {timeout: 5_000})
+      await until(() => configs.some(config => config.id === created.id), {timeout: 5_000})
     } catch (error) {
       if (error instanceof TimeoutError) return console.warn(`sim ${created.id} did not appear in the list`)
       throw error

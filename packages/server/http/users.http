@@ -38,10 +38,33 @@ Content-Type: application/json
 }
 
 > {%
-  client.global.set("auth_token", response.body.token);
-  client.log("Logging Bearer Token.");
-  client.log("Bearer " + response.body.token);
+  client.global.set("auth_token", response.body.accessToken);
+  client.global.set("refresh_token", response.body.refreshToken);
+  client.log("Bearer " + response.body.accessToken);
 %}
+
+###
+
+POST {{baseUrl}}/api/login/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refresh_token}}"
+}
+
+> {%
+  client.global.set("auth_token", response.body.accessToken);
+  client.global.set("refresh_token", response.body.refreshToken);
+%}
+
+###
+
+POST {{baseUrl}}/api/login/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refresh_token}}"
+}
 
 ###
 

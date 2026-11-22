@@ -2,10 +2,9 @@ import {Hono} from "hono";
 import {zValidator} from "@hono/zod-validator";
 import {getUserByName} from "../users/user.repository";
 import {verifyPassword} from "../util/passwords";
-import {sign} from "hono/jwt";
-import {JWTPayload} from "../types";
-import {login} from "@sensor-sim/shared";
-import {jwtSecret} from "../util/appSecret";
+import {login, refreshRequest} from "@sensor-sim/shared";
+import {clientInfo, createSession, endSession, refreshSession} from "../sessions/sessions.service";
+import {deleteExpiredSessions} from "../sessions/sessions.repository";
 
 export const loginApp = new Hono()
 
@@ -19,14 +18,23 @@ export const loginApp = new Hono()
         return c.json({error: "Invalid credentials"}, 401)
       }
 
-      const payload = {
-        sub: user.id,
-        username: user.username,
-        admin: user.admin,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-      } as JWTPayload
-
-      const token = await sign(payload, jwtSecret(), "HS256")
-      return c.json({token})
+      await deleteExpiredSessions(user.id)
+      return c.json(await createSession(user, clientInfo(c)))
     })
 
+  .post('/refresh', zValidator('json', refreshRequest),
+    async (c) => {
+      const {refreshToken} = c.req.valid("json")
+      const tokens = await refreshSession(refreshToken, clientInfo(c))
+      if (!tokens) {
+        return c.json({error: "Invalid or expired session"}, 401)
+      }
+      return c.json(tokens)
+    })
+
+  .post('/logout', zValidator('json', refreshRequest),
+    async (c) => {
+      const {refreshToken} = c.req.valid("json")
+      await endSession(refreshToken)
+      return c.body(null, 204)
+    })

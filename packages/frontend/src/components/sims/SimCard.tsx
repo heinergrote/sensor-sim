@@ -11,7 +11,7 @@ import {
   TbOutlineX
 } from "solid-icons/tb";
 import {SimConfig, SpecType} from "@sensor-sim/shared";
-import {useSimConfigsApi} from "../../service/configs.service";
+import {shareConfig, startStopConfig, updateConfigType} from "../../service/configs.service";
 import {serverUrl} from "../../api";
 import {SpecEditor} from "./editors/SpecEditor";
 
@@ -19,10 +19,8 @@ const shareUrl = (token: string) => serverUrl + "/s/" + token
 
 export function SimCard(props: { simConfig: SimConfig }) {
 
-  const api = useSimConfigsApi()
-
   async function updateType(type: SpecType | null) {
-    await api.updateType(props.simConfig.id, type)
+    await updateConfigType(props.simConfig.id, type)
   }
 
 
@@ -45,7 +43,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
               <div class="flex gap-1 items-center">
                 <button class="btn btn-sm w-20"
-                        onClick={() => api.share(config().id, config().shareToken.length === 0)}>
+                        onClick={() => shareConfig(config().id, config().shareToken.length === 0)}>
                   <Show when={config().shareToken}><TbOutlineShareOff/> Share</Show>
                   <Show when={!config().shareToken}><TbOutlineShare/> Share</Show>
                 </button>
@@ -83,7 +81,7 @@ export function SimCard(props: { simConfig: SimConfig }) {
                       </>
                     }
               >
-                <button class="btn btn-sm" onClick={() => api.startStop(config().id, !config().playing)}>
+                <button class="btn btn-sm" onClick={() => startStopConfig(config().id, !config().playing)}>
                   <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
                   <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                 </button>

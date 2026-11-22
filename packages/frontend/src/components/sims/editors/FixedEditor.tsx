@@ -2,7 +2,7 @@ import {createEffect, untrack} from "solid-js";
 import {Marker} from "maplibre-gl";
 import {GeoPosition, SpecFixed} from "@sensor-sim/shared";
 import {TbOutlineWorldLatitude, TbOutlineWorldLongitude} from "solid-icons/tb";
-import {useSimConfigsApi} from "../../../service/configs.service";
+import {updateConfig} from "../../../service/configs.service";
 import {markerElement} from "../markerElement";
 import type {SpecEditorProps} from "./SpecEditor";
 
@@ -11,7 +11,6 @@ const copy = ([lng, lat]: GeoPosition): [number, number] => [lng, lat]
 
 /** No draft: every drag end saves the position right away; the marker follows the (optimistic) spec. */
 export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
-  const api = useSimConfigsApi()
 
   const marker = new Marker(
     {
@@ -23,7 +22,7 @@ export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
 
   const onDragEnd = () => {
     const position = marker.getLngLat().toArray()
-    api.update(props.configId, {spec: {...props.spec, position}})
+    updateConfig(props.configId, {spec: {...props.spec, position}})
   }
 
   // add the marker to the map for as long as this editor is mounted

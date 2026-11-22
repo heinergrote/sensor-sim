@@ -1,7 +1,21 @@
 import {Title} from "@solidjs/meta";
-import {Show} from "solid-js";
+import {createMemo, Loading, Show} from "solid-js";
 import LoginForm from "../components/LoginForm";
 import {useAuth} from "../auth";
+import {TbOutlineMapPinCog} from "solid-icons/tb";
+import {fetchOwnSessions, revokeOwnSession} from "../service/sessions.service";
+import {SessionList} from "../components/sessions/SessionList";
+
+function OwnSessions() {
+  const sessions = createMemo(() => fetchOwnSessions())
+  return (
+    <div class="mt-4">
+      <Loading fallback={<p>Loading sessions…</p>}>
+        <SessionList sessions={sessions()} onRevoke={revokeOwnSession}/>
+      </Loading>
+    </div>
+  )
+}
 
 export default function Home() {
 
@@ -15,7 +29,10 @@ export default function Home() {
 
       <Show when={user()} fallback={<LoginForm/>}>
         <div>Logged in as {user()?.username}</div>
-        <a href="/sims">Show Simulation</a>
+
+        <OwnSessions/>
+
+        <a class="btn mt-4" href="/sims"> <TbOutlineMapPinCog size={24}/> Your Simulations</a>
       </Show>
 
     </div>

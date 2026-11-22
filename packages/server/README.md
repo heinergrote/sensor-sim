@@ -38,6 +38,7 @@ A built `dist/` is self-contained (server + frontend). `http/users.http` has rea
 | `TILE_STYLE`             | per provider | Upstream style path behind `/api/tiles/style.json` |
 | `MAPTILER_KEY`           | —            | Required with `TILE_PROVIDER=maptiler` (500 without it) |
 | `PORT`                   | `4000`       | HTTP port for REST, WebSockets and static files |
+| `TRUST_PROXY`            | —            | `true`: take the session IP from `X-Forwarded-For` / `X-Real-IP` (only behind a reverse proxy) |
 | `NODE_ENV`               | —            | Only logged; CORS is open for all origins       |
 
 ## Architecture
@@ -79,13 +80,21 @@ each module's `toDto` mapping (which e.g. strips password hashes). Only DTOs are
 
 ## Auth
 
-`POST /api/login` returns a 24 h HS256 token (`{sub, username, admin, exp}`). Send it as `Authorization: Bearer …`,
-or as `?token=` on WebSocket routes. No refresh, no server sessions.
+`POST /api/login {username, password}` creates a **session** and returns
+`{accessToken, refreshToken, accessExpiresIn}` (seconds):
+
+- `accessToken` — 15 min HS256 JWT (`{sub, username, admin, sid, exp}`). Send it as `Authorization: Bearer …`, or as
+  `?token=` on WebSocket routes (checked at upgrade only; an open socket outlives the token).
+- `refreshToken` — opaque, stored only as a sha256 hash in `sessions`. `POST /api/login/refresh {refreshToken}`
+  returns a new pair and **rotates** it; the session expiry slides to now + 7 days. Presenting an already rotated
+  token again revokes the whole session (reuse detection). `POST /api/login/logout {refreshToken}` revokes it (204).
+- Sessions record user agent and IP (from `X-Forwarded-For`/`X-Real-IP` only with `TRUST_PROXY=true`), last use
+  and expiry. Revocation stops the next refresh; an already issued access token stays valid until it expires.
 
 | Scope              | Routes                                                                              |
 |--------------------|-------------------------------------------------------------------------------------|
-| public             | `POST /api/login`, `/api/shared/:token[/ws]`, static files                          |
-| any logged-in user | `/api/me`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
+| public             | `POST /api/login[/refresh\|/logout]`, `/api/shared/:token[/ws]`, static files       |
+| any logged-in user | `/api/me`, `/api/sessions`, `/api/status`, `/api/tiles`, `GET/POST /api/configs`, `GET /api/sims` |
 | owner only         | `/api/configs/:id*`, `/api/sims/:id*` (404 unknown, 403 non-owner)                  |
 | admin only         | `/api/users`                                                                        |
 
@@ -125,7 +134,13 @@ Each subapp applies its own middleware; mount order in `index.ts` is irrelevant 
 - `GET /api/status` → the caller's latest `StatusMessage` `{configsRevision}` (empty before the first change).
   `GET /api/configs` sends the matching `X-Config-Revision` header, so clients can tell whether their list is stale.
 - `/api/users` (admin): `GET /`, `GET /:id`, `POST /` `{username, password, admin}`, `PUT /:id` (same body; password
-  re-hashed), `DELETE /:id`. Passwords are scrypt-hashed (`salt:hash`).
+  re-hashed), `DELETE /:id`, `GET /:id/sessions` (that user's active sessions), `DELETE /:id/sessions/:sessionId` (revoke → 204). Passwords are scrypt-hashed
+  (`salt:hash`).
+- `GET /api/sessions` → the caller's active (not revoked, not expired) sessions, most recently used first:
+  `Session[]` `{id, userAgent, ip, createdAt, lastUsedAt, expiresAt, current}` (ISO timestamps; `current` = the
+  requesting token's session). `lastUsedAt` moves on refresh only, not on every request.
+  `DELETE /api/sessions/:id` revokes one of the caller's own sessions → 204 (404 if unknown, someone else's or already
+  revoked). A revoked session can't refresh; its current access token stays valid until it expires (≤ 15 min).
 
 ## WebSocket API
 
@@ -155,7 +170,7 @@ pnpm db:push      # dev only
 pnpm db:studio
 ```
 
-Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`). **Migration `0007` deletes all sim configs**
+Tables: `users`, `sim_configs` (+ sequence `sim_config_label_seq`), `sessions` (`0011`). **Migration `0007` deletes all sim configs**
 (id changed from text to serial; the old text id became `label`). **Migrations `0008`/`0009` drop the old
 `type`/`speed`/target/initial columns** in favour of `spec` — existing configs survive with `spec: null`.
 `0010` adds `created_at`/`updated_at`. Path specs stored with `start`/`target` (before `waypoints`) read as `spec: null`.

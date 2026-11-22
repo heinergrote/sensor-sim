@@ -28,21 +28,35 @@ pnpm lint                      # oxlint src
   causes TS2502 (circular).
 - `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
   `paths.sims(id?)`, `paths.users(id)`) — use them for links.
-- `src/auth.ts` — module-level token signal seeded from `localStorage["jwt_token"]`; `useAuth()` →
-  `{token, login, logout, user}`, `user` = async memo over `GET /api/me`, logs out on failure.
-- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; a `beforeRequest` hook re-reads the token
-  per request. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
+- `src/auth.ts` — access token / expiry / refresh time / refresh token in localStorage (`jwt_token`,
+  `jwt_expires_at`, `jwt_refresh_at`, `refresh_token`). Times are on the **local clock**, computed on receipt from the
+  server's relative `accessExpiresIn`; refresh is due `min(60 s, lifetime / 2)` before expiry (a fixed margin
+  longer than the token's lifetime refreshed in a tight loop). A `session` signal changes **only on login/logout** (also other tabs, via `storage` events) —
+  token rotation is deliberately not reactive, or `user` and the status socket would re-run every 15 min.
+  `getValidToken()` refreshes once due; `refreshTokens(stale)` is single-flight per tab and runs under
+  `navigator.locks` across tabs (re-reads storage under the lock — two tabs presenting the same refresh token
+  would trip the server's reuse detection and kill the session). A 401 from refresh logs out; a network error
+  doesn't. A timer refreshes ahead of expiry while logged in. `useAuth()` → `{login, logout, user}`, `user` =
+  async memo over `GET /api/me`. Logout also clears the router `query` cache.
+- `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; `beforeRequest` sets
+  `await getValidToken()`, `afterResponse` refreshes once and retries (`ky.retry`) on a 401. Both sockets call
+  `getValidToken()` before every (re)connect. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
 
 ### Sim configs: optimistic store + revision signal
 
-- `src/service/configs.service.ts` — `useSimConfigsApi()` returns a lazily created **module singleton**:
-  `configs` (a `createOptimisticStore` over `GET /configs`), `revision()` (its `X-Config-Revision`),
-  `refreshConfigs()`, and core solid-js `action(function* …)`s: `add(label)`, `remove(id)`, `startStop(id, playing)`,
-  `share(id, share)`, `update(id, UpdateSimConfig)` (PATCH; spec edits send the **whole** spec), `updateType(id,
-  SpecType | null)` (`PUT /configs/:id/type`, or `PATCH {spec: null}`). Each writes the store optimistically (or
-  marks it pending with `affects`), awaits the request, then `refresh(configs)`. Call actions directly from handlers.
+- `src/service/configs.service.ts` — plain module exports, imported directly (like `users.service.ts`):
+  `configs` (a `createOptimisticStore` over `GET /configs`), `configsRevision()` (its `X-Config-Revision`),
+  `refreshConfigs()`, and core solid-js `action(function* …)`s: `addConfig(label)`, `removeConfig(id)`,
+  `startStopConfig(id, playing)`, `shareConfig(id, share)`, `updateConfig(id, UpdateSimConfig)` (PATCH; spec edits
+  send the **whole** spec), `updateConfigType(id, SpecType | null)` (`PUT /configs/:id/type`, or
+  `PATCH {spec: null}`). Each writes the store optimistically (or marks it pending with `affects`), awaits the
+  request, then `refresh(configs)`. Call actions directly from handlers.
+  The store is created at module level inside a never-disposed `createRoot` — **never create it from a
+  component**: owned by one, it died on that component's unmount (logout) and never refetched. It tracks
+  `authSession()` from `auth.ts`, so it refetches on login and is `[]` when logged out; any other per-user module
+  state must do the same.
 - **No auto-revalidation on remote changes.** `components/RevisionStatus.tsx` (in `Nav`) owns the `/api/status/ws`
-  socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `api.revision()` it shows a
+  socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `configsRevision()` it shows a
   refresh button. Its icon turns red while disconnected.
 - Don't `deep()`/`snapshot()` rows of the configs store (froze the tab on rc.21); copy fields by plain reads instead.
 - `src/service/simulation.service.ts` — live `SimData` only. `addSimulationListener(id, cb)` lazily opens one
@@ -65,7 +79,7 @@ pnpm lint                      # oxlint src
 - `simulationMap.ts` — imperative MapLibre wrapper outside Solid: map setup and the red current-position marker
   (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
   while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
-  prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (read once at creation).
+  prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (synchronous, reads the stored token per request — kept fresh by `auth.ts`'s timer).
 - `SimCard.tsx` — only rendered for the selected sim. Two DaisyUI cards in a `flex-wrap gap-2` row: left (`grow`) =
   id/label, type `<select>` (→ `updateType`), Share/Unshare + copy (full URL) + token link (`target=_blank`), Delete
   with inline "Really?" confirm; right (`grow-999 basis-0`, only with a spec) = Play/Stop + `<SpecEditor config/>`.
@@ -83,7 +97,7 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
 - **a draft** `createSignal(() => toDraft(props.spec))` — a **plain copy**, never the store's tuples (spreading a
   store proxy in an effect callback triggers `STRICT_READ_UNTRACKED`). It follows the spec after save/remote updates
   (unsaved edits are then dropped). Map events write the draft; a second effect moves the map objects to it;
-- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `api.update(id, {spec: {...props.spec,
+- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `updateConfig(id, {spec: {...props.spec,
   ...draft()}})`. Nothing saves on drag.
 - **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along
   (e.g. `save(position)`) instead of reading it back in the same handler.
@@ -100,6 +114,16 @@ rounded to 9 significant digits for terra draw; shows length via `pathLength`; S
 the draft). Its cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` — after `map.remove()` the
 adapter's `clear()` crashes on the missing sources. Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields
 that, spread tuples (`[...pos]`) into `setLngLat` (readonly).
+
+### Sessions
+
+`src/service/sessions.service.ts` — `fetchOwnSessions()`, `fetchUserSessions(userId)` router `query()`s (cleared on
+logout with the rest of the query cache); `revokeOwnSession(id)`, `revokeUserSession(userId, id)` plain functions that
+revalidate both queries (an admin's own sessions appear in both lists). `components/sessions/SessionList.tsx` renders a `Session[]` table
+(`describeUserAgent` → "Firefox on macOS", raw UA as `title`; "this device" badge for `current`). Its `onRevoke(id)` prop backs a Revoke button per row; the `current` row gets
+Log out instead (`logout()` + navigate home), since revoking it would only log out after the access token lapses. Shown on `Home`
+under "Logged in as" (own) and below the form in `UserDetail` (admin only, behind `user()?.admin`), each in its own
+`Loading`.
 
 ### Users
 

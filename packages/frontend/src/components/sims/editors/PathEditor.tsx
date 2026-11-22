@@ -12,7 +12,7 @@ import {
   TbOutlineScribble
 } from "solid-icons/tb";
 import {BsSpeedometer} from "solid-icons/bs";
-import {useSimConfigsApi} from "../../../service/configs.service";
+import {updateConfig} from "../../../service/configs.service";
 import type {SpecEditorProps} from "./SpecEditor";
 import {
   TerraDraw,
@@ -58,7 +58,6 @@ const toDrawPrecision = (waypoints: readonly GeoPosition[]): GeoPosition[] =>
  * line edit becomes the draft; Reset/save/remote updates redraw the line. Speed is part of the draft (see OrbitEditor).
  */
 export default function PathEditor(props: SpecEditorProps<SpecPath>) {
-  const api = useSimConfigsApi()
 
   // plain copy of the saved spec. Copying tracks every waypoint tuple of the store (hundreds of sources), so the copy
   // runs untracked and is keyed on coarse markers instead: the spec object (replaced by the optimistic update on
@@ -223,7 +222,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   // effect: new configId
   createEffect(
     () => props.configId,
-    (configId) => {
+    (_configId) => {
       const coords = untrack(() => props.spec.waypoints.map(([lng, lat]) => ({lng, lat})))
       if (coords.length > 0) {
         const bounds = new LngLatBounds(coords[0], coords[0]);
@@ -249,7 +248,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
 
   async function save() {
     if (!isValidPath()) return
-    await api.update(props.configId, {spec: {...props.spec, ...draft()}})
+    await updateConfig(props.configId, {spec: {...props.spec, ...draft()}})
   }
 
   return (

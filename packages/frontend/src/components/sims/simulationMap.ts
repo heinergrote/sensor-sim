@@ -1,6 +1,7 @@
 import {GeolocateControl, MapLibreMap, Marker, NavigationControl, ScaleControl, setWorkerUrl} from "maplibre-gl";
 import {addSimulationListener} from "../../service/simulation.service";
 import {currentMarkerElement} from "./markerElement";
+import {jwtToken} from "../../auth";
 
 // In dev, Vite rewrites the worker's dynamic `import()`s to go through `/@vite/client`, which then runs the HMR
 // client inside the worker and throws `document is not defined` on every CSS hot update. Load the untransformed
@@ -26,7 +27,6 @@ export type SimulationMap = {
 
 export async function createSimulationMap(
   element: HTMLDivElement,
-  jwtToken: string | null,
 ): Promise<SimulationMap> {
 
 
@@ -44,16 +44,18 @@ export async function createSimulationMap(
     canvasContextAttributes: {
       preserveDrawingBuffer: true
     },
-    transformRequest: jwtToken ?
-      (url, _resourceType) => {
-        // add bearer token to requests going to our own server (the tile proxy), which in dev is
-        // :4000 while the page runs on :3000 - so compare against the style's origin, not the page's
-        if (url.startsWith(tileServerUrl + "/")) {
-          return {url, headers: {'Authorization': 'Bearer ' + jwtToken}};
-        }
-        // keep other requests unmodified
-        return {url};
-      } : undefined,
+    transformRequest: (url, _resourceType) => {
+      // add bearer token to requests going to our own server (the tile proxy), which in dev is
+      // :4000 while the page runs on :3000 - so compare against the style's origin, not the page's.
+      // Read per request: the access token rotates every 15 min (auth.ts keeps the stored one fresh,
+      // this hook is synchronous and can't refresh itself)
+      const token = jwtToken()
+      if (token && url.startsWith(tileServerUrl + "/")) {
+        return {url, headers: {'Authorization': 'Bearer ' + token}};
+      }
+      // keep other requests unmodified
+      return {url};
+    },
   });
 
   map.setMissingStyleImageResolver((id) => {

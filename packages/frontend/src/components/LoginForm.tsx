@@ -2,6 +2,7 @@ import {createSignal} from "solid-js";
 import {useAuth} from "../auth";
 import {api} from "../api";
 import {paths} from "../router";
+import {LoginResponse} from "@sensor-sim/shared";
 import {useNavigate} from "@solidjs/router";
 
 export default function LoginForm() {
@@ -16,13 +17,13 @@ export default function LoginForm() {
     setError('')
 
     try {
-      const response = await api.post<{ token: string }>(`/login`, {
+      const response = await api.post<LoginResponse>(`/login`, {
         json: {
           username: username(),
           password: password()
         }
       }).json()
-      login(response.token)
+      login(response)
       navigate(paths.sims())
 
     } catch {
