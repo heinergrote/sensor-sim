@@ -22,8 +22,7 @@ import {
   TerraDrawSelectMode
 } from "terra-draw";
 import {TerraDrawMapLibreGLAdapter} from "terra-draw-maplibre-gl-adapter";
-import {pathLength} from "@sensor-sim/shared/geoUtils";
-import {LngLatBounds} from "maplibre-gl";
+import {boundsOf, pathLength} from "@sensor-sim/shared/geoUtils";
 
 type PathDraft = {
   waypoints: GeoPosition[],
@@ -54,7 +53,7 @@ const toDrawPrecision = (waypoints: readonly GeoPosition[]): GeoPosition[] =>
   waypoints.map(([lng, lat]) => [+lng.toPrecision(9), +lat.toPrecision(9)] as const)
 
 /**
- * Waypoints are edited with the MapLibre terradraw control (to be replaced by plain Terra Draw): a finished
+ * Waypoints are edited with terradraw: a finished
  * line edit becomes the draft; Reset/save/remote updates redraw the line. Speed is part of the draft (see OrbitEditor).
  */
 export default function PathEditor(props: SpecEditorProps<SpecPath>) {
@@ -63,16 +62,18 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   // runs untracked and is keyed on coarse markers instead: the spec object (replaced by the optimistic update on
   // save) and updatedAt (changes with every server write; refresh reconciles waypoints in place).
   const saved = createMemo(() => {
-    const spec = props.spec
-    const _updatedAt = props.updatedAt // tracked only
-    return untrack(() => toDraft(spec))
+    void props.updatedAt // tracked only
+    return untrack(() => toDraft(props.spec))
   }, {name: "pathEditor.saved", equals: sameDraft})
 
   const [draft, setDraft] = createSignal<PathDraft>(() => saved(), {name: "pathEditor.draft"})
   const dirty = createMemo(() => !sameDraft(draft(), saved()), {name: "pathEditor.dirty"})
   const isValidPath = createMemo(() => draft().waypoints.length >= 2, {name: "pathEditor.isValidPath"})
 
-  const [terraDrawModeId, setTerraDrawModeId] = createSignal(() => "select", {name: "pathEditor.terraDrawModeId"})
+  const [autoSave, setAutoSave] = createSignal(true, {name: "pathEditor.autoSave"})
+
+
+  const [terraDrawModeId, setTerraDrawModeId] = createSignal("select", {name: "pathEditor.terraDrawModeId"})
 
   const length = createMemo(() => {
     const waypoints = draft().waypoints
@@ -89,6 +90,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
 
   function render(waypoints: readonly GeoPosition[], mode = "linestring") {
     if (!terraDraw) return
+
     drawn = toDrawPrecision(waypoints)
     terraDraw.clear()
     const result = terraDraw.addFeatures([{
@@ -98,12 +100,19 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
     }])
 
     if (result.length === 1 && result[0].id && result[0].valid) {
+
       featureId = result[0].id
-      terraDraw.selectFeature(featureId)
+      requestAnimationFrame(
+        () => {
+          if (featureId && terraDraw?.getMode() === "select") terraDraw?.selectFeature(featureId)
+        }
+      )
+
     } else {
       terraDraw.clear()
       featureId = undefined
     }
+
   }
 
   function onFinish(id: string | number) {
@@ -114,7 +123,12 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
     const editMode = feature?.properties?.mode?.toString()
     setDraft(d => ({...d, waypoints: drawn, editMode: editMode || d.editMode}))
 
-    setTerraDrawModeId("select")
+    const draw = terraDraw
+    requestAnimationFrame(() => {
+      if (terraDraw !== draw) return
+      draw.setMode(terraDrawModeId())
+      if (autoSave()) save()
+    })
 
   }
 
@@ -173,8 +187,6 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       });
 
       terraDraw.start()
-      // existing path starts selected
-      terraDraw.setMode(untrack(terraDrawModeId))
       terraDraw.on('finish', onFinish)
 
       // SimMap defers map.remove() until editors are cleaned up; should the map still be gone first, stop() would
@@ -193,7 +205,20 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
         if (!mapRemoved) terraDraw?.stop()
         terraDraw = undefined
       }
-    }, {name: "pathEditor.drawControl"})
+    }, {name: "pathEditor.drawControl"}
+  )
+
+  createEffect(
+    () => ({map: props.map, mode: terraDrawModeId()}),
+    ({mode}) => {
+      if (!terraDraw) return
+      terraDraw.setMode(mode)
+      if (mode === "select" && featureId) {
+        terraDraw.selectFeature(featureId)
+      }
+    },
+    {name: "pathEditor.mode"}
+  )
 
   // plain copy in compute — no store proxies in the apply phase
   createEffect(
@@ -205,36 +230,23 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
       if (!sameWaypoints(toDrawPrecision(waypoints), drawn))
         render(waypoints, editMode)
     },
-    {name: "pathEditor.line"})
-
-
-  createEffect(
-    () => terraDrawModeId(),
-    (mode) => {
-      if (!terraDraw) return
-      terraDraw.setMode(mode)
-      if (mode === "select") {
-        if (featureId) terraDraw.selectFeature(featureId)
-      }
-    }
+    {name: "pathEditor.line"}
   )
 
-  // effect: new configId
+
+  // fitBounds: track map + configId; read waypoints deliberately untracked in compute (dependency control)
   createEffect(
-    () => props.configId,
-    (_configId) => {
-      const coords = untrack(() => props.spec.waypoints.map(([lng, lat]) => ({lng, lat})))
-      if (coords.length > 0) {
-        const bounds = new LngLatBounds(coords[0], coords[0]);
-        for (const coord of coords) {
-          bounds.extend(coord);
-        }
-        props.map.fitBounds(bounds, {
+    () => ({map: props.map, configId: props.configId, waypoints: untrack(saved).waypoints}),
+    ({map, waypoints}) => {
+      if (waypoints.length >= 2) {
+        const box = boundsOf(waypoints)
+        map.fitBounds([[box[0], box[1]], [box[2], box[3]]], {
           padding: 60,
           maxZoom: 18
         });
       }
-    }
+    },
+    {name: "pathEditor.fitBounds"}
   )
 
 
@@ -284,7 +296,13 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
         </button>
       </div>
 
-      <div class="flex gap-2 justify-end">
+      <div class="flex gap-2 justify-end items-center">
+        <label class="label">
+          <input type="checkbox" checked={autoSave()} class="checkbox"
+                 onChange={() => setAutoSave(!autoSave())}/>
+          Autosave
+        </label>
+
         <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
           <TbOutlineArrowBackUp/> Undo
         </button>

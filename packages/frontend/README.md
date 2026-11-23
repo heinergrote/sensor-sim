@@ -23,7 +23,7 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 - **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`; no `formAction`s)
 - **MapLibre GL 6** — map rendering; **Terra Draw** (+ MapLibre adapter) — path drawing;
-  `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length
+  `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length/bounds
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
 
@@ -78,12 +78,12 @@ map through `MapContext` and owns its map objects:
 
 | Type  | On the map                                                       | On the card                     |
 |-------|------------------------------------------------------------------|---------------------------------|
-| fixed | blue marker = position (saved on drag end)                       | position                        |
+| fixed | marker = position; click the map to move it (saved at once)      | position                        |
 | orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
-| path  | Terra Draw line — drag/edit vertices, or **New** (line/freehand) | length, point count, speed      |
+| path  | Terra Draw line — select/drag vertices, draw line or freehand    | length, points, speed, play mode |
 
 Orbit and path edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset**/**Undo**
-discards them. Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
+discards them. A finished path edit autosaves while **Autosave** is checked (default). Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
 
 **Users — plain REST** via `src/service/users.service.ts`: router `query`s for reads, plain async mutations
 (called from submit/click handlers) that revalidate the queries.

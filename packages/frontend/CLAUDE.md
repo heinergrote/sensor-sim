@@ -16,9 +16,8 @@ pnpm lint                      # oxlint src
 
 ## Architecture
 
-- `src/App.tsx` / `src/Document.tsx` — app shell and HTML document. The **only `Loading` boundary** wraps the whole
-  shell (`Nav` + `main`) in `App.tsx`; pages and `Nav` don't add their own. The `Errored` boundary is commented out. No `index.html`/mount file: `@solidjs/vite-plugin` turnkey mode (`start: true`)
-  generates entries.
+- `src/App.tsx` / `src/Document.tsx` — shell and HTML document. The **only `Loading` boundary** wraps `Nav` + `main`
+  in `App.tsx` (`Errored` is commented out). No `index.html`: `@solidjs/vite-plugin` turnkey mode generates entries.
 - `src/routes.ts` — the explicit route tree (`defineRoutes`): `/`, `/sims/:id?`, `/users`, `/users/:id`, `*404`.
   Every page is a `lazy(() => import(...))` chunk under `src/pages/`.
 - `src/pages/<area>/<area>.route.ts` — `defineRoute({path, matchFilters: {id: int}, preload?})` **without**
@@ -28,33 +27,27 @@ pnpm lint                      # oxlint src
   causes TS2502 (circular).
 - `src/router.ts` — `createRouter({routes, preloadLinks: intentPreload()})`; typed `paths` (`paths()`,
   `paths.sims(id?)`, `paths.users(id)`) — use them for links.
-- `src/auth.ts` — access token / expiry / refresh time / refresh token in localStorage (`jwt_token`,
-  `jwt_expires_at`, `jwt_refresh_at`, `refresh_token`). Times are on the **local clock**, computed on receipt from the
-  server's relative `accessExpiresIn`; refresh is due `min(60 s, lifetime / 2)` before expiry (a fixed margin
-  longer than the token's lifetime refreshed in a tight loop). A `session` signal changes **only on login/logout** (also other tabs, via `storage` events) —
-  token rotation is deliberately not reactive, or `user` and the status socket would re-run every 15 min.
-  `getValidToken()` refreshes once due; `refreshTokens(stale)` is single-flight per tab and runs under
-  `navigator.locks` across tabs (re-reads storage under the lock — two tabs presenting the same refresh token
-  would trip the server's reuse detection and kill the session). A 401 from refresh logs out; a network error
-  doesn't. A timer refreshes ahead of expiry while logged in. `useAuth()` → `{login, logout, user}`, `user` =
-  async memo over `GET /api/me`. Logout also clears the router `query` cache.
+- `src/auth.ts` — tokens + expiry/refresh times in localStorage (`jwt_token`, `jwt_expires_at`, `jwt_refresh_at`,
+  `refresh_token`), on the **local clock** from the server's relative `accessExpiresIn`; refresh due
+  `min(60 s, lifetime / 2)` before expiry (a fixed margin longer than the lifetime looped). The `session` signal
+  changes **only on login/logout** (also other tabs via `storage`) — rotation is deliberately not reactive.
+  `refreshTokens(stale)` is single-flight per tab and runs under `navigator.locks` across tabs, re-reading storage
+  (two tabs presenting one refresh token trip the server's reuse detection). Refresh 401 → logout; network error
+  doesn't. A timer refreshes ahead of expiry. `useAuth()` → `{login, logout, user}` (`user` = async memo over
+  `GET /api/me`). Logout also clears the router `query` cache.
 - `src/api.ts` — `api = ky.extend({baseUrl: serverUrl, prefix: "/api"})`; `beforeRequest` sets
   `await getValidToken()`, `afterResponse` refreshes once and retries (`ky.retry`) on a 401. Both sockets call
   `getValidToken()` before every (re)connect. `serverUrl` = `http://localhost:4000` in dev, `window.location.origin` in prod.
 
 ### Sim configs: optimistic store + revision signal
 
-- `src/service/configs.service.ts` — plain module exports, imported directly (like `users.service.ts`):
-  `configs` (a `createOptimisticStore` over `GET /configs`), `configsRevision()` (its `X-Config-Revision`),
-  `refreshConfigs()`, and core solid-js `action(function* …)`s: `addConfig(label)`, `removeConfig(id)`,
-  `startStopConfig(id, playing)`, `shareConfig(id, share)`, `updateConfig(id, UpdateSimConfig)` (PATCH; spec edits
-  send the **whole** spec), `updateConfigType(id, SpecType | null)` (`PUT /configs/:id/type`, or
-  `PATCH {spec: null}`). Each writes the store optimistically (or marks it pending with `affects`), awaits the
-  request, then `refresh(configs)`. Call actions directly from handlers.
-  The store is created at module level inside a never-disposed `createRoot` — **never create it from a
-  component**: owned by one, it died on that component's unmount (logout) and never refetched. It tracks
-  `authSession()` from `auth.ts`, so it refetches on login and is `[]` when logged out; any other per-user module
-  state must do the same.
+- `src/service/configs.service.ts` — module exports: `configs` (`createOptimisticStore` over `GET /configs`),
+  `configsRevision()` (`X-Config-Revision`), `refreshConfigs()`, and core `action(function* …)`s `addConfig`,
+  `removeConfig`, `startStopConfig`, `shareConfig`, `updateConfig(id, UpdateSimConfig)` (PATCH; spec edits send the
+  **whole** spec), `updateConfigType(id, SpecType | null)`. Each writes optimistically (or `affects`), awaits, then
+  `refresh(configs)`; call them from handlers. The store lives in a never-disposed module-level `createRoot` —
+  **never create it from a component** (it died on logout unmount). It tracks `authSession()` (refetch on login,
+  `[]` logged out); other per-user module state must do the same.
 - **No auto-revalidation on remote changes.** `components/RevisionStatus.tsx` (in `Nav`) owns the `/api/status/ws`
   socket: it stores `{configsRevision}` in `statusConfigsRevision`; when that exceeds `configsRevision()` it shows a
   refresh button. Its icon turns red while disconnected.
@@ -66,64 +59,65 @@ pnpm lint                      # oxlint src
 
 ### Sims page and map
 
-- `pages/sims/Sims.tsx` — selection lives in the URL. The selected config is derived from `api.configs` (no separate
-  fetch); if the id isn't in the list, an effect redirects to `/sims` (`replace`). Renders
-  `components/sims/SimList.tsx`: `SimForm` + a DaisyUI `list` of rows (id button, label, type; clicking toggles
-  `/sims` ↔ `/sims/:id`) beside `SimDetails`.
-- `SimDetails.tsx` — the selected sim's `SimCard` above the map. Provides **`MapContext`** (`editors/mapContext.ts`,
-  an accessor of the loaded `MapLibreMap | undefined`). Creates the map in `onSettled` inside a
-  `requestAnimationFrame` (MapLibre setup is >10 ms sync → `HOT_SCOPE_TIME`). Its effect tracks just `simConfig?.id`
-  → `simulationMap.attachSim(id)`, so spec edits never resubscribe the live socket. Cleanup defers `dispose()`
-  (`map.remove()`) to a microtask: editors are disposed in the same pass and must detach from a live map. A map that
-  loads after unmount is disposed.
+- `pages/sims/Sims.tsx` — selection lives in the URL; the config is derived from `configs` (unknown id → effect
+  redirects to `/sims`, `replace`). `SimList.tsx`: `SimForm` + DaisyUI `list` (row click toggles `/sims` ↔ `/sims/:id`).
+- `SimDetails.tsx` — `SimCard` above the map; provides **`MapContext`** (accessor of the loaded map). Creates the map
+  in `onSettled` inside a rAF (setup is >10 ms → `HOT_SCOPE_TIME`). Its effect tracks only `simConfig?.id` →
+  `attachSim(id)`, so spec edits never resubscribe the socket. Cleanup defers `map.remove()` to a microtask so editors
+  detach from a live map; a map loading after unmount is disposed.
 - `simulationMap.ts` — imperative MapLibre wrapper outside Solid: map setup and the red current-position marker
   (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
   while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
   prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (synchronous, reads the stored token per request — kept fresh by `auth.ts`'s timer).
-- `SimCard.tsx` — only rendered for the selected sim. Two DaisyUI cards in a `flex-wrap gap-2` row: left (`grow`) =
-  id/label, type `<select>` (→ `updateType`), Share/Unshare + copy (full URL) + token link (`target=_blank`), Delete
-  with inline "Really?" confirm; right (`grow-999 basis-0`, only with a spec) = Play/Stop + `<SpecEditor config/>`.
-  Either fills the row when alone on its line. The select keeps a **draft signal** (`createSignal(() => prop)`) so
-  the binding doesn't write the old value back mid-request; reset on rejection. Labels (`sim-55`) are not ids.
+- `SimCard.tsx` — selected sim only: left card (label, type `<select>`, share/copy/token link, Delete with "Really?"),
+  right card (only with a spec: Play/Stop + `<SpecEditor>`). The type select keeps a **draft signal**
+  (`createSignal(() => prop)`) so the binding doesn't write the old value back mid-request. Labels aren't ids.
 
 ### Spec editors (`components/sims/editors/`)
 
 One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
 — a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
-editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, updatedAt, map}` and owns:
+editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, updatedAt, map}` (pass `map={map()}` — never `untrack` it, every editor tracks
+`props.map`) and owns its map objects, a draft and its UI.
 
-- **its map objects**, added in `createEffect(() => props.map, map => {…; return cleanup})` and removed on cleanup
-  (unmount = deselect, type change, other sim selected);
-- **a draft** `createSignal(() => toDraft(props.spec))` — a **plain copy**, never the store's tuples (spreading a
-  store proxy in an effect callback triggers `STRICT_READ_UNTRACKED`). It follows the spec after save/remote updates
-  (unsaved edits are then dropped). Map events write the draft; a second effect moves the map objects to it;
-- **its UI**: draft values, Reset/Save (enabled while dirty). Save → `updateConfig(id, {spec: {...props.spec,
-  ...draft()}})`. Nothing saves on drag.
-- **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along
-  (e.g. `save(position)`) instead of reading it back in the same handler.
+**Solid ↔ MapLibre rules** (`createEffect(compute, apply)`; `apply` already runs untracked):
+- **compute reads, apply acts.** Every reactive input (incl. `props.map`) is read in compute, which returns plain
+  data (copied tuples, no store proxies). apply touches only its argument and non-reactive locals (`marker`,
+  `terraDraw`, `drawn`). A reactive read in apply triggers `STRICT_READ_UNTRACKED` — move it, don't `untrack` it.
+- **`untrack` only in compute/memos to choose dependencies** (PathEditor's `saved`, `fitBounds`); in apply it only
+  hides the warning, in event handlers/rAF it's a no-op.
+- **One effect per concern:** a mount effect (`() => props.map` → add objects + listeners, cleanup removes them
+  all, incl. `map.off(...)`) and sync effects (data → `setLngLat`/redraw). **Declare the position effect before
+  the mount effect** — `Marker.addTo` needs a position, so mount reads none.
+- Map events write signals (no owner → reads/writes are fine). The imperative object is the source of truth for
+  its own state (`terraDraw.getMode()`), don't read signals back to learn it. rAF callbacks check the instance is
+  still current (`if (terraDraw !== draw) return`).
+- **Drafts:** `createSignal(() => toDraft(props.spec))`, a plain copy that follows the spec after save/remote
+  updates (unsaved edits dropped). Save → `updateConfig(id, {spec: {...props.spec, ...draft()}})`.
+- **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along.
 
-Types: `FixedEditor` (the exception: **no draft/UI**, blue marker saves `position` on `dragend` and follows
-`props.spec`); `OrbitEditor` (blue center moves the whole orbit, green start sets
-`radius`/`startAngle` via `@sensor-sim/shared/geoUtils`; `speed` slider is part of the draft); `PathEditor`
-(plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`, no UI control: modes `select` (default; drag line/vertices,
-midpoints, delete vertices), `linestring`, `freehand-linestring` via the card's two **New** buttons; a `finish` event
-sets `waypoints`; the drawn line starts selected; the draft follows a `saved` memo that copies the spec
-**untracked**, keyed on the spec object + `updatedAt` (tracking every waypoint tuple made hundreds of sources), and
-**Undo** resets to it; redraws only if the draft differs from what's drawn; coordinates
-rounded to 9 significant digits for terra draw; shows length via `pathLength`; Save needs ≥ 2 waypoints; `speed` in
-the draft). Its cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` — after `map.remove()` the
-adapter's `clear()` crashes on the missing sources. Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields
-that, spread tuples (`[...pos]`) into `setLngLat` (readonly).
+Types:
+- `FixedEditor` — **no draft**: a map click saves `position` (optimistic); the default marker follows `props.spec`.
+- `OrbitEditor` — blue center moves the orbit, green start sets `radius`/`startAngle` (`geoUtils`); `speed` slider;
+  Reset/Save. Nothing saves on drag.
+- `PathEditor` — plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`. Mode buttons `select` (default; drag
+  line/vertices, midpoints, delete vertices), `linestring`, `freehand-linestring`; clicking the active one switches
+  to render-only `default`. A `mode` effect tracks `{map, mode}` (map only so a new TerraDraw gets its mode). A
+  `finish` event sets `waypoints`/`editMode`, then (next frame) resets the mode and **autosaves** if the Autosave
+  checkbox is on (default). The draft (waypoints, speed, editMode, playMode Single/Loop/Reversing) follows a `saved`
+  memo that copies the spec **untracked**, keyed on the spec object + `updatedAt` (tracking every tuple made hundreds
+  of sources); **Undo** resets to it. Redraws only if the draft differs from `drawn`; coordinates rounded to 9
+  significant digits for Terra Draw; Save needs ≥ 2 waypoints. `fitBounds` (`boundsOf`) on map/config change.
+  Cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` (the adapter's `clear()` crashes after it).
+
+Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields that; spread readonly tuples into `setLngLat`.
 
 ### Sessions
 
-`src/service/sessions.service.ts` — `fetchOwnSessions()`, `fetchUserSessions(userId)` router `query()`s (cleared on
-logout with the rest of the query cache); `revokeOwnSession(id)`, `revokeUserSession(userId, id)` plain functions that
-revalidate both queries (an admin's own sessions appear in both lists). `components/sessions/SessionList.tsx` renders a `Session[]` table
-(`describeUserAgent` → "Firefox on macOS", raw UA as `title`; "this device" badge for `current`). Its `onRevoke(id)` prop backs a Revoke button per row; the `current` row gets
-Log out instead (`logout()` + navigate home), since revoking it would only log out after the access token lapses. Shown on `Home`
-under "Logged in as" (own) and below the form in `UserDetail` (admin only, behind `user()?.admin`), each in its own
-`Loading`.
+`src/service/sessions.service.ts` — `fetchOwnSessions()`, `fetchUserSessions(userId)` router `query()`s;
+`revokeOwnSession(id)`, `revokeUserSession(userId, id)` revalidate both (an admin's own sessions are in both).
+`components/sessions/SessionList.tsx` (`describeUserAgent` → "Firefox on macOS"; the `current` row gets Log out instead
+of Revoke). Shown on `Home` (own) and in `UserDetail` (admin only), each in its own `Loading`.
 
 ### Users
 
@@ -157,11 +151,8 @@ style URL's origin (in dev `:4000`, not the page's `:3000`).
 
 ## Reactive diagnostics — capture evidence instead of guessing
 
-- **In tests:** `captureArtifact()` from `@solidjs/diagnostics`; matchers from `@solidjs/diagnostics/vitest`.
-- **Against the dev server** (requires `diagnostics: true` in `vite.config.ts` — currently `false`): `GET
-  /__solid/diagnostics`; `POST` `{"method":"begin"|"end"|"costs"}` or `{"method":"whyDidRun","params":{"name":…}}`.
-- Without it: dev warnings land in the browser console; wrap `console.warn` to capture `new Error().stack` and find
-  the offending effect.
-
+Tests: `captureArtifact()` + `@solidjs/diagnostics/vitest` matchers. Dev server (needs `diagnostics: true` in
+`vite.config.ts`, currently `false`): `GET /__solid/diagnostics`; `POST {"method":"begin"|"end"|"costs"|"whyDidRun"}`.
+Otherwise wrap `console.warn` and capture `new Error().stack` to find the offending effect.
 Name signals/memos/effects (`{ name: "..." }`) — attribution reports scopes by name. Solid 2.0 batches DOM updates:
 tests must `flush()` after firing events before asserting.

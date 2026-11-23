@@ -58,3 +58,8 @@ export function randomOffset(origin: GeoPosition, minMeters: number, maxMeters: 
   const distance = minMeters + Math.random() * (maxMeters - minMeters);
   return getPosition(origin, distance, azimuth);
 }
+
+export function boundsOf(positions: readonly GeoPosition[]) {
+  const line = turf.lineString(positions.map(position => [...position]));
+  return turf.bbox(line);
+}

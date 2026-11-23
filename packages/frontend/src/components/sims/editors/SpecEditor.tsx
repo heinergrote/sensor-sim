@@ -40,7 +40,8 @@ export function SpecEditor(props: { config: SimConfig }) {
     <Show when={map()} fallback={<span class="text-sm opacity-60">Loading map…</span>}>
       {(map) => (
         <Show when={props.config.spec}>
-          {(spec) => <Editor configId={props.config.id} spec={spec()} updatedAt={props.config.updatedAt} map={map()}/>}
+          {(spec) => <Editor configId={props.config.id} spec={spec()} updatedAt={props.config.updatedAt}
+                             map={map()}/>}
         </Show>
       )}
     </Show>

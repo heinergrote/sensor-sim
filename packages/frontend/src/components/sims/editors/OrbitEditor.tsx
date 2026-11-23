@@ -1,4 +1,4 @@
-import {createEffect, createMemo, createSignal, untrack} from "solid-js";
+import {createEffect, createMemo, createSignal} from "solid-js";
 import {Marker} from "maplibre-gl";
 import {SpecOrbit} from "@sensor-sim/shared";
 import {getAzimuth, getDistance, getPosition} from "@sensor-sim/shared/geoUtils";
@@ -56,12 +56,27 @@ export default function OrbitEditor(props: SpecEditorProps<SpecOrbit>) {
     setDraft(d => ({...d, radius: getDistance(d.center, start), startAngle: getAzimuth(d.center, start)}))
   }
 
+
+  // update the markers when the draft changes
+  // declared before mount effect, the markers need positions set, to be add-able
+  createEffect(
+    () => ({
+      center: [...draft().center] as [number, number],
+      start: [...startPosition()] as [number, number]
+    }),
+
+    ({center, start}) => {
+      centerMarker.setLngLat(center);
+      startMarker.setLngLat(start)
+    },
+    {name: "orbitEditor.positions"})
+
   // add the markers to the map when the map is ready
   createEffect(
     () => props.map,
     (map) => {
-      centerMarker.setLngLat([...untrack(draft).center]).addTo(map)
-      startMarker.setLngLat([...untrack(startPosition)]).addTo(map)
+      centerMarker.addTo(map)
+      startMarker.addTo(map)
       centerMarker.on('dragend', onCenterDragEnd)
       startMarker.on('dragend', onStartDragEnd)
       map.flyTo({center: centerMarker.getLngLat()})
@@ -72,18 +87,6 @@ export default function OrbitEditor(props: SpecEditorProps<SpecOrbit>) {
         startMarker.remove()
       }
     }, {name: "orbitEditor.markers"}
-  )
-
-  // move the markers when the center or start position changes
-  createEffect(
-    () => ({
-      center: [...draft().center] as [number, number],
-      start: [...startPosition()] as [number, number]
-    }),
-    ({center, start}) => {
-      centerMarker.setLngLat(center)
-      startMarker.setLngLat(start)
-    }, {name: "orbitEditor.positions"}
   )
 
   // save the draft to remote

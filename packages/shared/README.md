@@ -13,7 +13,7 @@ src/types.ts               DTO types (z.infer), Spec, SpecType, SpecFixed/Path/O
                            StatusMessage, Profile
 src/index.ts               re-exports schemas + types            → import from "@sensor-sim/shared"
 src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, randomBetween, pathLength,
-                           getPositionOnPathByDistance, getNearestPositionOnPath
+                           getPositionOnPathByDistance, getNearestPositionOnPath, boundsOf
                                                                  → "@sensor-sim/shared/geoUtils"
 ```
 
