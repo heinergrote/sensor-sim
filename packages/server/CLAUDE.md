@@ -1,7 +1,8 @@
 # packages/server
 
 `@sensor-sim/server`: one Hono app on `@hono/node-server` (`PORT`, default 4000). Owns sim configs + users (Postgres
-via Drizzle), the in-memory simulation engine, JWT auth, the tile proxy (`/api/tiles`), and serves the built frontend in prod.
+via Drizzle), the in-memory simulation engine, JWT auth, the tile proxy (`/api/tiles`), and serves the built frontend in
+prod.
 Throws at import without `DATABASE_URL` / `JWT_SECRET`. Endpoint tables and env reference: `README.md`.
 
 ## Commands (run here, or `pnpm --filter @sensor-sim/server <script>` from root)
@@ -113,10 +114,10 @@ init(spec)               initial state — `SimulationStateMap[T]`, always has `
 step(state, spec, dt)    pure reducer, returns the next state
 ```
 
-Callers use only the type-erased `simulationDefinitions` facade (`getDefaultSpec`, `getLocation`, `init`, `step`,
+Callers use only the type-erased `simulationDefinitions` facade (`getLocation`, `init`, `step`,
 `getCurrentPosition`). `simulationRunner.currentSimData()` converts the state's tuple to
-`SimData.position` `{latitude, longitude}` — the only object-shaped coordinate. `PUT /api/configs/:id/type {type}` replaces the spec with `getDefaultSpec(type,
-getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is `PATCH {spec: null}`.
+`SimData.position` `{latitude, longitude}` — the only object-shaped coordinate. There is no type endpoint: the
+client sets or clears the type with `PATCH /api/configs/:id {spec}` (a full spec, or `null`).
 
 **New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its
 `Spec*` type in `types.ts` → state entry in `SimulationStateMap` → `definitions/<type>.ts` → register in
@@ -155,7 +156,8 @@ user-scoped conditional UPDATE, so 404 doesn't reveal whether a session id exist
 `POST /api/configs/:id/share` writes `<id>!<nanoid(10)>` (`TOKEN_SEP = "!"`, exported from `simShareMiddleware`) to
 `sim_configs.share_token`; `unshare` clears it. No expiry, no signature — the token is an unguessable secret.
 `simShareMiddleware` splits off the id, loads the config and requires `share_token === token` (so revoke is
-immediate), then sets `simRunner` for `GET /api/shared/:token` — one route: a WebSocket upgrade streams `SimData`, any other GET gets it once as JSON (`/:token/ws` is a legacy alias for the same handlers). `sharedApp` is mounted twice
+immediate), then sets `simRunner` for `GET /api/shared/:token` — one route: a WebSocket upgrade streams `SimData`, any
+other GET gets it once as JSON (`/:token/ws` is a legacy alias for the same handlers). `sharedApp` is mounted twice
 (`/api/shared` and `/s`); the frontend builds share URLs on `/s`.
 
 ## Gotchas

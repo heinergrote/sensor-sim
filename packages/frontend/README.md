@@ -23,7 +23,7 @@ from its own origin. Log in with the admin the server's migrate step seeded; onl
 
 - **SolidJS 2.0** (optimistic stores, `action`s) + **@solidjs/router** (explicit route tree, `query`; no `formAction`s)
 - **MapLibre GL 6** — map rendering; **Terra Draw** (+ MapLibre adapter) — path drawing;
-  `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length
+  `@sensor-sim/shared/geoUtils` (turf) — distance/bearing/path length/bounds
 - **ky** — REST client (`src/api.ts`); response types come from `@sensor-sim/shared`
 - **Tailwind CSS 4 + DaisyUI**, **solid-icons**; **oxlint** for linting
 
@@ -55,9 +55,9 @@ loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` ins
 
 ## Data flow
 
-**Sim configs — optimistic store + revision signal.** `src/service/configs.service.ts` (`useSimConfigsApi()`) keeps
-the config list in an optimistic store over `GET /api/configs` and exposes Solid `action`s (`add`, `remove`,
-`startStop`, `share`, `update`, `updateType`): the UI updates immediately, then the list is refetched. Changes from
+**Sim configs — optimistic store + revision signal.** `src/service/configs.service.ts` keeps
+the config list in an optimistic store over `GET /api/configs` and exports Solid `action`s (`addConfig`,
+`removeConfig`, `startStopConfig`, `shareConfig`, `updateConfig` — also sets/clears the type): the UI updates immediately, then the list is refetched. Changes from
 other tabs or devices are **not** applied automatically: the status socket (`/api/status/ws`, owned by
 `components/RevisionStatus.tsx` in the nav bar) reports the latest config revision, and a refresh button appears when
 it's newer than the loaded list (a red icon means the socket is disconnected). The selected sim is taken from the
@@ -68,8 +68,8 @@ one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`
 
 Both sockets reconnect with backoff (1 s up to 30 s) when the server closes them, e.g. on a backend restart.
 
-**Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card (the server fills
-in defaults near the previous location).
+**Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card — the initial spec is
+placed at the current map center. The ✕ next to the type clears it again.
 
 **The map and spec editing.** The left side lists all sims; clicking a row toggles `/sims/:id`. The right side
 (`components/sims/SimDetails.tsx` + imperative `simulationMap.ts`) shows the selected sim's card above the map with
@@ -78,12 +78,12 @@ map through `MapContext` and owns its map objects:
 
 | Type  | On the map                                                       | On the card                     |
 |-------|------------------------------------------------------------------|---------------------------------|
-| fixed | blue marker = position (saved on drag end)                       | position                        |
-| orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
-| path  | Terra Draw line — drag/edit vertices, or **New** (line/freehand) | length, point count, speed      |
+| fixed | marker = position; click the map to move it (saved at once)      | position                        |
+| orbit | click/drag blue center (moves orbit), green start (radius, angle) | center, radius, angle, speed    |
+| path  | Terra Draw line — select/drag vertices, draw line or freehand    | length, points, speed, play mode |
 
-Orbit and path edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset**/**Undo**
-discards them. Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
+Orbit and path edits autosave while **Autosave** is checked (default); unchecked they stay drafts — **Save** sends
+the whole spec (restarting a running sim), **Undo** discards them. Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
 
 **Users — plain REST** via `src/service/users.service.ts`: router `query`s for reads, plain async mutations
 (called from submit/click handlers) that revalidate the queries.

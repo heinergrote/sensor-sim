@@ -61,9 +61,3 @@ export const updateSimConfigSchema =
   z.strictObject(simConfigFields.shape)
     .omit({id: true, ownerId: true, shareToken: true, createdAt: true, updatedAt: true})
     .partial()
-
-export const updateTypeSchema =
-  z.object({
-    type: specTypesSchema
-  })
-

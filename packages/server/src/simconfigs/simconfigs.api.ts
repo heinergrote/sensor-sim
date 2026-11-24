@@ -14,7 +14,6 @@ import {
   createSimConfigSchema,
   simConfigIdParam,
   updateSimConfigSchema,
-  updateTypeSchema
 } from "@sensor-sim/shared";
 import {createMiddleware} from "hono/factory";
 import {toCreate, toDto, toUpdate} from "./simconfigs.mapping";
@@ -22,7 +21,6 @@ import {sendStatusMessage} from "../status/status.service";
 import {HonoSimConfigsVars} from "../types";
 import {customAlphabet} from "nanoid";
 import {TOKEN_SEP} from "../middleware/simShareMiddleware";
-import {simulationDefinitions} from "../simulation/simulationDefinitions";
 
 const loadOwnedSimConfig = createMiddleware<{
   Variables: HonoSimConfigsVars
@@ -129,24 +127,6 @@ export const simConfigsApp = new Hono<{
 
     await handleSimConfigsUpdate(c.var.user.id)
     return c.json(toDto(deletedConfig))
-  })
-
-  .put('/:id/type', zValidator('json', updateTypeSchema), async (c) => {
-    const simConfig = c.get('simConfig')
-    const json = c.req.valid('json')
-
-    // no change: just return
-    if (simConfig.spec?.type === json.type)
-      return c.json(toDto(simConfig));
-
-    const pos = simConfig.spec ? simulationDefinitions.getLocation(simConfig.spec) : undefined
-
-    const newSpec = simulationDefinitions.getDefaultSpec(json.type, pos)
-    const updateInput = toUpdate({spec: newSpec})
-    const result = await updateSimConfig(simConfig.id, updateInput)
-
-    await handleSimConfigsUpdate(c.var.user.id)
-    return c.json(toDto(result))
   })
 
   .put('/:id/start', async (c) => {

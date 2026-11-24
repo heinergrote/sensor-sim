@@ -2,27 +2,19 @@ import {Show} from "solid-js";
 import {
   TbFillPlayerPlay,
   TbFillPlayerStop,
-  TbOutlineCircle,
   TbOutlineClipboard,
-  TbOutlineMapPin,
-  TbOutlinePolygon,
   TbOutlineShare,
   TbOutlineShareOff,
   TbOutlineX
 } from "solid-icons/tb";
-import {SimConfig, SpecType} from "@sensor-sim/shared";
-import {shareConfig, startStopConfig, updateConfigType} from "../../service/configs.service";
+import {SimConfig} from "@sensor-sim/shared";
+import {shareConfig, startStopConfig, updateConfig} from "../../service/configs.service";
 import {serverUrl} from "../../api";
 import {SpecEditor} from "./editors/SpecEditor";
 
 const shareUrl = (token: string) => serverUrl + "/s/" + token
 
 export function SimCard(props: { simConfig: SimConfig }) {
-
-  async function updateType(type: SpecType | null) {
-    await updateConfigType(props.simConfig.id, type)
-  }
-
 
   return (
     <Show fallback={<div>Loading...</div>} when={props.simConfig}>
@@ -33,13 +25,14 @@ export function SimCard(props: { simConfig: SimConfig }) {
             <div class="card-body p-4 gap-1 min-w-60">
               <div class={"text-2xl font-thin text-nowrap"}>{config().label}</div>
 
-              <Show when={config().spec}>
-                <div class="flex gap-1 items-center">
+              <div class="flex gap-1 items-center">
+                <Show when={config().spec} fallback={<>Type: none</>}>
                   Type: {config().spec?.type}
-                  <button class="btn btn-sm btn-square btn-ghost" onClick={() => updateType(null)}><TbOutlineX/>
+                  <button class="btn btn-sm btn-square btn-ghost"
+                          onClick={() => updateConfig(props.simConfig.id, {spec: null})}><TbOutlineX/>
                   </button>
-                </div>
-              </Show>
+                </Show>
+              </div>
 
               <div class="flex gap-1 items-center">
                 <button class="btn btn-sm w-20"
@@ -63,30 +56,14 @@ export function SimCard(props: { simConfig: SimConfig }) {
 
           <div class="card grow-999 basis-0 shadow-sm bg-base-300">
             <div class="card-body p-4 gap-1">
-              <Show when={config().spec}
-                    fallback={
-                      <>
-                        <div>Select a Type</div>
-                        <div class="flex">
-                          <button class="btn" onClick={() => updateType("fixed")}>
-                            <TbOutlineMapPin/> Fixed
-                          </button>
-                          <button class="btn" onClick={() => updateType("path")}>
-                            <TbOutlinePolygon/> Path
-                          </button>
-                          <button class="btn" onClick={() => updateType("orbit")}>
-                            <TbOutlineCircle/> Orbit
-                          </button>
-                        </div>
-                      </>
-                    }
-              >
+              <Show when={props.simConfig.spec}>
                 <button class="btn btn-sm" onClick={() => startStopConfig(config().id, !config().playing)}>
                   <Show when={config().playing}><TbFillPlayerStop/> Stop</Show>
                   <Show when={!config().playing}><TbFillPlayerPlay/> Play</Show>
                 </button>
-                <SpecEditor config={config()}/>
               </Show>
+
+              <SpecEditor config={config()}/>
             </div>
           </div>
 

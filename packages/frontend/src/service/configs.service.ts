@@ -1,4 +1,4 @@
-import {CONFIG_REVISION_HEADER, SimConfig, SpecType, specTypesSchema, UpdateSimConfig} from "@sensor-sim/shared";
+import {CONFIG_REVISION_HEADER, SimConfig, UpdateSimConfig} from "@sensor-sim/shared";
 import {action, affects, createOptimisticStore, createRoot, createSignal, refresh} from "solid-js";
 import {api} from "../api";
 import {authSession} from "../auth";
@@ -99,21 +99,3 @@ export const updateConfig = action(async function* (id: number, config: UpdateSi
   refresh(configs)
 })
 
-export const updateConfigType = action(async function* (id: number, type: SpecType | null) {
-  const parsedType = specTypesSchema.safeParse(type).data ?? null
-
-  const config = configs.find((config) => config.id === id)
-  if (config) affects(config, "spec") // no optimistic mutations, just mark pending
-
-  if (parsedType) {
-    yield api.put<SimConfig>(`/configs/${id}/type`, {
-      json: {type: parsedType}
-    })
-  } else {
-    yield api.patch<SimConfig>(`/configs/${id}`, {
-      json: {spec: null}
-    })
-  }
-
-  refresh(configs)
-})

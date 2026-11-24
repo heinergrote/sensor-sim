@@ -6,14 +6,14 @@ inferred from them, plus `SimData`, `StatusMessage` and `Profile`) and pure geo 
 ```
 src/schemas/simconfigs.ts  specTypesSchema, spec{Fixed,Path,Orbit}Schema, specSchema (discriminated union on
                            `type`), simConfigResponseSchema, createSimConfigSchema, updateSimConfigSchema,
-                           updateTypeSchema, simConfigIdParam
+                           simConfigIdParam
 src/schemas/users.ts       userResponseSchema, createUserSchema, updateUserSchema, userIdParamSchema
 src/schemas/login.ts       login
 src/types.ts               DTO types (z.infer), Spec, SpecType, SpecFixed/Path/Orbit, GeoPosition, SimData,
                            StatusMessage, Profile
 src/index.ts               re-exports schemas + types            → import from "@sensor-sim/shared"
 src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, randomBetween, pathLength,
-                           getPositionOnPathByDistance, getNearestPositionOnPath
+                           getPositionOnPathByDistance, getNearestPositionOnPath, boundsOf
                                                                  → "@sensor-sim/shared/geoUtils"
 ```
 
