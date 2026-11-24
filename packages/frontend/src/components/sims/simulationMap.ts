@@ -29,8 +29,6 @@ export async function createSimulationMap(
   element: HTMLDivElement,
 ): Promise<SimulationMap> {
 
-
-  let currentOnMap = false;
   let removeSimulationListener: (() => void) | null = null;
 
   // extract origin from mapStyle url
@@ -82,21 +80,26 @@ export async function createSimulationMap(
   function attachSim(simId: number | null) {
     removeSimulationListener?.()
     removeSimulationListener = null
-    if (currentOnMap) currentMarker.remove();
-    currentOnMap = false
+    if (currentMarker._map) currentMarker.remove();
 
     if (simId === null) return
 
     removeSimulationListener = addSimulationListener(simId,
       (simData) => {
 
-        if (!currentOnMap) {
+        if (simData.position)
           currentMarker.setLngLat([simData.position.longitude, simData.position.latitude])
+
+        if (!currentMarker._map && simData.position) {
           currentMarker.addTo(map)
-          currentOnMap = true
           currentMarker.getElement().style.zIndex = "9999";
         }
-        currentMarker.setLngLat([simData.position.longitude, simData.position.latitude])
+
+        if (currentMarker._map && !simData.position) {
+          currentMarker.remove()
+        }
+
+
       }
     )
 
@@ -110,7 +113,7 @@ export async function createSimulationMap(
           attachSim,
           dispose: () => {
             removeSimulationListener?.()
-            if (currentOnMap) currentMarker.remove();
+            if (currentMarker._map) currentMarker.remove();
             map.remove()
           }
         }

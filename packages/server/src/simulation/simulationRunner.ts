@@ -7,23 +7,23 @@ export type SimulationRunner = ReturnType<typeof createSimulationRunner>
 
 export function createSimulationRunner(config: SimConfig) {
 
-  const simDataStream = createEventStream<SimData>();
+  const simDataStream = createEventStream<SimData | null>();
   simDataStream.emit(currentSimData);
 
   let interval: NodeJS.Timeout | undefined;
   let lastTick = Date.now();
 
   let state: SimulationState | null = null
-  if (config.spec) state = simulationDefinitions.init(config.spec)
+  state = config.spec ? simulationDefinitions.init(config.spec) : null
 
-  function currentSimData(): SimData {
+  function currentSimData(): SimData | null {
 
-    const current = state ? simulationDefinitions.getCurrentPosition(state) : [0, 0]
+    const current = state ? simulationDefinitions.getCurrentPosition(state) : null
     return {
-      position: {
+      position: current ? {
         latitude: current[1],
         longitude: current[0]
-      },
+      } : null,
     }
   }
 
@@ -35,15 +35,15 @@ export function createSimulationRunner(config: SimConfig) {
     const deltaMs = now - lastTick;
     lastTick = now;
 
-    // produce the next state
-    if (config.spec && state)
+    // produce the next state and emit, if there is a valid spec
+    if (config.spec && state) {
       state = simulationDefinitions.step(config.spec, state, deltaMs)
+    }
+    simDataStream.emit();
 
-    simDataStream.emit(); // reemit the current state
   }
 
   function applySimConfig(newConfig: SimConfig) {
-
     type ConfigField = keyof SimConfig
 
     const relevantFields: ConfigField[] = ['spec', 'playing']

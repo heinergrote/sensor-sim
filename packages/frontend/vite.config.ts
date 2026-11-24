@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [
     solid({
-      start: true,
+      start: {devtools: false},
       diagnostics: false,
     }), // add `ssr: true` for streaming SSR
     tailwindcss(),

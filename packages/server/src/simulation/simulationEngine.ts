@@ -28,9 +28,10 @@ export async function createSimulationEngine(): Promise<SimulationEngine> {
   async function doSyncConfigs() {
     const configs = await getSimConfigs();
 
-    // filter out configs without (valid) spec
+    // filter out configs without valid spec
+    // null spec is ok
     const configsWithValidSpec = configs.filter(
-      config => config.spec && specSchema.validate(config.spec)
+      config => !config.spec || specSchema.validate(config.spec)
     )
 
     // add or update simulationRunners

@@ -1,28 +1,8 @@
-import {GeoPosition, SpecPath} from "@sensor-sim/shared";
-import {
-  getDistance,
-  getPositionOnPathByDistance,
-  pathLength,
-  randomBetween,
-  randomOffset
-} from "@sensor-sim/shared/geoUtils";
-import {defaultTarget, SimulationDefinition} from "../simulationDefinitions";
+import {SpecPath} from "@sensor-sim/shared";
+import {getDistance, getPositionOnPathByDistance, pathLength} from "@sensor-sim/shared/geoUtils";
+import {SimulationDefinition} from "../simulationDefinitions";
 
 export const pathDefinition: SimulationDefinition<'path'> = {
-
-  createDefaultSpec: (initialPosition?: GeoPosition) => {
-    if (!initialPosition)
-      initialPosition = randomOffset(defaultTarget, 0, 500);
-    const waypoint = randomOffset(initialPosition, 50, 200);
-
-    return {
-      type: "path",
-      waypoints: [initialPosition, waypoint],
-      speed: Math.round(randomBetween(5, 20)),
-      editMode: "linestring",
-      playMode: "single",
-    };
-  },
 
   getLocation: spec => spec.waypoints[0],
 

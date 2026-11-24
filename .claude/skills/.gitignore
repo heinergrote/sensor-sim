@@ -1,1 +1,8 @@
-pnpm-*
+# pnpm
+/agent-loops
+/reactivity-diagnostics
+/server-components
+/solid-2.0
+/solid-2.0-cheatsheet
+/tsdown
+# pnpm end

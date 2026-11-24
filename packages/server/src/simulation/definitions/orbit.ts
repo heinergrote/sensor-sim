@@ -1,21 +1,7 @@
-import {getPosition, randomBetween, randomOffset} from "@sensor-sim/shared/geoUtils";
-import {GeoPosition} from "@sensor-sim/shared";
-import {defaultTarget, SimulationDefinition} from "../simulationDefinitions";
+import {getPosition} from "@sensor-sim/shared/geoUtils";
+import {SimulationDefinition} from "../simulationDefinitions";
 
 export const orbitDefinition: SimulationDefinition<'orbit'> = {
-
-  createDefaultSpec: (initialPosition?: GeoPosition) => {
-    if (!initialPosition)
-      initialPosition = randomOffset(defaultTarget, 0, 500);
-
-    return {
-      type: 'orbit',
-      center: initialPosition,
-      radius: randomBetween(50, 200),
-      startAngle: randomBetween(0, 360),
-      speed: Math.round(randomBetween(5, 20)),
-    }
-  },
 
   getLocation: spec => spec.center,
 

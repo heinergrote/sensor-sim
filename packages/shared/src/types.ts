@@ -12,7 +12,7 @@ import {
 } from "./schemas/simconfigs";
 
 export type SimData = {
-  position: { latitude: number, longitude: number },
+  position: { latitude: number, longitude: number } | null,
 }
 
 export type StatusMessage = {

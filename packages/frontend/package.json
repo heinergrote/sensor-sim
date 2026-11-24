@@ -16,7 +16,7 @@
     "@solidjs/router": "^2.0.1",
     "@solidjs/web": "^2.0.3",
     "@tailwindcss/vite": "^4.3.5",
-    "daisyui": "^5.8.1",
+    "daisyui": "^5.8.2",
     "ky": "^2.2.0",
     "maplibre-gl": "6.19.0",
     "solid-icons": "^2.0.0",
@@ -35,7 +35,7 @@
     "eslint-plugin-solid": "~0.20.0",
     "filesystem-routing": "0.5.0",
     "jsdom": "^31.0.1",
-    "oxlint": "~1.94.0",
+    "oxlint": "~1.95.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"

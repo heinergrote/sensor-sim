@@ -26,8 +26,6 @@ type SimulationStateMap = {
 export type SimulationState<T extends SpecType = SpecType> = SimulationStateMap[T];
 
 export interface SimulationDefinition<T extends SpecType> {
-  // Default spec factory for fresh simulations, optional initial GeoPosition
-  createDefaultSpec: (initialPosition?: GeoPosition) => Extract<Spec, { type: T }>;
 
   // Derived location calculation (e.g., center of orbit, centroid of path, or point position)
   getLocation: (spec: Extract<Spec, { type: T }>) => GeoPosition;
