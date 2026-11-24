@@ -55,9 +55,9 @@ loses its separate chunk. Use the typed `paths` helpers from `src/router.ts` ins
 
 ## Data flow
 
-**Sim configs — optimistic store + revision signal.** `src/service/configs.service.ts` (`useSimConfigsApi()`) keeps
-the config list in an optimistic store over `GET /api/configs` and exposes Solid `action`s (`add`, `remove`,
-`startStop`, `share`, `update`, `updateType`): the UI updates immediately, then the list is refetched. Changes from
+**Sim configs — optimistic store + revision signal.** `src/service/configs.service.ts` keeps
+the config list in an optimistic store over `GET /api/configs` and exports Solid `action`s (`addConfig`,
+`removeConfig`, `startStopConfig`, `shareConfig`, `updateConfig` — also sets/clears the type): the UI updates immediately, then the list is refetched. Changes from
 other tabs or devices are **not** applied automatically: the status socket (`/api/status/ws`, owned by
 `components/RevisionStatus.tsx` in the nav bar) reports the latest config revision, and a refresh button appears when
 it's newer than the loaded list (a red icon means the socket is disconnected). The selected sim is taken from the

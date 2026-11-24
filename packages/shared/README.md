@@ -6,7 +6,7 @@ inferred from them, plus `SimData`, `StatusMessage` and `Profile`) and pure geo 
 ```
 src/schemas/simconfigs.ts  specTypesSchema, spec{Fixed,Path,Orbit}Schema, specSchema (discriminated union on
                            `type`), simConfigResponseSchema, createSimConfigSchema, updateSimConfigSchema,
-                           updateTypeSchema, simConfigIdParam
+                           simConfigIdParam
 src/schemas/users.ts       userResponseSchema, createUserSchema, updateUserSchema, userIdParamSchema
 src/schemas/login.ts       login
 src/types.ts               DTO types (z.infer), Spec, SpecType, SpecFixed/Path/Orbit, GeoPosition, SimData,

@@ -51,10 +51,6 @@ const definitionRegistry = {
 
 // Polymorphic Simulation API
 export const simulationDefinitions = {
-  getDefaultSpec: <T extends SpecType>(type: T, pos?: GeoPosition): Extract<Spec, { type: T }> => {
-    return definitionRegistry[type].createDefaultSpec(pos) as Extract<Spec, { type: T }>;
-  },
-
   getLocation: (spec: Spec): GeoPosition => {
     const def = definitionRegistry[spec.type] as SimulationDefinition<SpecType>;
     return def.getLocation(spec as any);

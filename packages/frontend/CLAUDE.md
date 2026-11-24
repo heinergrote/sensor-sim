@@ -77,7 +77,7 @@ pnpm lint                      # oxlint src
 One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
 — a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
 editor via `dynamic(() => specEditors[type])`; without a spec it shows `NoneEditor` (type buttons → `PATCH` an
-initial spec at the **current map center**; path: 2nd waypoint 100 m east; the server's `PUT /type` is unused).
+initial spec at the **current map center**; path: 2nd waypoint 100 m east).
 An editor gets `{configId, spec, updatedAt, map}` (pass `map={map()}` — never `untrack` it, every editor tracks
 `props.map`) and owns its map objects, a draft and its UI.
 
