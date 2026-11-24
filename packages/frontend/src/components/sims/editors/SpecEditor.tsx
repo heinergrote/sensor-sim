@@ -6,6 +6,7 @@ import {MapContext} from "./mapContext";
 import FixedEditor from "./FixedEditor";
 import OrbitEditor from "./OrbitEditor";
 import PathEditor from "./PathEditor";
+import NoneEditor from "./NoneEditor";
 
 /**
  * A spec editor owns everything type-specific about editing a spec: its map objects (markers, draw controls —
@@ -33,16 +34,23 @@ export function SpecEditor(props: { config: SimConfig }) {
   // pick an editor based on the spec type
   const Editor = dynamic(() => {
     const type = props.config.spec?.type
-    return type ? specEditors[type] as Component<SpecEditorProps<Spec>> : undefined
+    return type ? specEditors[type] as Component<SpecEditorProps<Spec>> : NoneEditor
   });
 
   return (
     <Show when={map()} fallback={<span class="text-sm opacity-60">Loading map…</span>}>
       {(map) => (
-        <Show when={props.config.spec}>
-          {(spec) => <Editor configId={props.config.id} spec={spec()} updatedAt={props.config.updatedAt}
-                             map={map()}/>}
-        </Show>
+        <>
+          <Show when={props.config.spec}>
+            {(spec) => <Editor configId={props.config.id} spec={spec()} updatedAt={props.config.updatedAt}
+                               map={map()}/>}
+          </Show>
+          <Show when={!props.config.spec}>
+            <NoneEditor configId={props.config.id} updatedAt={props.config.updatedAt}
+                        map={map()}/>
+          </Show>
+        </>
+
       )}
     </Show>
   )

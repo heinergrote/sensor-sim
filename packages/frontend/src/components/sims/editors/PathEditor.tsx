@@ -1,4 +1,4 @@
-import {createEffect, createMemo, createSignal, untrack} from "solid-js";
+import {createEffect, createMemo, createSignal, Show, untrack} from "solid-js";
 import {GeoPosition, SpecPath} from "@sensor-sim/shared";
 import {
   TbOutlineArrowBackUp,
@@ -71,7 +71,6 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   const isValidPath = createMemo(() => draft().waypoints.length >= 2, {name: "pathEditor.isValidPath"})
 
   const [autoSave, setAutoSave] = createSignal(true, {name: "pathEditor.autoSave"})
-
 
   const [terraDrawModeId, setTerraDrawModeId] = createSignal("select", {name: "pathEditor.terraDrawModeId"})
 
@@ -303,12 +302,15 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
           Autosave
         </label>
 
-        <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
-          <TbOutlineArrowBackUp/> Undo
-        </button>
-        <button class="btn btn-sm btn-primary" disabled={!(dirty() && isValidPath())} onClick={save}>
-          <TbOutlineCloudUpload/> Save
-        </button>
+        <Show when={!autoSave()}>
+          <button class="btn btn-sm btn-primary" disabled={!dirty()} onClick={() => setDraft(saved())}>
+            <TbOutlineArrowBackUp/> Undo
+          </button>
+          <button class="btn btn-sm btn-primary" disabled={!(dirty() && isValidPath())} onClick={save}>
+            <TbOutlineCloudUpload/> Save
+          </button>
+        </Show>
+
         <button class={["btn", "btn-sm", "btn-square", {"btn-primary": terraDrawModeId() === "select"}]}
                 onClick={() => handleMode("select")}>
           <TbOutlinePointer/>

@@ -64,6 +64,6 @@ export const updateSimConfigSchema =
 
 export const updateTypeSchema =
   z.object({
-    type: specTypesSchema
+    type: specTypesSchema,
   })
 

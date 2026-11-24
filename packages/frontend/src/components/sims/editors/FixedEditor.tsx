@@ -13,34 +13,43 @@ export default function FixedEditor(props: SpecEditorProps<SpecFixed>) {
   const marker = new Marker()
 
   // update the marker when the position changes
-  // declared before mount effect, the marker needs position set, to be add-able
+  // "lazy" add it to the map, if map is available
   createEffect(
-    () => [...props.spec.position] as Mutable<typeof props.spec.position>,
-    (position) => {
+    () => ({
+      position: [...props.spec.position] as Mutable<typeof props.spec.position>,
+      map: props.map
+    }),
+    ({position, map}) => {
       marker.setLngLat(position)
+      if (map) {
+        // marker._map: undocumented, but widely used
+        if (!marker._map) {
+          marker.addTo(map)
+          map.flyTo({center: marker.getLngLat()})
+        }
+      }
+
+      return () => {
+        marker.remove()
+      }
     },
     {name: "fixedEditor.position"}
   )
 
-  // add the marker to the map for as long as this editor is mounted
   createEffect(
     () => props.map,
     (map) => {
-      marker.addTo(map)
-      map.flyTo({center: marker.getLngLat()})
-
       const onClick = (e: MapMouseEvent) => {
         updateConfig(props.configId, {spec: {...props.spec, position: e.lngLat.toArray()}})
       }
 
       map.on('click', onClick)
       return () => {
-        marker.remove()
         map.off('click', onClick)
       }
 
     },
-    {name: "fixedEditor.marker"})
+    {name: "fixedEditor.map"})
 
   return (
     <>
