@@ -2,7 +2,6 @@ import {Spec, SpecType} from "@sensor-sim/shared";
 import {TbOutlineCircle, TbOutlineMapPin, TbOutlinePolygon} from "solid-icons/tb";
 import {updateConfig} from "../../../service/configs.service";
 import type {SpecEditorProps} from "./SpecEditor";
-import {getPosition} from "@sensor-sim/shared/geoUtils";
 
 export default function NoneEditor(props: Omit<SpecEditorProps<never>, "spec">) {
 
@@ -16,23 +15,18 @@ export default function NoneEditor(props: Omit<SpecEditorProps<never>, "spec">) 
             position: props.map.getCenter().toArray()
           }
         case "path":
-
-          const wp1 = props.map.getCenter().toArray()
-          // ap2 exactly 100m east of wp1
-          const wp2 = getPosition(wp1, 100, 90)
-
           return {
             type,
-            waypoints: [wp1, wp2],
+            waypoints: [props.map.getCenter().toArray()], // start with a one point path
             speed: 10,
-            editMode: "linestring",
+            editMode: "point",
             playMode: "loop"
           }
         case "orbit":
           return {
             type,
             center: props.map.getCenter().toArray(),
-            radius: 100,
+            radius: 20,
             startAngle: 0,
             speed: 10,
           }

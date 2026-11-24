@@ -77,7 +77,7 @@ pnpm lint                      # oxlint src
 One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
 — a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
 editor via `dynamic(() => specEditors[type])`; without a spec it shows `NoneEditor` (type buttons → `PATCH` an
-initial spec at the **current map center**; path: 2nd waypoint 100 m east).
+initial spec at the **current map center**; path: a single waypoint, `editMode: "point"`).
 An editor gets `{configId, spec, updatedAt, map}` (pass `map={map()}` — never `untrack` it, every editor tracks
 `props.map`) and owns its map objects, a draft and its UI.
 
@@ -106,13 +106,16 @@ Types:
 - `OrbitEditor` — map click or dragging the blue center moves the orbit, the green start sets `radius`/`startAngle`
   (`geoUtils`); `speed` slider.
 - `PathEditor` — plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`. Mode buttons `select` (default; drag
-  line/vertices, midpoints, delete vertices), `linestring`, `freehand-linestring`; clicking the active one switches
+  line/vertices, midpoints, delete vertices; drag a point), `point`, `linestring`, `freehand-linestring`; clicking the active one switches
   to render-only `default`. A `mode` effect tracks `{map, mode}` (map only so a new TerraDraw gets its mode). A
-  `finish` event sets `waypoints`/`editMode`, then (next frame) resets the mode and autosaves. `render` selects the
+  `finish` event (Point → 1 waypoint, LineString → ≥ 2) sets `waypoints`/`editMode`, then (next frame) resets the mode and autosaves. `render` selects the
   new feature in a rAF (only in `select` mode). The draft (waypoints, speed, editMode, playMode Single/Loop/
   Reversing) follows a `saved` memo that copies the spec **untracked**, keyed on the spec object + `updatedAt` (tracking every tuple made hundreds
-  of sources); **Undo** resets to it. Redraws only if the draft differs from `drawn`; coordinates rounded to 9
-  significant digits for Terra Draw; Save needs ≥ 2 waypoints. `fitBounds` (`boundsOf`) on map/config change.
+  of sources); **Undo** resets to it. Redraws only if the draft's waypoints differ from `drawn`, except that a
+  `finish` always redraws (resets `drawn`; `render` clears the store, which drops the previous feature); coordinates rounded to 9
+  significant digits for Terra Draw. `render` draws 1 waypoint as a `Point`, more as a `LineString`, and tags the
+  feature's `mode` from its geometry, not `editMode` (Terra Draw rejects a feature its mode can't validate). Save needs
+  ≥ 1 waypoint; an empty draft renders nothing. `fitBounds` (`boundsOf`; a single point: `flyTo` zoom 18) on map/config change.
   Cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` (the adapter's `clear()` crashes after it).
 
 Coordinates are `[lng, lat]`; `getLngLat().toArray()` yields that; spread readonly tuples into `setLngLat`.

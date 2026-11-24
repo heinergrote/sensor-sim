@@ -67,7 +67,7 @@ start.
 | `type`  | Fields                                 | Behaviour                         |
 |---------|----------------------------------------|-----------------------------------|
 | `fixed` | `position`                             | stays put                         |
-| `path`  | `waypoints` (≥ 2), `speed`             | follows the waypoints, stops at the last |
+| `path`  | `waypoints` (≥ 1), `speed`             | follows the waypoints, stops at the last; a single waypoint stays put |
 | `orbit` | `center, radius, startAngle, speed`    | circles the center                |
 
 Points are `[longitude, latitude]` tuples (GeoJSON order), e.g. `{"type": "fixed", "position": [10.52, 52.26]}`;

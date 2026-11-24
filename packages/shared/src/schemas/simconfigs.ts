@@ -15,7 +15,7 @@ export const specPathSchema = z.strictObject({
   type: literal("path"),
   waypoints: array(tuple(
     [number(), number()]).readonly()
-  ).min(2).readonly(),
+  ).min(1).readonly(),
   speed: z.number(),
   editMode: z.string().default("linestring"),
   playMode: z.enum(["single", "loop", "reversing"]).default("single"),

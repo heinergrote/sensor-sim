@@ -102,7 +102,8 @@ New feature → new directory with `<name>.api.ts` / `.repository.ts` / mappings
 ## Simulation specs (`sim_configs.spec`, jsonb, nullable)
 
 A spec is a Zod discriminated union on `type` (`specSchema` in `@sensor-sim/shared`): `fixed` (`position`), `path`
-(`waypoints` ≥ 2, `speed`; moves along the polyline via `getPositionOnPathByDistance`, stops at the last point),
+(`waypoints` ≥ 1, `speed`; moves along the polyline via `getPositionOnPathByDistance`, stops at the last point; a
+single-point path has length 0 and stays at its waypoint),
 `orbit` (`center`, `radius`, `startAngle`, `speed`). All points are
 `GeoPosition` tuples `[lng, lat]`; `defaultTarget` too. Movement is
 geodesic via `@sensor-sim/shared/geoUtils`. Each type has a `SimulationDefinition<T>` in `simulation/definitions/`:
