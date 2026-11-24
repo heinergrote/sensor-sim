@@ -68,8 +68,8 @@ one ref-counted socket per sim against `/api/sims/:id/ws` and delivers `SimData`
 
 Both sockets reconnect with backoff (1 s up to 30 s) when the server closes them, e.g. on a backend restart.
 
-**Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card (the server fills
-in defaults near the previous location).
+**Simulation types.** A new sim has no spec; pick **Fixed**, **Path** or **Orbit** on its card — the initial spec is
+placed at the current map center. The ✕ next to the type clears it again.
 
 **The map and spec editing.** The left side lists all sims; clicking a row toggles `/sims/:id`. The right side
 (`components/sims/SimDetails.tsx` + imperative `simulationMap.ts`) shows the selected sim's card above the map with
@@ -79,11 +79,11 @@ map through `MapContext` and owns its map objects:
 | Type  | On the map                                                       | On the card                     |
 |-------|------------------------------------------------------------------|---------------------------------|
 | fixed | marker = position; click the map to move it (saved at once)      | position                        |
-| orbit | blue center (moves the orbit), green start (radius, start angle) | center, radius, angle, speed    |
+| orbit | click/drag blue center (moves orbit), green start (radius, angle) | center, radius, angle, speed    |
 | path  | Terra Draw line — select/drag vertices, draw line or freehand    | length, points, speed, play mode |
 
-Orbit and path edits are drafts: **Save** sends the whole spec (restarting a running sim), **Reset**/**Undo**
-discards them. A finished path edit autosaves while **Autosave** is checked (default). Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
+Orbit and path edits autosave while **Autosave** is checked (default); unchecked they stay drafts — **Save** sends
+the whole spec (restarting a running sim), **Undo** discards them. Fixed saves directly. The card also holds type, Play/Stop, share link and delete (with confirm).
 
 **Users — plain REST** via `src/service/users.service.ts`: router `query`s for reads, plain async mutations
 (called from submit/click handlers) that revalidate the queries.

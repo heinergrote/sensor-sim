@@ -116,7 +116,8 @@ step(state, spec, dt)    pure reducer, returns the next state
 Callers use only the type-erased `simulationDefinitions` facade (`getDefaultSpec`, `getLocation`, `init`, `step`,
 `getCurrentPosition`). `simulationRunner.currentSimData()` converts the state's tuple to
 `SimData.position` `{latitude, longitude}` — the only object-shaped coordinate. `PUT /api/configs/:id/type {type}` replaces the spec with `getDefaultSpec(type,
-getLocation(oldSpec))`, so switching type keeps the sim in place; clearing it is `PATCH {spec: null}`.
+getLocation(oldSpec))`, so switching type keeps the sim in place (the frontend no longer calls it — it PATCHes a spec
+built at the map center); clearing it is `PATCH {spec: null}`.
 
 **New spec type:** schema in `shared/src/schemas/simconfigs.ts` (add to `specTypesSchema` + `specSchema`) and its
 `Spec*` type in `types.ts` → state entry in `SimulationStateMap` → `definitions/<type>.ts` → register in

@@ -34,8 +34,8 @@ The server does **not** migrate on boot — run `migrate:dev` on a fresh databas
 (`db:migrate` applies the schema but skips the admin seed, leaving no way to log in.)
 
 Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation under **Simulations**,
-select it in the list and pick its type. Edit it on the map — click to place a fixed position (saved at once),
-drag the orbit markers, or draw the route for a path — and click **Save** on its card (paths autosave by default). Admins can add further users under **Users**.
+select it in the list and pick its type (placed at the current map center). Edit it on the map — click to place a
+fixed position or orbit center, drag the orbit markers, or draw the route for a path; edits autosave by default. Admins can add further users under **Users**.
 
 Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm typecheck`.
 

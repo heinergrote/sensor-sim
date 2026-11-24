@@ -44,7 +44,7 @@ pnpm lint                      # oxlint src
 - `src/service/configs.service.ts` — module exports: `configs` (`createOptimisticStore` over `GET /configs`),
   `configsRevision()` (`X-Config-Revision`), `refreshConfigs()`, and core `action(function* …)`s `addConfig`,
   `removeConfig`, `startStopConfig`, `shareConfig`, `updateConfig(id, UpdateSimConfig)` (PATCH; spec edits send the
-  **whole** spec), `updateConfigType(id, SpecType | null)`. Each writes optimistically (or `affects`), awaits, then
+  **whole** spec; also sets/clears the type). Each writes optimistically (or `affects`), awaits, then
   `refresh(configs)`; call them from handlers. The store lives in a never-disposed module-level `createRoot` —
   **never create it from a component** (it died on logout unmount). It tracks `authSession()` (refetch on login,
   `[]` logged out); other per-user module state must do the same.
@@ -69,15 +69,16 @@ pnpm lint                      # oxlint src
   (← `SimData.position.{longitude,latitude}`). Resolves only after `load` (don't guard on `map.loaded()`, it's false
   while tiles load). MapLibre 6 (`MapLibreMap`): `setWorkerUrl` (blob of the raw worker in dev, `?worker&url` in
   prod), a missing-image resolver adding a transparent pixel, JWT via `transformRequest` (synchronous, reads the stored token per request — kept fresh by `auth.ts`'s timer).
-- `SimCard.tsx` — selected sim only: left card (label, type `<select>`, share/copy/token link, Delete with "Really?"),
-  right card (only with a spec: Play/Stop + `<SpecEditor>`). The type select keeps a **draft signal**
-  (`createSignal(() => prop)`) so the binding doesn't write the old value back mid-request. Labels aren't ids.
+- `SimCard.tsx` — selected sim only: left card (label, type + ✕ = `PATCH {spec: null}`, share/copy/token link,
+  Delete with "Really?"), right card (Play/Stop only with a spec, always `<SpecEditor>`). Labels aren't ids.
 
 ### Spec editors (`components/sims/editors/`)
 
 One Solid component per spec type, registered in `SpecEditor.tsx` (`specEditors: {[K in SpecType]: Component<…>}`
 — a new type fails to compile until it has one). `SpecEditor` waits for the map from `MapContext` and mounts the
-editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, updatedAt, map}` (pass `map={map()}` — never `untrack` it, every editor tracks
+editor via `dynamic(() => specEditors[type])`; without a spec it shows `NoneEditor` (type buttons → `PATCH` an
+initial spec at the **current map center**; path: 2nd waypoint 100 m east; the server's `PUT /type` is unused).
+An editor gets `{configId, spec, updatedAt, map}` (pass `map={map()}` — never `untrack` it, every editor tracks
 `props.map`) and owns its map objects, a draft and its UI.
 
 **Solid ↔ MapLibre rules** (`createEffect(compute, apply)`; `apply` already runs untracked):
@@ -86,9 +87,11 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
   `terraDraw`, `drawn`). A reactive read in apply triggers `STRICT_READ_UNTRACKED` — move it, don't `untrack` it.
 - **`untrack` only in compute/memos to choose dependencies** (PathEditor's `saved`, `fitBounds`); in apply it only
   hides the warning, in event handlers/rAF it's a no-op.
-- **One effect per concern:** a mount effect (`() => props.map` → add objects + listeners, cleanup removes them
-  all, incl. `map.off(...)`) and sync effects (data → `setLngLat`/redraw). **Declare the position effect before
-  the mount effect** — `Marker.addTo` needs a position, so mount reads none.
+- **Effects don't run in definition order** — never rely on one effect having set up state for another.
+- **Markers are added lazily** by their position effect: compute `{position, map}`, apply `setLngLat(...)`, then
+  `if (!marker._map) { marker.addTo(map); map.flyTo(...) }` (`Marker.addTo` needs a position); cleanup
+  `marker.remove()`. A separate map effect (`() => props.map`) only adds map listeners (`click`) and `map.off`s
+  them. Marker listeners (`dragend`) are bound once in the component body, removed in `onCleanup`.
 - Map events write signals (no owner → reads/writes are fine). The imperative object is the source of truth for
   its own state (`terraDraw.getMode()`), don't read signals back to learn it. rAF callbacks check the instance is
   still current (`if (terraDraw !== draw) return`).
@@ -97,15 +100,17 @@ editor via `dynamic(() => specEditors[type])`. An editor gets `{configId, spec, 
 - **Signal writes commit on the next flush**: `setDraft(x); draft()` still returns the old value — pass `x` along.
 
 Types:
+- **Autosave** checkbox (Orbit, Path; default on) saves on the next frame after an edit; Undo/Save buttons only
+  show with it off.
 - `FixedEditor` — **no draft**: a map click saves `position` (optimistic); the default marker follows `props.spec`.
-- `OrbitEditor` — blue center moves the orbit, green start sets `radius`/`startAngle` (`geoUtils`); `speed` slider;
-  Reset/Save. Nothing saves on drag.
+- `OrbitEditor` — map click or dragging the blue center moves the orbit, the green start sets `radius`/`startAngle`
+  (`geoUtils`); `speed` slider.
 - `PathEditor` — plain **Terra Draw** + `TerraDrawMapLibreGLAdapter`. Mode buttons `select` (default; drag
   line/vertices, midpoints, delete vertices), `linestring`, `freehand-linestring`; clicking the active one switches
   to render-only `default`. A `mode` effect tracks `{map, mode}` (map only so a new TerraDraw gets its mode). A
-  `finish` event sets `waypoints`/`editMode`, then (next frame) resets the mode and **autosaves** if the Autosave
-  checkbox is on (default). The draft (waypoints, speed, editMode, playMode Single/Loop/Reversing) follows a `saved`
-  memo that copies the spec **untracked**, keyed on the spec object + `updatedAt` (tracking every tuple made hundreds
+  `finish` event sets `waypoints`/`editMode`, then (next frame) resets the mode and autosaves. `render` selects the
+  new feature in a rAF (only in `select` mode). The draft (waypoints, speed, editMode, playMode Single/Loop/
+  Reversing) follows a `saved` memo that copies the spec **untracked**, keyed on the spec object + `updatedAt` (tracking every tuple made hundreds
   of sources); **Undo** resets to it. Redraws only if the draft differs from `drawn`; coordinates rounded to 9
   significant digits for Terra Draw; Save needs ≥ 2 waypoints. `fitBounds` (`boundsOf`) on map/config change.
   Cleanup calls `terraDraw.stop()` only if the map hasn't fired `remove` (the adapter's `clear()` crashes after it).
