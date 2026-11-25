@@ -6,6 +6,7 @@ import {
   TbOutlineArrowRight,
   TbOutlineArrowsRightLeft,
   TbOutlineCloudUpload,
+  TbOutlinePoint,
   TbOutlinePointer,
   TbOutlinePolygon,
   TbOutlineRulerMeasure,
@@ -18,6 +19,7 @@ import {
   TerraDraw,
   TerraDrawFreehandLineStringMode,
   TerraDrawLineStringMode,
+  TerraDrawPointMode,
   TerraDrawRenderMode,
   TerraDrawSelectMode
 } from "terra-draw";
@@ -68,7 +70,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
 
   const [draft, setDraft] = createSignal<PathDraft>(() => saved(), {name: "pathEditor.draft"})
   const dirty = createMemo(() => !sameDraft(draft(), saved()), {name: "pathEditor.dirty"})
-  const isValidPath = createMemo(() => draft().waypoints.length >= 2, {name: "pathEditor.isValidPath"})
+  const isValidPath = createMemo(() => draft().waypoints.length >= 1, {name: "pathEditor.isValidPath"})
 
   const [autoSave, setAutoSave] = createSignal(true, {name: "pathEditor.autoSave"})
 
@@ -76,12 +78,12 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
 
   const length = createMemo(() => {
     const waypoints = draft().waypoints
-    return waypoints.length >= 2 ? pathLength(waypoints) : 0
+    return pathLength(waypoints)
   }, {name: "pathEditor.length"})
 
 
-  // what the draw instance currently shows, in draw precision — lets the draft effect skip redrawing a line the
-  // user just edited (that would reset terra draw's selection mid-edit)
+  // what render() last drew, in draw precision — lets the line effect skip redrawing when only non-waypoint draft
+  // fields change (speed, playMode). onFinish resets it to force a redraw.
   let drawn: GeoPosition[] = []
 
   let terraDraw: TerraDraw | undefined
@@ -92,10 +94,22 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
 
     drawn = toDrawPrecision(waypoints)
     terraDraw.clear()
+    if (drawn.length === 0) {
+      featureId = undefined
+      return
+    }
+
+    const featureMode = drawn.length === 1 ? "point" : (mode === "point" ? "linestring" : mode)
     const result = terraDraw.addFeatures([{
       type: "Feature",
-      geometry: {type: "LineString", coordinates: drawn.map(([lng, lat]) => [lng, lat])},
-      properties: {mode},
+      geometry: drawn.length > 1 ? {
+        type: "LineString",
+        coordinates: drawn.map(([lng, lat]) => [lng, lat])
+      } : {
+        type: "Point",
+        coordinates: [...drawn[0]]
+      },
+      properties: {mode: featureMode},
     }])
 
     if (result.length === 1 && result[0].id && result[0].valid) {
@@ -117,10 +131,22 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   function onFinish(id: string | number) {
     if (!terraDraw) return
     const feature = terraDraw.getSnapshotFeature(id)
-    if (feature?.geometry.type !== 'LineString' || feature.geometry.coordinates.length < 2) return
-    drawn = feature.geometry.coordinates.map(([lng, lat]) => [lng, lat] as const)
-    const editMode = feature?.properties?.mode?.toString()
-    setDraft(d => ({...d, waypoints: drawn, editMode: editMode || d.editMode}))
+    if (!feature) return;
+
+    let waypoints: GeoPosition[]
+    if (feature.geometry.type === 'Point') {
+      waypoints = [[feature.geometry.coordinates[0], feature.geometry.coordinates[1]] as const]
+    } else if (feature.geometry.type === 'LineString' && feature.geometry.coordinates.length >= 2) {
+      waypoints = feature.geometry.coordinates.map(([lng, lat]) => [lng, lat] as const)
+    } else {
+      return;
+    }
+
+    const editMode = feature.properties?.mode?.toString()
+    setDraft(d => ({...d, waypoints, editMode: editMode || d.editMode}))
+    // always redraw after a finish: render() clears the store, dropping the previous feature (a newly drawn
+    // point/line is added next to it) and re-adding the result as the single feature, tagged by its geometry
+    drawn = []
 
     const draw = terraDraw
     requestAnimationFrame(() => {
@@ -145,6 +171,11 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
             allowManualSelection: true,
             allowManualDeselection: true,
             flags: {
+              point: {
+                feature: {
+                  draggable: true,
+                },
+              },
               linestring: {
                 feature: {
                   draggable: true,
@@ -180,6 +211,7 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
               },
             }
           }),
+          new TerraDrawPointMode(),
           new TerraDrawLineStringMode(),
           new TerraDrawFreehandLineStringMode(),
         ],
@@ -237,12 +269,15 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   createEffect(
     () => ({map: props.map, configId: props.configId, waypoints: untrack(saved).waypoints}),
     ({map, waypoints}) => {
+      if (waypoints.length === 0) return
       if (waypoints.length >= 2) {
         const box = boundsOf(waypoints)
         map.fitBounds([[box[0], box[1]], [box[2], box[3]]], {
           padding: 60,
           maxZoom: 18
         });
+      } else {
+        map.flyTo({center: [...waypoints[0]], zoom: 18})
       }
     },
     {name: "pathEditor.fitBounds"}
@@ -265,7 +300,8 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
   return (
     <div class="flex flex-col gap-1">
       <div class="flex gap-2 items-center">
-        <TbOutlineRulerMeasure/> {length().toFixed(2)} m ({draft().editMode}, {draft().waypoints.length} points)
+        <TbOutlineRulerMeasure/> {length().toFixed(2)} m
+        ({draft().editMode}{draft().waypoints.length > 1 ? ", " + draft().waypoints.length + " points" : ""})
       </div>
       <div class="flex gap-2 items-center">
         <BsSpeedometer/><span>{draft().speed}m/s</span>
@@ -314,6 +350,10 @@ export default function PathEditor(props: SpecEditorProps<SpecPath>) {
         <button class={["btn", "btn-sm", "btn-square", {"btn-primary": terraDrawModeId() === "select"}]}
                 onClick={() => handleMode("select")}>
           <TbOutlinePointer/>
+        </button>
+        <button class={["btn", "btn-sm", {"btn-primary": terraDrawModeId() === "point"}]}
+                onClick={() => handleMode("point")}>
+          <TbOutlinePoint/>
         </button>
         <button class={["btn", "btn-sm", {"btn-primary": terraDrawModeId() === "linestring"}]}
                 onClick={() => handleMode("linestring")}>

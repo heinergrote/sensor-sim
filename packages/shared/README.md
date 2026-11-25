@@ -18,7 +18,8 @@ src/util/geoUtils.ts       getPosition, getDistance, getAzimuth, randomOffset, r
 ```
 
 `SimConfig.spec` is `Spec | null`; `SimConfig` also carries server-managed `createdAt`/`updatedAt` (not in the
-create/update schemas). A path spec is `waypoints` (≥ 2 points) + `speed`. `StatusMessage` is `{configsRevision}`. Spec schemas are `strictObject`s; a new spec type is added to both
+create/update schemas). A path spec is `waypoints` (≥ 1 point; a single point is a stationary path) + `speed`. The path helpers in `geoUtils`
+accept single-point paths (`pathLength` 0, `boundsOf` a zero-size `BBox2D`) and throw on an empty one. `StatusMessage` is `{configsRevision}`. Spec schemas are `strictObject`s; a new spec type is added to both
 `specTypesSchema` and `specSchema` (server side: see `packages/server/CLAUDE.md`). `GeoPosition` is
 `readonly [lng, lat]` (spec points are `tuple([number(), number()]).readonly()`); geoUtils take and return it, and
 `getPosition` returns the origin for a distance ≤ 0. `SimData.position` is deliberately still `{latitude,
