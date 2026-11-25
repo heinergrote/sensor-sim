@@ -1,7 +1,5 @@
 # sensor-sim
 
-(Work in progress, but should work)
-
 GPS simulation for testing location-aware apps. Create simulated devices that stand still (`fixed`), follow a route
 of waypoints (`path`) or circle a point (`orbit`), watch them live on a map, and feed their positions into your
 own app as if they came from a real GPS.
@@ -35,7 +33,8 @@ The server does **not** migrate on boot — run `migrate:dev` on a fresh databas
 
 Open http://localhost:3000, log in as `admin` (or `DEFAULT_ADMIN_USERNAME`), create a simulation under **Simulations**,
 select it in the list and pick its type (placed at the current map center). Edit it on the map — click to place a
-fixed position or orbit center, drag the orbit markers, or draw the route for a path; edits autosave by default. Admins can add further users under **Users**.
+fixed position or orbit center, drag the orbit markers, or draw the route for a path; edits autosave by default. Admins
+can add further users under **Users**.
 
 Other root scripts: `pnpm dev:server`, `pnpm dev:frontend`, `pnpm build`, `pnpm typecheck`.
 
@@ -96,14 +95,14 @@ container needs no volume.
 
 ## Environment variables
 
-| Variable                 | Default        | Purpose                                       |
-|--------------------------|----------------|-----------------------------------------------|
-| `DATABASE_URL`           | — (required)   | Postgres connection string                    |
-| `JWT_SECRET`             | — (required)   | Signs login tokens                            |
-| `DEFAULT_ADMIN_USERNAME` | `admin`        | Admin account seeded by the migrate step      |
-| `DEFAULT_ADMIN_PASSWORD` | —              | Its password; without it nothing is seeded    |
+| Variable                 | Default        | Purpose                                                        |
+|--------------------------|----------------|----------------------------------------------------------------|
+| `DATABASE_URL`           | — (required)   | Postgres connection string                                     |
+| `JWT_SECRET`             | — (required)   | Signs login tokens                                             |
+| `DEFAULT_ADMIN_USERNAME` | `admin`        | Admin account seeded by the migrate step                       |
+| `DEFAULT_ADMIN_PASSWORD` | —              | Its password; without it nothing is seeded                     |
 | `TILE_PROVIDER`          | `openfreemap`  | Tile provider behind `/api/tiles` (`openfreemap` / `maptiler`) |
-| `TILE_STYLE`             | per provider   | Upstream style path behind `/api/tiles/style.json` |
-| `MAPTILER_KEY`           | —              | Required with `TILE_PROVIDER=maptiler`        |
-| `PORT`                   | `4000`         | HTTP port (REST, WebSockets and static files) |
-| `VITE_MAP_STYLE`         | server's proxy | Frontend build-time MapLibre style URL        |
+| `TILE_STYLE`             | per provider   | Upstream style path behind `/api/tiles/style.json`             |
+| `MAPTILER_KEY`           | —              | Required with `TILE_PROVIDER=maptiler`                         |
+| `PORT`                   | `4000`         | HTTP port (REST, WebSockets and static files)                  |
+| `VITE_MAP_STYLE`         | server's proxy | Frontend build-time MapLibre style URL                         |
